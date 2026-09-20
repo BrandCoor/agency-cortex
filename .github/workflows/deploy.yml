@@ -50,45 +50,80 @@ jobs:
           set -eu
           mkdir -p ~/.ssh
 
-          # 1) Kasada anahtar var mi?
           if [ -z "${{ secrets.VPS_SSH_KEY }}" ]; then
-            echo "HATA: VPS_SSH_KEY adli gizli deger bulunamadi veya bos."
-            echo "GitHub > Settings > Secrets and variables > Actions altinda"
-            echo "VPS_SSH_KEY adiyla tanimlanmis olmalidir."
+            echo "HATA: VPS_SSH_KEY tanimli degil veya bos."
             exit 1
           fi
 
-          printf '%s\n' "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_deploy
+          # Windows'tan kopyalanan metinlerde satir sonlarinda gorunmez \r
+          # karakteri bulunur; bu, anahtari gecersiz kilar. Temizleniyor.
+          printf '%s\n' "${{ secrets.VPS_SSH_KEY }}" | tr -d '\r' > ~/.ssh/id_deploy
           chmod 600 ~/.ssh/id_deploy
 
-          # 2) Anahtar gecerli bicimde mi?
-          if ! ssh-keygen -y -f ~/.ssh/id_deploy > ~/.ssh/id_deploy.pub 2>/dev/null; then
-            echo "HATA: VPS_SSH_KEY gecerli bir SSH gizli anahtari degil."
-            echo "-----BEGIN satirindan -----END satirina kadar TAMAMI"
-            echo "yapistirilmis olmali."
+          # --- Teshis: icerik yazdirilmadan neyin yanlis oldugu bulunur ---
+          SATIR=$(wc -l < ~/.ssh/id_deploy | tr -d ' ')
+          ILK=$(head -1 ~/.ssh/id_deploy)
+          SON=$(tail -1 ~/.ssh/id_deploy)
+
+          echo "Kasadaki degerin bicimi:"
+          echo "  satir sayisi : $SATIR"
+
+          if printf '%s' "$ILK" | grep -q '^ssh-'; then
+            echo "  sorun        : Bu bir ACIK anahtar (.pub dosyasi)."
+            echo ""
+            echo "GEREKEN: uzantisiz dosya, yani ~/.ssh/agency_cortex_deploy"
+            echo "Ic erigi '-----BEGIN OPENSSH PRIVATE KEY-----' ile baslar."
             exit 1
           fi
 
-          # 3) Bu gizli anahtar hangi acik anahtara denk geliyor?
-          #    Sunucuya tanitilan anahtarla ayni mi, karsilastirilabilsin diye
-          #    yazdiriliyor. Acik anahtar gizli bilgi DEGILDIR.
-          echo "Kasadaki gizli anahtarin karsiligi olan ACIK anahtar:"
+          if ! printf '%s' "$ILK" | grep -q 'BEGIN.*PRIVATE KEY'; then
+            echo "  ilk satir    : BEKLENEN BASLIK YOK"
+            echo ""
+            echo "Ilk satir '-----BEGIN OPENSSH PRIVATE KEY-----' olmali."
+            echo "Kopyalarken bu satirin da dahil edildiginden emin olun."
+            exit 1
+          fi
+          echo "  ilk satir    : dogru (BEGIN ... PRIVATE KEY)"
+
+          if ! printf '%s' "$SON" | grep -q 'END.*PRIVATE KEY'; then
+            echo "  son satir    : BEKLENEN BITIS YOK"
+            echo ""
+            echo "Son satir '-----END OPENSSH PRIVATE KEY-----' olmali."
+            echo "Metnin sonu eksik kopyalanmis olabilir."
+            exit 1
+          fi
+          echo "  son satir    : dogru (END ... PRIVATE KEY)"
+
+          if ! ssh-keygen -y -f ~/.ssh/id_deploy > ~/.ssh/id_deploy.pub 2>/tmp/kerr; then
+            echo "  sonuc        : anahtar okunamadi"
+            echo ""
+            echo "Baslik ve bitis dogru ama icerik bozuk."
+            echo "Anahtar bir parola ile korunuyor olabilir."
+            echo "ssh-keygen mesaji:"
+            sed 's/^/    /' /tmp/kerr
+            exit 1
+          fi
+
+          echo "  sonuc        : GECERLI"
+          echo ""
+          echo "Bu gizli anahtarin karsiligi olan acik anahtar:"
           cat ~/.ssh/id_deploy.pub
           echo "Parmak izi:"
           ssh-keygen -lf ~/.ssh/id_deploy.pub
+          echo "(Sunucuya tanitilan parmak izi: SHA256:luNfpUcwCGOrLNMZbQ1N05cWii1brVnBK8DDYsbU1Ys)"
 
           ssh-keyscan -H "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
 
-          # 4) Baglanti gercekten kuruluyor mu? (sifre denemeden)
+          echo ""
           echo "Sunucuya baglanti deneniyor..."
           if ssh -i ~/.ssh/id_deploy -o BatchMode=yes -o ConnectTimeout=15 \
                "$VPS_USER@$VPS_HOST" 'echo "BAGLANTI BASARILI: $(hostname)"'; then
             echo "SSH erisimi calisiyor."
           else
             echo ""
-            echo "HATA: Sunucu bu anahtari kabul etmedi."
-            echo "Anahtar bicimi gecerli oldugu icin sorun SUNUCU tarafindadir:"
-            echo "acik anahtar henuz /root/.ssh/authorized_keys icine islenmemis."
+            echo "HATA: Anahtar gecerli ama sunucu kabul etmedi."
+            echo "Acik anahtar henuz sunucudaki authorized_keys dosyasina"
+            echo "islenmemis olabilir."
             exit 1
           fi
 
