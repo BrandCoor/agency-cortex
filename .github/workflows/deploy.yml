@@ -143,7 +143,7 @@ jobs:
           cat ~/.ssh/id_deploy.pub
           echo "Parmak izi:"
           ssh-keygen -lf ~/.ssh/id_deploy.pub
-          echo "(Sunucuya tanitilan parmak izi: SHA256:luNfpUcwCGOrLNMZbQ1N05cWii1brVnBK8DDYsbU1Ys)"
+          echo "(Beklenen parmak izi: SHA256:vD6UoVQZjl/w9s0f8585MipiTlY75224C3RqTNVJJWk)"
 
           ssh-keyscan -H "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
 
@@ -155,8 +155,13 @@ jobs:
           else
             echo ""
             echo "HATA: Anahtar gecerli ama sunucu kabul etmedi."
-            echo "Acik anahtar henuz sunucudaki authorized_keys dosyasina"
-            echo "islenmemis olabilir."
+            echo ""
+            echo "Acik anahtar sunucudaki /root/.ssh/authorized_keys dosyasina"
+            echo "islenmemis. Hostinger API anahtari hesaba kaydediyor ancak"
+            echo "calisan sunucuya otomatik yazmiyor."
+            echo ""
+            echo "COZUM: Hostinger panelindeki tarayici terminalinde"
+            echo "acik anahtari authorized_keys dosyasina ekleyin."
             exit 1
           fi
 
