@@ -21,8 +21,8 @@ içerik senaryosu önerir.
 | 1 | Docker, PostgreSQL, Redis, sağlık kontrolü, loglama | ✅ Tamamlandı |
 | 2 | Kullanıcı, çalışma alanı, rol, oturum | ✅ Tamamlandı |
 | 3 | Instagram/Facebook OAuth + veri senkronu | 🟡 Kod hazır, 4 Meta sabiti doğrulanmayı bekliyor |
-| 4 | Metrikler, KPI motoru, günlük/haftalık rapor | ⬜ Sırada |
-| 5 | Claude API ile içerik senaryosu | ⬜ |
+| 4 | Metrikler, KPI motoru, günlük/haftalık rapor | ✅ Tamamlandı |
+| 5 | Claude API ile içerik senaryosu | ⬜ Sırada |
 | 6 | Manus API ile araştırma | ⬜ |
 | 7 | İnsan onay paneli | ⬜ |
 | 8 | Rakip ve trend modülü | ⬜ |

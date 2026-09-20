@@ -207,3 +207,43 @@ Sistem Hostinger VPS'e (1990274) kuruldu ve dışarıdan doğrulandı.
   (`restart: unless-stopped` tanımlı, ancak gerçek yeniden başlatmayla
   test edilmedi)
 - Yedekleme/geri yükleme testi (Aşama 10)
+
+## [0.7.0] - 2026-09-20 — Aşama 4: KPI motoru ve raporlar
+
+### Eklendi
+- **KPI motoru** (`services/kpi.py`): saf hesap katmanı — veritabanına,
+  ağa veya yapay zekâya erişmez, böylece her hesap tek tek test edilebilir
+- **Anomali tespiti** (`services/anomalies.py`): medyan + MAD yöntemi
+- **Rapor üretimi** (`services/reports.py`): günlük, haftalık, aylık
+- Rapor uçları: listeleme, ayrıntı, elle üretim
+- Zamanlanmış işler: veri senkronu 6 saatte bir, günlük rapor 07:30,
+  haftalık pazartesi 08:00, aylık ayın 1'i 09:00
+
+### Rapor bölümleri
+Dönem özeti · En iyi/en zayıf içerikler · Format analizi ·
+Anormal değişimler · Bu dönemin önerileri (en fazla 3) ·
+Veri kalitesi ve eksikler
+
+### Korunan ürün kuralları (her biri testle sabitlendi)
+- **Eksik veri sıfır değildir.** Hesaplanamayan değer `None` döner;
+  rapor "erişim %0" yerine "veri yok" der
+- Sıfıra bölme hata fırlatmaz, `0` da döndürmez
+- Önceki dönem 0 iken yüzde değişim hesaplanmaz ("sonsuz artış" yazılmaz)
+- Kanıt yetersizse yorum `claim_type="hypothesis"` olarak işaretlenir
+- Eksik metrikler raporda açıkça listelenir
+- Öneriler en fazla 3 madde
+- Anomalide medyan kullanılır: tek viral içerik sonraki günleri
+  "anormal düşük" göstermez
+- Aynı dönemin raporu iki kez üretilmez
+
+### Düzeltildi
+- `assess_quality` eksik metrikleri başka bir fonksiyonun **yan
+  etkisinden** okuyordu; çağrı sırası değişince eksikler sessizce boş
+  görünüyordu. Artık beklenen metrikler açıkça isteniyor. Testin yakaladığı
+  gerçek bir tasarım hatası.
+
+### Doğrulandı
+- 168/168 test geçti (önceki 118) — 50 yeni test
+- CI'da testler, lint, migration uyumu ve Docker imajı geçti
+- **Canlıya kuruldu**: `https://agencycortex.tech/healthz` → HTTP 200
+- `environment: production`, `publishing_enabled: false`

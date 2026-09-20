@@ -10,7 +10,7 @@ Son güncelleme: 20 Eylül 2026
 |---|---|
 | Depo | https://github.com/BrandCoor/agency-cortex (özel) |
 | Kod | ~6.100 satır Python |
-| Test | 118, tamamı geçiyor (CI'da da) |
+| Test | 168, tamamı geçiyor (CI'da da) |
 | Docker imajı | ✅ Derlendi ve çalıştığı doğrulandı |
 | Sunucu | Hostinger KVM 4 (`1990274`) — ✅ **ÇALIŞIYOR** |
 | Canlı adres | https://agencycortex.tech ✅ HTTPS aktif |
@@ -27,8 +27,8 @@ Son güncelleme: 20 Eylül 2026
 | 1 | Docker, veritabanı, kuyruk, sağlık kontrolü, loglama | ✅ |
 | 2 | Kullanıcı, müşteri izolasyonu, roller, oturum | ✅ |
 | 3 | Platform mimarisi, OAuth, webhook güvenliği | 🟡 Kod hazır, 4 Meta sabiti doğrulanmadı |
-| 4 | Metrikler, KPI motoru, raporlar | ⬜ Sırada |
-| 5 | Claude API ile içerik senaryosu | ⬜ |
+| 4 | Metrikler, KPI motoru, raporlar | ✅ Tamamlandı |
+| 5 | Claude API ile içerik senaryosu | ⬜ Sırada |
 | 6 | Manus API ile araştırma | ⬜ |
 | 7 | İnsan onay paneli | ⬜ |
 | 8 | Rakip ve trend modülü | ⬜ |
@@ -81,8 +81,8 @@ Bunlar yazıldı **ve çalıştığı kanıtlandı:**
 ### 2. Sunucu kurulumu
 **Durum:** ✅ Tamamlandı. Sistem canlıda, HTTPS aktif, dışarıdan doğrulandı.
 
-### 3. Rapor motoru, içerik üretimi, panel
-Aşama 4-9. Sıradaki iş.
+### 3. İçerik üretimi, araştırma, panel
+Aşama 5-9. Sıradaki iş.
 
 ---
 
@@ -95,7 +95,7 @@ Aşama 4-9. Sıradaki iş.
 | Instagram hesabı OAuth ile bağlanabiliyor | 🟡 Kod hazır, gerçek hesapla test edilmedi |
 | Hesap ve medya verisi alınabiliyor | ✅ (sahte sağlayıcı ile) |
 | Ham ve normalize veri ayrılmış | ✅ |
-| Günlük ve haftalık rapor üretiliyor | ⬜ Aşama 4 |
+| Günlük ve haftalık rapor üretiliyor | ✅ (sahte veriyle doğrulandı) |
 | Claude API senaryo üretiyor | ⬜ Aşama 5 |
 | Manus API araştırma yapıyor | ⬜ Aşama 6 |
 | AI hataları loglanıyor | ⬜ Aşama 5 |
