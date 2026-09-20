@@ -254,3 +254,38 @@ Format: Karar / Seçenekler / Neden / Risk / Geri alma
   zaten insan onayı olmadan yayın yapılmamasını gerektiriyor.
 - **Risk:** Düşük. İzinler aşama aşama genişletilebilir.
 - **Geri alma:** Yeni izinler ayrı bir inceleme başvurusuyla eklenir.
+
+---
+
+## K-015 — Gizli değerler sunucuda üretilir, hiçbir yerden geçmez
+
+- **Karar:** `SECRET_KEY`, `ENCRYPTION_KEY`, veritabanı şifresi ve webhook
+  doğrulama anahtarı **kurulum sırasında sunucuda** `openssl` ile üretilir.
+  GitHub Secrets'ta tutulmaz, sohbete yazılmaz, bana gösterilmez.
+- **Seçenekler:** (a) Sunucuda üretmek, (b) benim üretip GitHub Secrets'a
+  kullanıcıya yazdırmam, (c) benim üretip kullanıcıya iletmem.
+- **Neden (a):** (c) gizli değeri sohbet geçmişine sokar — kabul edilemez.
+  (b) kullanıcıya 4 ayrı yapıştırma işi yükler ve değerler GitHub'da bir
+  kopya daha oluşturur. (a) ile değer hiçbir zaman sunucudan çıkmaz; sızma
+  yüzeyi tek noktaya iner.
+- **Risk:** Düşük. Değerleri ben de bilmiyorum; gerekirse sunucudaki `.env`
+  dosyasından okunur. Kurulum tekrarlandığında mevcut `.env` **korunur** —
+  şifreler değişmez, veritabanı erişimi bozulmaz.
+- **Geri alma:** Sunucudaki `.env` silinip kurulum tekrarlanırsa yeni
+  değerler üretilir. **Dikkat:** `ENCRYPTION_KEY` değişirse kayıtlı sosyal
+  medya anahtarları çözülemez hale gelir; hesapların yeniden bağlanması
+  gerekir.
+
+---
+
+## K-016 — Sunucuya erişim ayrı bir dağıtım anahtarıyla yapılır
+
+- **Karar:** Kurulum için `agency-cortex-deploy` adlı, yalnızca bu işe
+  ayrılmış bir SSH anahtar çifti kullanılıyor. Açık anahtar Hostinger
+  üzerinden VPS'e tanıtıldı (anahtar kimliği: 583029).
+- **Neden:** Kullanıcının kişisel SSH anahtarı kullanılsaydı, GitHub'daki
+  bir sızıntı kullanıcının tüm sunucularını etkilerdi. Ayrı anahtar, etkiyi
+  tek sunucu ve tek amaçla sınırlar.
+- **Risk:** Düşük. Gizli anahtar yalnızca GitHub'ın şifreli kasasında.
+- **Geri alma:** Hostinger panelinden anahtar kaldırılır veya sunucudaki
+  `~/.ssh/authorized_keys` içinden ilgili satır silinir; erişim anında biter.
