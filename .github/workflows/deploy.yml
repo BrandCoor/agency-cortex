@@ -58,6 +58,21 @@ jobs:
           # Windows'tan kopyalanan metinlerde satir sonlarinda gorunmez \r
           # karakteri bulunur; bu, anahtari gecersiz kilar. Temizleniyor.
           printf '%s\n' "${{ secrets.VPS_SSH_KEY }}" | tr -d '\r' > ~/.ssh/id_deploy
+
+          # Sik yapilan hata: anahtarin yalnizca ortadaki metni kopyalanir,
+          # basindaki ve sonundaki BEGIN/END satirlari atlanir. Bu durumda
+          # eksik satirlar otomatik tamamlanir; kullanicidan tekrar istenmez.
+          if ! head -1 ~/.ssh/id_deploy | grep -q 'BEGIN.*PRIVATE KEY'; then
+            if grep -q '^b3BlbnNzaC1rZXktdjEA' ~/.ssh/id_deploy; then
+              echo "Not: BEGIN/END satirlari eksikti, otomatik tamamlandi."
+              {
+                echo "-----BEGIN OPENSSH PRIVATE KEY-----"
+                grep -v -e 'BEGIN' -e 'END' ~/.ssh/id_deploy | sed '/^$/d'
+                echo "-----END OPENSSH PRIVATE KEY-----"
+              } > ~/.ssh/id_deploy.duzeltilmis
+              mv ~/.ssh/id_deploy.duzeltilmis ~/.ssh/id_deploy
+            fi
+          fi
           chmod 600 ~/.ssh/id_deploy
 
           # --- Teshis: icerik yazdirilmadan neyin yanlis oldugu bulunur ---
