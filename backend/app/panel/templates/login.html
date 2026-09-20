@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Giriş — Agency Cortex{% endblock %}
+{% block content %}
+<div style="max-width: 360px; margin: 60px auto;">
+  <h1>Agency Cortex</h1>
+  <p class="sub">Sosyal medya asistanı paneli</p>
+  {% if error %}<div class="err">{{ error }}</div>{% endif %}
+  <form method="post" action="/panel/giris" class="card">
+    <label for="email">E-posta</label>
+    <input id="email" name="email" type="email" required autofocus>
+    <label for="password">Şifre</label>
+    <input id="password" name="password" type="password" required>
+    <div style="margin-top:16px"><button type="submit">Giriş yap</button></div>
+  </form>
+</div>
+{% endblock %}

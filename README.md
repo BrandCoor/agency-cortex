@@ -24,8 +24,8 @@ içerik senaryosu önerir.
 | 4 | Metrikler, KPI motoru, günlük/haftalık rapor | ✅ Tamamlandı |
 | 5 | Claude API ile içerik senaryosu | ✅ Tamamlandı |
 | 6 | Manus API ile araştırma | 🟡 Doküman erişimi engelli |
-| 7 | İnsan onay paneli | ⬜ |
-| 8 | Rakip ve trend modülü | ⬜ |
+| 7 | İnsan onay paneli | ✅ Tamamlandı |
+| 8 | Rakip ve trend modülü | ⬜ Sırada |
 | 9 | Gemini sağlayıcısı | ⬜ |
 | 10 | Güvenlik, yedekleme, üretim kurulumu | ⬜ |
 

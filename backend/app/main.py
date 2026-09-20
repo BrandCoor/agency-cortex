@@ -12,7 +12,17 @@ from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.api import ai, auth, health, oauth, platforms, reports, webhooks, workspaces
+from app.api import (
+    ai,
+    approvals,
+    auth,
+    health,
+    oauth,
+    platforms,
+    reports,
+    webhooks,
+    workspaces,
+)
 from app.core.config import get_settings
 from app.core.logging_config import configure_logging, get_logger
 
@@ -109,3 +119,9 @@ app.include_router(oauth.router)
 app.include_router(webhooks.router)
 app.include_router(reports.router)
 app.include_router(ai.router)
+app.include_router(approvals.router)
+
+# Tarayicidan kullanilan panel
+from app.panel.routes import router as panel_router  # noqa: E402
+
+app.include_router(panel_router)

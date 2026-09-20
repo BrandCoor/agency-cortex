@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}{{ workspace.name }}{% endblock %}
+{% block content %}
+<h1>{{ workspace.name }}</h1>
+<p class="sub">Yetkiniz: {{ role_label }}</p>
+
+<div class="lock">
+  🔒 <strong>Yayınlama kapalı.</strong> Sistem hiçbir içeriği kendiliğinden
+  paylaşmaz. Onayladığınız içerikleri siz yayınlarsınız.
+</div>
+
+<h2>Onay bekleyenler</h2>
+{% if not pending_scripts and not pending_reports %}
+  <div class="card empty">Şu an onayınızı bekleyen bir şey yok.</div>
+{% endif %}
+
+{% for s in pending_scripts %}
+<div class="card">
+  <div class="row">
+    <span class="badge b-{{ s.status.value }}">{{ status_labels[s.status.value] }}</span>
+    <span class="muted">{{ s.platform.value }} · {{ s.format.value }}</span>
+    <span class="spacer" style="flex:1"></span>
+    <a class="btn" href="/panel/musteri/{{ workspace.id }}/senaryo/{{ s.id }}">İncele</a>
+  </div>
+  <div style="margin-top:8px">{{ s.hook }}</div>
+  {% if s.brand_risks %}<div class="warn">⚠️ {{ s.brand_risks|length }} marka riski işaretlendi</div>{% endif %}
+  {% if s.claims_to_verify %}<div class="warn">🔍 {{ s.claims_to_verify|length }} iddia doğrulanmalı</div>{% endif %}
+</div>
+{% endfor %}
+
+{% for r in pending_reports %}
+<div class="card row">
+  <span class="badge b-{{ r.status.value }}">{{ status_labels[r.status.value] }}</span>
+  <div style="flex:1">{{ r.title }}</div>
+  <a class="btn" href="/panel/musteri/{{ workspace.id }}/rapor/{{ r.id }}">İncele</a>
+</div>
+{% endfor %}
+
+<h2>Son raporlar</h2>
+{% if not reports %}
+  <div class="card empty">Henüz rapor üretilmedi.</div>
+{% else %}
+<div class="card"><table>
+  <tr><th>Rapor</th><th>Dönem</th><th>Durum</th><th></th></tr>
+  {% for r in reports %}
+  <tr>
+    <td>{{ r.title }}</td>
+    <td class="muted">{{ r.period_start }} → {{ r.period_end }}</td>
+    <td><span class="badge b-{{ r.status.value }}">{{ status_labels[r.status.value] }}</span></td>
+    <td><a href="/panel/musteri/{{ workspace.id }}/rapor/{{ r.id }}">Aç</a></td>
+  </tr>
+  {% endfor %}
+</table></div>
+{% endif %}
+
+<h2>Son içerik senaryoları</h2>
+{% if not scripts %}
+  <div class="card empty">Henüz senaryo üretilmedi.</div>
+{% else %}
+<div class="card"><table>
+  <tr><th>Kanca</th><th>Platform</th><th>Durum</th><th></th></tr>
+  {% for s in scripts %}
+  <tr>
+    <td>{{ (s.hook or '')[:60] }}</td>
+    <td class="muted">{{ s.platform.value }}</td>
+    <td><span class="badge b-{{ s.status.value }}">{{ status_labels[s.status.value] }}</span></td>
+    <td><a href="/panel/musteri/{{ workspace.id }}/senaryo/{{ s.id }}">Aç</a></td>
+  </tr>
+  {% endfor %}
+</table></div>
+{% endif %}
+
+<h2>Yapay zekâ kullanımı</h2>
+<div class="card">
+  <div class="row">
+    <div style="flex:1">
+      <div class="muted">Bu ay harcanan</div>
+      <strong style="font-size:20px">${{ '%.2f'|format(ai_spent) }}</strong>
+      <span class="muted">/ ${{ '%.2f'|format(ai_budget) }} bütçe</span>
+    </div>
+  </div>
+  {% if ai_exceeded %}
+    <div class="err">Aylık bütçe doldu. Yeni yapay zekâ işi başlatılmayacak.</div>
+  {% endif %}
+  {% if using_fake %}
+    <div class="warn">
+      ⚠️ Sistem <strong>sahte sağlayıcı</strong> ile çalışıyor. Üretilen içerikler
+      gerçek yapay zekâ çıktısı değil, örnek metinlerdir.
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

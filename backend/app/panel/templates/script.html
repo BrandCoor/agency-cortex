@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block title %}Senaryo incelemesi{% endblock %}
+{% block content %}
+<p class="muted"><a href="/panel/musteri/{{ workspace.id }}">← {{ workspace.name }}</a></p>
+<h1>İçerik senaryosu</h1>
+<div class="row" style="margin-bottom:16px">
+  <span class="badge b-{{ script.status.value }}">{{ status_labels[script.status.value] }}</span>
+  <span class="muted">{{ script.platform.value }} · {{ script.format.value }}
+    {% if script.duration_seconds %}· {{ script.duration_seconds }} sn{% endif %}</span>
+</div>
+
+{% if error %}<div class="err">{{ error }}</div>{% endif %}
+{% if message %}<div class="card" style="border-color:var(--ok)">{{ message }}</div>{% endif %}
+
+{% if script.claims_to_verify %}
+<div class="warn">
+  <strong>🔍 Yayından önce doğrulanmalı:</strong>
+  <ul style="margin:6px 0 0">{% for c in script.claims_to_verify %}<li>{{ c }}</li>{% endfor %}</ul>
+</div>
+{% endif %}
+{% if script.brand_risks %}
+<div class="warn">
+  <strong>⚠️ Marka riskleri:</strong>
+  <ul style="margin:6px 0 0">{% for r in script.brand_risks %}<li>{{ r }}</li>{% endfor %}</ul>
+</div>
+{% endif %}
+
+<h2>Kanca</h2><div class="card">{{ script.hook }}</div>
+<h2>Konuşma metni</h2><pre>{{ script.spoken_script }}</pre>
+{% if script.scene_plan %}
+<h2>Sahne planı</h2>
+<div class="card"><table>
+  <tr><th>Saniye</th><th>Görüntü</th><th>Aksiyon</th></tr>
+  {% for sc in script.scene_plan %}
+  <tr><td class="muted">{{ sc.second_from }}–{{ sc.second_to }}</td>
+      <td>{{ sc.visual }}</td><td>{{ sc.action }}</td></tr>
+  {% endfor %}
+</table></div>
+{% endif %}
+{% if script.on_screen_text %}
+<h2>Ekran yazıları</h2>
+<div class="card"><ul style="margin:0">{% for t in script.on_screen_text %}<li>{{ t }}</li>{% endfor %}</ul></div>
+{% endif %}
+<h2>Açıklama</h2><pre>{{ script.caption }}</pre>
+<h2>Çağrı (CTA)</h2><div class="card">{{ script.cta }}</div>
+{% if script.visual_production_brief %}
+<h2>Çekim notu</h2><div class="card">{{ script.visual_production_brief }}</div>
+{% endif %}
+{% if script.required_assets %}
+<h2>Gereken malzemeler</h2>
+<div class="card"><ul style="margin:0">{% for a in script.required_assets %}<li>{{ a }}</li>{% endfor %}</ul></div>
+{% endif %}
+
+<h2>Karar</h2>
+{% if allowed_targets %}
+<div class="card">
+  <form method="post" action="/panel/musteri/{{ workspace.id }}/senaryo/{{ script.id }}/karar">
+    <label for="target">Yeni durum</label>
+    <select id="target" name="target">
+      {% for t in allowed_targets %}<option value="{{ t }}">{{ status_labels[t] }}</option>{% endfor %}
+    </select>
+    <label for="comment">Not (isteğe bağlı)</label>
+    <textarea id="comment" name="comment" rows="3" placeholder="Kararınızın gerekçesi..."></textarea>
+    <div style="margin-top:14px"><button type="submit">Kaydet</button></div>
+  </form>
+</div>
+{% else %}
+<div class="card empty">Bu durumdan başka bir duruma geçilemez.</div>
+{% endif %}
+
+<div class="lock">
+  🔒 <strong>Onaylasanız bile sistem yayınlamaz.</strong> {{ publish_reason }}
+</div>
+
+<h2>Geçmiş</h2>
+{% if not history %}
+  <div class="card empty">Henüz karar verilmemiş.</div>
+{% else %}
+<div class="card"><table>
+  <tr><th>Durum</th><th>Tarih</th><th>Not</th></tr>
+  {% for h in history %}
+  <tr>
+    <td><span class="badge b-{{ h.status.value }}">{{ status_labels[h.status.value] }}</span></td>
+    <td class="muted">{{ h.decided_at.strftime('%d.%m.%Y %H:%M') if h.decided_at else '' }}</td>
+    <td>{{ h.comment or '' }}</td>
+  </tr>
+  {% endfor %}
+</table></div>
+{% endif %}
+{% endblock %}

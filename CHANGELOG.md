@@ -296,3 +296,40 @@ Veri kalitesi ve eksikler
 - Model kimliğinde tarih soneki olmadığı
 - Başka müşterinin marka bilgisinin isteme karışmadığı
 - CI yeşil, canlıya kuruldu, `https://agencycortex.tech/healthz` → HTTP 200
+
+## [0.9.0] - 2026-09-20 — Aşama 7: Onay akışı ve panel
+
+### Eklendi
+- **Onay durum makinesi** (`services/approvals.py`): 8 durum, tanımlı geçişler,
+  her geçiş için gereken en düşük yetki
+- **Onay anı kaydı (snapshot)**: onay, içeriğin o anki haline verilir
+- Onay uçları: kuyruk, geçmiş, durum değiştirme, yayın kontrolü
+- **Web paneli** (`app/panel/`): giriş, müşteri listesi, müşteri ekranı,
+  senaryo inceleme, rapor görüntüleme, onay/ret formu
+
+### Üç katmanlı yayın kilidi
+1. `FEATURE_PUBLISHING_ENABLED` kapalı → geçiş reddedilir
+2. Kilit açılsa bile onay kaydı yoksa reddedilir
+3. Onaydan sonra içerik değiştiyse reddedilir (snapshot karşılaştırması)
+
+Panel ayrıca "Yayınlandı" seçeneğini hiç göstermez.
+
+### Panelde görünenler
+- Onay bekleyen içerikler ve raporlar
+- Marka riskleri ve doğrulanması gereken iddialar — **uyarı olarak**
+- AI harcaması ve aylık bütçe
+- Sahte sağlayıcı kullanılıyorsa **açık uyarı**
+- Raporlarda "hipotez" etiketi
+- Onay geçmişi: kim, ne zaman, hangi notla
+
+### Doğrulandı
+- 264/264 test geçti (önceki 242) — 22 yeni onay testi
+- Onaylanmış ve planlanmış içerik bile **yayınlanamadı**
+- Kilit açıldığında bile onay kaydı silinmişse yayın engellendi
+- Onaydan sonra metin değiştirildiğinde yayın engellendi
+- Karşıt test: değişmemiş içerik, kilit açıkken yayınlanabildi
+- Taslaktan doğrudan onaya/yayına geçilemediği
+- İzleyicinin hiçbir geçiş yapamadığı, editörün onay veremediği
+- **Panel uçtan uca çalıştırıldı**: giriş → müşteri → senaryo → onay akışı
+- Başka müşterinin sayfası ve var olmayan müşteri **aynı 404** yanıtını verdi
+- Çıkıştan sonra oturumun kapandığı

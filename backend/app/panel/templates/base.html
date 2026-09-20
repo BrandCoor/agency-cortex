@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}Agency Cortex{% endblock %}</title>
+<style>
+  :root {
+    --bg: #0f1115; --card: #181b22; --line: #272b35; --text: #e8eaed;
+    --muted: #9aa1ad; --accent: #4f8ef7; --ok: #3fb950; --warn: #d29922;
+    --bad: #f85149; --lock: #8957e5;
+  }
+  @media (prefers-color-scheme: light) {
+    :root { --bg:#f6f7f9; --card:#fff; --line:#e3e6ea; --text:#1c2024;
+            --muted:#5c6470; --accent:#1f6feb; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--text);
+         font: 15px/1.6 -apple-system, "Segoe UI", Roboto, Arial, sans-serif; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  header { background: var(--card); border-bottom: 1px solid var(--line);
+           padding: 14px 20px; display:flex; gap:16px; align-items:center; }
+  header .brand { font-weight: 700; font-size: 17px; }
+  header .spacer { flex: 1; }
+  main { max-width: 960px; margin: 0 auto; padding: 24px 16px 64px; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  h2 { font-size: 17px; margin: 28px 0 10px; }
+  .sub { color: var(--muted); margin: 0 0 20px; }
+  .card { background: var(--card); border: 1px solid var(--line);
+          border-radius: 10px; padding: 16px; margin-bottom: 12px; }
+  .row { display:flex; gap:12px; align-items:center; flex-wrap: wrap; }
+  .badge { display:inline-block; padding: 2px 9px; border-radius: 999px;
+           font-size: 12px; font-weight: 600; border: 1px solid var(--line); }
+  .b-draft { color: var(--muted); }
+  .b-internal_review, .b-client_review { color: var(--warn); border-color: var(--warn); }
+  .b-approved { color: var(--ok); border-color: var(--ok); }
+  .b-rejected { color: var(--bad); border-color: var(--bad); }
+  .b-scheduled { color: var(--accent); border-color: var(--accent); }
+  .b-published { color: var(--ok); border-color: var(--ok); }
+  .b-archived { color: var(--muted); }
+  .muted { color: var(--muted); font-size: 13px; }
+  .warn { background: rgba(210,153,34,.12); border-left: 3px solid var(--warn);
+          padding: 10px 12px; border-radius: 6px; margin: 10px 0; }
+  .lock { background: rgba(137,87,229,.12); border-left: 3px solid var(--lock);
+          padding: 10px 12px; border-radius: 6px; margin: 10px 0; }
+  .err { background: rgba(248,81,73,.12); border-left: 3px solid var(--bad);
+         padding: 10px 12px; border-radius: 6px; margin: 10px 0; }
+  button, .btn { font: inherit; padding: 8px 14px; border-radius: 7px;
+                 border: 1px solid var(--line); background: var(--card);
+                 color: var(--text); cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  .btn-ok { border-color: var(--ok); color: var(--ok); }
+  .btn-bad { border-color: var(--bad); color: var(--bad); }
+  input, textarea, select { font: inherit; width: 100%; padding: 9px 11px;
+    border-radius: 7px; border: 1px solid var(--line);
+    background: var(--bg); color: var(--text); }
+  label { display:block; margin: 12px 0 5px; font-size: 13px; color: var(--muted); }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 9px 8px; border-bottom: 1px solid var(--line); }
+  th { color: var(--muted); font-size: 13px; font-weight: 600; }
+  pre { white-space: pre-wrap; word-break: break-word; background: var(--bg);
+        padding: 12px; border-radius: 7px; border: 1px solid var(--line);
+        margin: 6px 0; font-size: 13px; }
+  .empty { color: var(--muted); padding: 24px; text-align: center; }
+</style>
+</head>
+<body>
+{% if user %}
+<header>
+  <span class="brand">Agency Cortex</span>
+  <a href="/panel">Müşteriler</a>
+  <span class="spacer"></span>
+  <span class="muted">{{ user.email }}</span>
+  <form method="post" action="/panel/cikis" style="margin:0">
+    <button type="submit">Çıkış</button>
+  </form>
+</header>
+{% endif %}
+<main>
+{% block content %}{% endblock %}
+</main>
+</body>
+</html>

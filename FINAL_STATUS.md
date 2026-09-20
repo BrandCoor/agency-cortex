@@ -10,7 +10,7 @@ Son güncelleme: 20 Eylül 2026
 |---|---|
 | Depo | https://github.com/BrandCoor/agency-cortex (özel) |
 | Kod | ~6.100 satır Python |
-| Test | 220, tamamı geçiyor (CI'da da) |
+| Test | 264, tamamı geçiyor (CI'da da) |
 | Docker imajı | ✅ Derlendi ve çalıştığı doğrulandı |
 | Sunucu | Hostinger KVM 4 (`1990274`) — ✅ **ÇALIŞIYOR** |
 | Canlı adres | https://agencycortex.tech ✅ HTTPS aktif |
@@ -30,8 +30,8 @@ Son güncelleme: 20 Eylül 2026
 | 4 | Metrikler, KPI motoru, raporlar | ✅ Tamamlandı |
 | 5 | Claude API ile içerik senaryosu | ✅ Tamamlandı |
 | 6 | Manus API ile araştırma | 🟡 Engelli (doküman erişimi yok) |
-| 7 | İnsan onay paneli | ⬜ |
-| 8 | Rakip ve trend modülü | ⬜ |
+| 7 | İnsan onay paneli | ✅ Tamamlandı |
+| 8 | Rakip ve trend modülü | ⬜ Sırada |
 | 9 | Gemini sağlayıcısı | ⬜ |
 | 10 | Güvenlik, yedekleme, üretim kurulumu | 🟡 Kurulum ✅, yedekleme testi kaldı |
 
@@ -118,4 +118,4 @@ Aşama 5-9. Sıradaki iş.
    açıldığı artık her kod gönderiminde otomatik doğrulanıyor.
 3. **Meta dokümanlarına erişim engelli.** 4 sabit boş bırakıldı; boşken sistem
    canlı moda geçmiyor.
-4. **Panel henüz yok.** Aşama 7'ye kadar işlemler API üzerinden yapılır.
+4. **Panel hazır** — `https://agencycortex.tech/panel` adresinden girilir.

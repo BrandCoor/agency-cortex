@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}{{ report.title }}{% endblock %}
+{% block content %}
+<p class="muted"><a href="/panel/musteri/{{ workspace.id }}">← {{ workspace.name }}</a></p>
+<h1>{{ report.title }}</h1>
+<div class="row" style="margin-bottom:16px">
+  <span class="badge b-{{ report.status.value }}">{{ status_labels[report.status.value] }}</span>
+  <span class="muted">{{ report.period_start }} → {{ report.period_end }}</span>
+</div>
+
+{% if error %}<div class="err">{{ error }}</div>{% endif %}
+
+{% if report.data_quality_notes %}
+<div class="warn">
+  <strong>Veri eksikleri:</strong>
+  <ul style="margin:6px 0 0">{% for n in report.data_quality_notes %}<li>{{ n }}</li>{% endfor %}</ul>
+</div>
+{% endif %}
+
+{% for s in sections %}
+<h2>{{ s.heading }}
+  {% if s.claim_type == 'hypothesis' %}
+    <span class="badge" style="color:var(--warn);border-color:var(--warn)">hipotez</span>
+  {% endif %}
+</h2>
+<div class="card">
+  <pre style="background:none;border:none;padding:0;margin:0">{{ s.body }}</pre>
+</div>
+{% endfor %}
+
+{% if report.assumptions %}
+<h2>Varsayımlar</h2>
+<div class="card"><ul style="margin:0">{% for a in report.assumptions %}<li>{{ a }}</li>{% endfor %}</ul></div>
+{% endif %}
+
+<h2>Karar</h2>
+{% if allowed_targets %}
+<div class="card">
+  <form method="post" action="/panel/musteri/{{ workspace.id }}/rapor/{{ report.id }}/karar">
+    <label for="target">Yeni durum</label>
+    <select id="target" name="target">
+      {% for t in allowed_targets %}<option value="{{ t }}">{{ status_labels[t] }}</option>{% endfor %}
+    </select>
+    <label for="comment">Not (isteğe bağlı)</label>
+    <textarea id="comment" name="comment" rows="3"></textarea>
+    <div style="margin-top:14px"><button type="submit">Kaydet</button></div>
+  </form>
+</div>
+{% else %}
+<div class="card empty">Bu durumdan başka bir duruma geçilemez.</div>
+{% endif %}
+{% endblock %}

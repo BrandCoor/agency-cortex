@@ -289,3 +289,49 @@ Format: Karar / Seçenekler / Neden / Risk / Geri alma
 - **Risk:** Düşük. Gizli anahtar yalnızca GitHub'ın şifreli kasasında.
 - **Geri alma:** Hostinger panelinden anahtar kaldırılır veya sunucudaki
   `~/.ssh/authorized_keys` içinden ilgili satır silinir; erişim anında biter.
+
+---
+
+## K-017 — Panel, ayrı bir JavaScript uygulaması yerine sunucuda üretilen HTML
+
+- **Karar:** Onay paneli, FastAPI içinde Jinja2 şablonlarıyla sunucu tarafında
+  üretiliyor. Ayrı bir React uygulaması yazılmadı.
+- **Seçenekler:** (a) Sunucu tarafında HTML, (b) React tek-sayfa uygulaması,
+  (c) panel yok, yalnızca API.
+- **Neden (a):**
+  1. React için Docker imajına ayrı bir Node derleme adımı gerekirdi —
+     bakım yükü ve yeni kırılma noktaları.
+  2. Panelin işi form doldurmak ve liste göstermek; React'in çözdüğü
+     karmaşıklık burada yok.
+  3. Tek imaj, tek dağıtım. Kurulum karmaşıklaşmıyor.
+  4. Kullanıcı teknik değil; az parça, az arıza.
+- **Risk:** Düşük. İleride zengin bir arayüz gerekirse React eklenebilir —
+  API katmanı zaten ayrı ve hazır, panelin kaldırılması bir şeyi bozmaz.
+- **Geri alma:** `app/panel/` silinir, API olduğu gibi çalışmaya devam eder.
+
+---
+
+## K-018 — Panel oturumu httpOnly çerezle tutuluyor
+
+- **Karar:** Panel girişinde oturum anahtarı, JavaScript'in okuyamayacağı bir
+  çerezde saklanıyor (`httponly`, `samesite=lax`, üretimde `secure`).
+- **Seçenekler:** (a) httpOnly çerez, (b) tarayıcı deposunda (localStorage)
+  saklamak.
+- **Neden (a):** (b) seçilseydi, sayfaya sızan herhangi bir betik anahtarı
+  okuyup çalabilirdi. httpOnly çerezi JavaScript göremez.
+  `samesite=lax` ise başka sitelerden gelen sahte isteklerde çerezin
+  gönderilmesini engeller.
+- **Risk:** Düşük.
+- **Geri alma:** Gerekmez.
+
+---
+
+## K-019 — Yayınlama seçeneği panelde hiç gösterilmiyor
+
+- **Karar:** Onay ekranındaki durum listesinde "Yayınlandı" seçeneği yer
+  almıyor. Ayrıca her ekranda yayının kapalı olduğu açıkça yazıyor.
+- **Neden:** Kullanıcıya yapamayacağı bir seçeneği sunup sonra hata vermek
+  kötü bir deneyimdir. Kilit zaten sunucuda üç katmanlı olarak duruyor;
+  panel de aynı gerçeği gösteriyor.
+- **Risk:** Yok.
+- **Geri alma:** Yayın özelliği açıldığında seçenek listeye eklenir.

@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Müşteriler{% endblock %}
+{% block content %}
+<h1>Müşteriler</h1>
+<p class="sub">Yalnızca yetkili olduğunuz müşteriler görünür.</p>
+
+{% if not memberships %}
+  <div class="card empty">Henüz bir müşteriye atanmamışsınız.</div>
+{% endif %}
+
+{% for m in memberships %}
+<div class="card row">
+  <div style="flex:1">
+    <strong><a href="/panel/musteri/{{ m.workspace.id }}">{{ m.workspace.name }}</a></strong>
+    <div class="muted">Yetkiniz: {{ m.role_label }}</div>
+  </div>
+  <a class="btn" href="/panel/musteri/{{ m.workspace.id }}">Aç</a>
+</div>
+{% endfor %}
+{% endblock %}
