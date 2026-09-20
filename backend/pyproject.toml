@@ -19,6 +19,7 @@ dependencies = [
     "argon2-cffi==25.1.0",
     "pyjwt==2.10.1",
     "email-validator==2.3.0",
+    "anthropic==1.4.0",
 ]
 
 [project.optional-dependencies]
