@@ -65,11 +65,16 @@ jobs:
           #
           # Cok satirli metinlerde satirlarin eksik kopyalanmasi cok sik
           # yasandigi icin tek satirli bicim tercih edilir.
-          if printf '%s' "$ham" | tr -d '[:space:]' | base64 -d 2>/dev/null \
-               | head -c 40 | grep -q 'openssh-key-v1'; then
-            echo "Bicim: tek satir base64 (cozuluyor)"
-            printf '%s' "$ham" | tr -d '[:space:]' | base64 -d > ~/.ssh/id_deploy
+          # DIKKAT: Dosyanin tamami base64'lendiginde cozulmus icerik
+          # "-----BEGIN ... PRIVATE KEY-----" ile baslar. "openssh-key-v1"
+          # ifadesi ic govdede bulunur, cozulmus metnin basinda DEGIL.
+          if printf '%s' "$ham" | tr -d '[:space:]' | base64 -d 2>/dev/null > /tmp/cozulmus \
+               && grep -q 'PRIVATE KEY' /tmp/cozulmus 2>/dev/null; then
+            echo "Bicim: tek satir base64 (cozuldu)"
+            cp /tmp/cozulmus ~/.ssh/id_deploy
+            rm -f /tmp/cozulmus
           else
+            rm -f /tmp/cozulmus
             echo "Bicim: cok satirli metin"
             printf '%s\n' "$ham" > ~/.ssh/id_deploy
 
