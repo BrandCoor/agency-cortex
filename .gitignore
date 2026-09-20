@@ -31,3 +31,8 @@ caddy_config/
 backups/
 *.dump
 *.bak
+
+# Python derleme artiklari
+*.egg-info/
+build/
+dist/
