@@ -22,8 +22,8 @@ içerik senaryosu önerir.
 | 2 | Kullanıcı, çalışma alanı, rol, oturum | ✅ Tamamlandı |
 | 3 | Instagram/Facebook OAuth + veri senkronu | 🟡 Kod hazır, 4 Meta sabiti doğrulanmayı bekliyor |
 | 4 | Metrikler, KPI motoru, günlük/haftalık rapor | ✅ Tamamlandı |
-| 5 | Claude API ile içerik senaryosu | ⬜ Sırada |
-| 6 | Manus API ile araştırma | ⬜ |
+| 5 | Claude API ile içerik senaryosu | ✅ Tamamlandı |
+| 6 | Manus API ile araştırma | 🟡 Doküman erişimi engelli |
 | 7 | İnsan onay paneli | ⬜ |
 | 8 | Rakip ve trend modülü | ⬜ |
 | 9 | Gemini sağlayıcısı | ⬜ |

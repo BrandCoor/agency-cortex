@@ -10,7 +10,7 @@ Son güncelleme: 20 Eylül 2026
 |---|---|
 | Depo | https://github.com/BrandCoor/agency-cortex (özel) |
 | Kod | ~6.100 satır Python |
-| Test | 168, tamamı geçiyor (CI'da da) |
+| Test | 220, tamamı geçiyor (CI'da da) |
 | Docker imajı | ✅ Derlendi ve çalıştığı doğrulandı |
 | Sunucu | Hostinger KVM 4 (`1990274`) — ✅ **ÇALIŞIYOR** |
 | Canlı adres | https://agencycortex.tech ✅ HTTPS aktif |
@@ -28,8 +28,8 @@ Son güncelleme: 20 Eylül 2026
 | 2 | Kullanıcı, müşteri izolasyonu, roller, oturum | ✅ |
 | 3 | Platform mimarisi, OAuth, webhook güvenliği | 🟡 Kod hazır, 4 Meta sabiti doğrulanmadı |
 | 4 | Metrikler, KPI motoru, raporlar | ✅ Tamamlandı |
-| 5 | Claude API ile içerik senaryosu | ⬜ Sırada |
-| 6 | Manus API ile araştırma | ⬜ |
+| 5 | Claude API ile içerik senaryosu | ✅ Tamamlandı |
+| 6 | Manus API ile araştırma | 🟡 Engelli (doküman erişimi yok) |
 | 7 | İnsan onay paneli | ⬜ |
 | 8 | Rakip ve trend modülü | ⬜ |
 | 9 | Gemini sağlayıcısı | ⬜ |
@@ -96,9 +96,9 @@ Aşama 5-9. Sıradaki iş.
 | Hesap ve medya verisi alınabiliyor | ✅ (sahte sağlayıcı ile) |
 | Ham ve normalize veri ayrılmış | ✅ |
 | Günlük ve haftalık rapor üretiliyor | ✅ (sahte veriyle doğrulandı) |
-| Claude API senaryo üretiyor | ⬜ Aşama 5 |
+| Claude API senaryo üretiyor | ✅ (sahte sağlayıcıyla doğrulandı) |
 | Manus API araştırma yapıyor | ⬜ Aşama 6 |
-| AI hataları loglanıyor | ⬜ Aşama 5 |
+| AI hataları loglanıyor | ✅ |
 | İnsan onayı olmadan yayın yapılamıyor | ✅ |
 | Secret'lar Git'e girmiyor | ✅ Her gönderimde kontrol edildi |
 | Backup/restore testi geçiyor | ⬜ Aşama 10 |

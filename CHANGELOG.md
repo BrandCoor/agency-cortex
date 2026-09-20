@@ -247,3 +247,52 @@ Veri kalitesi ve eksikler
 - CI'da testler, lint, migration uyumu ve Docker imajı geçti
 - **Canlıya kuruldu**: `https://agencycortex.tech/healthz` → HTTP 200
 - `environment: production`, `publishing_enabled: false`
+
+## [0.8.0] - 2026-09-20 — Aşama 5: Claude API ve içerik senaryoları
+
+### Eklendi
+- **AI sağlayıcı katmanı** (`app/ai/`): ortak arayüz, Claude sağlayıcısı,
+  sahte sağlayıcı, Manus ve Gemini durakları
+- **18 alanlı içerik senaryosu şeması** (ürün tanımından birebir)
+- **Bütçe kilidi**: aylık sınır aşılmışsa AI çağrısı başlamaz
+- **Maliyet takibi**: her çağrı için model, istem sürümü, token, maliyet,
+  süre, durum, hata kodu ve çıktı parmak izi kaydedilir
+- İçerik üretim servisi: marka hafızası + kampanya + KPI + geçmiş performans
+- AI uçları: sağlayıcı durumu, kullanım/bütçe, senaryo üretimi
+
+### Anthropic API parametreleri (resmî dokümandan doğrulandı)
+- Model: `claude-opus-5` — tarih soneki **eklenmez**
+- `thinking={"type": "adaptive"}` — `budget_tokens` kaldırıldı, 400 döner
+- `output_config={"effort": ...}` ve `output_config["format"]` ile JSON şema
+- Assistant prefill Opus 5'te 400 döner — kullanılmıyor
+- `stop_reason == "refusal"` içeriğe bakmadan **önce** kontrol ediliyor
+- Tipli istisna zinciri (RateLimit → Timeout → Auth → APIStatus → Connection)
+- Resmî SDK kullanılıyor, ham HTTP değil
+
+### Korunan ürün kuralları
+- Aynı fikir tüm platformlara **kopyalanmıyor**; her platform için ayrı uyarlama
+- Ham sosyal medya API yanıtı AI'ya **gönderilmiyor**; önce kısa özet çıkarılıyor
+- AI çıktısı doğrudan doğru kabul edilmiyor; şemayla doğrulanıyor
+- Şema hatasında **sınırlı** tekrar (sonsuz döngü yok) — her deneme para harcar
+- Başarısız deneme de ücretlidir; maliyeti kaydediliyor
+- Bilinmeyen model maliyeti **tahmin edilmiyor**, hata veriyor
+- Yasaklı ifadeler üretim sonrası denetleniyor
+- Tüm senaryolar `human_approval_required=True`
+- Manus ve Gemini hiçbir yetenek bildirmiyor (Manus dokümanına erişim engelli)
+
+### Düzeltildi
+- `provider_status()` sahte modda tüm sağlayıcıları "çalışıyor" gösteriyordu.
+  Panel, gerçekte çalışmayan bir sağlayıcıyı hazır gibi gösterirdi. Artık
+  **gerçek** durumu bildiriyor, ayrıca `using_fake` alanıyla hangi modda
+  olunduğunu söylüyor. Testin yakaladığı dürüstlük hatası.
+
+### Doğrulandı
+- 220/220 test geçti (önceki 168) — 52 yeni test
+- Bütçe aşıldığında hiçbir AI görevi oluşmadığı
+- Geçen ayın harcamasının bu ayı kilitlemediği
+- Başka müşterinin harcamasının sayılmadığı
+- Başarısız denemelerin maliyetinin de kaydedildiği
+- Opus 5 fiyatının doğru olduğu ($5/$25 per 1M)
+- Model kimliğinde tarih soneki olmadığı
+- Başka müşterinin marka bilgisinin isteme karışmadığı
+- CI yeşil, canlıya kuruldu, `https://agencycortex.tech/healthz` → HTTP 200
