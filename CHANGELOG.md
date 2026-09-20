@@ -136,3 +136,39 @@ Kullanıcının ilettiği Meta entegrasyon rehberi doğrultusunda yapıldı.
   (HTTP 403). Boş oldukları için sistem canlı moda geçmiyor.
 - Gerçek bir Instagram hesabıyla uçtan uca test yapılmadı
 - Docker imajları indirilemediği için konteyner içi test yapılamadı
+
+## [0.5.0] - 2026-09-20 — CI/CD ve sunucu hazırlığı
+
+### Eklendi
+- **GitHub Actions CI**: testler, lint, migration uyum kontrolü, Docker imaj
+  derlemesi ve **imajın gerçekten açıldığının doğrulanması**
+- **Deploy iş akışı**: SSH üzerinden sunucuya kurulum. Kod ve imaj **gizli
+  kalır**; gizli değerler **sunucuda üretilir**, hiçbir yere kopyalanmaz
+- `ops/docker-compose.prod.yml`: üretim tanımı (sunucuda derleme yapmaz)
+- `.dockerignore`: `.env`, testler ve derleme artıkları imaja girmez
+- `OPERATIONS.md`, `FINAL_STATUS.md`, `DEPLOYMENT.md`
+
+### Düzeltildi — üçü de yerel ortamda görülemezdi
+1. **Dockerfile derleme sırası.** `pip install .` çalıştığında `app` klasörü
+   henüz kopyalanmamıştı; kurulum "package directory 'app' does not exist"
+   ile başarısız oluyordu. İmaj bu ortamda hiç derlenemediği için hata ilk
+   kez CI'da görüldü.
+2. **Docker imaj adında büyük harf.** `github.repository` değeri
+   `BrandCoor/...` şeklinde büyük harf içeriyor; Docker imaj adları küçük
+   harf olmak zorunda.
+3. **Test veritabanı koruması.** Testler `POSTGRES_DB` ortam değişkeni
+   tanımlıysa o veritabanına bağlanıyordu — kabukta üretim adı tanımlıysa
+   testler üretim verisini silebilirdi. Artık test veritabanı zorla
+   ayarlanıyor ve adı `_test` ile bitmiyorsa testler hiç başlamıyor.
+4. **Testler şemayı migration ile kuruyor.** Önceden `create_all`
+   kullanılıyordu; bozuk bir migration hiçbir testte yakalanmaz, hata ilk
+   kez üretimde çıkardı.
+
+### Doğrulandı
+- CI'da 118/118 test geçti
+- Lint temiz, migration'lar modellerle uyumlu
+- **Docker imajı derlendi, kayıt defterine gönderildi ve konteyner
+  gerçekten açılıp `/healthz` ucuna yanıt verdi** — projenin başından beri
+  açık olan doğrulama boşluğu kapandı
+- Bağımlılıklar erişilemezken `/healthz` yanıt verdi (onlara bakmadığı
+  doğrulandı)

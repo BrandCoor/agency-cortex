@@ -184,3 +184,75 @@ bilgi değildir.
 | İçgörü verisi boş geliyor | Hesap profesyonel değil | Adım 1'i tekrarlayın |
 | `Invalid Verify Token` | Webhook token'ı eşleşmiyor | Aynı değerin hem `.env` hem Meta panelinde olduğunu kontrol edin |
 | İzin ekranı açılmıyor | `META_*` ayarları boş | Bölüm 3'e bakın |
+
+---
+
+## Bölüm 4 — Sunucu kurulumu için sizden gereken (3 adım)
+
+Kodunuz ve uygulama paketi **gizli kalacak.** Bunun için GitHub'ın
+sunucunuza güvenli bağlanabilmesi gerekiyor. Bir kerelik işlem.
+
+### Adım 1: Erişim anahtarı oluşturun
+
+Kendi bilgisayarınızda terminal/komut istemi açın ve şunu yapıştırın:
+
+```bash
+ssh-keygen -t ed25519 -C "agency-cortex-deploy" -f ~/.ssh/agency_cortex_deploy -N ""
+```
+
+**Ne yapar?** Birbirine eşlenmiş iki anahtar üretir:
+- `agency_cortex_deploy.pub` → **açık** anahtar (paylaşılabilir, kilit gibi)
+- `agency_cortex_deploy` → **gizli** anahtar (asla paylaşılmaz, anahtar gibi)
+
+**Beklenen sonuç:** "Your identification has been saved" yazısı.
+
+---
+
+### Adım 2: Açık anahtarı bana gönderin
+
+```bash
+cat ~/.ssh/agency_cortex_deploy.pub
+```
+
+Çıkan tek satırı (`ssh-ed25519 AAAA...` ile başlar) **sohbete yapıştırın.**
+
+> ✅ Bu anahtarı paylaşmak **güvenlidir.** Kilidin kendisidir, anahtarı değil.
+> Ben bunu Hostinger üzerinden sunucunuza tanıtacağım.
+
+---
+
+### Adım 3: Gizli anahtarı GitHub'a ekleyin
+
+> ⛔ **Bu anahtarı sohbete YAPIŞTIRMAYIN.** Doğrudan GitHub'a girin.
+
+1. <https://github.com/BrandCoor/agency-cortex/settings/secrets/actions>
+   adresine gidin
+2. **New repository secret**
+3. **Name** kutusuna tam olarak şunu yazın: `VPS_SSH_KEY`
+4. **Secret** kutusuna gizli anahtarın **tamamını** yapıştırın.
+   İçeriği görmek için:
+   ```bash
+   cat ~/.ssh/agency_cortex_deploy
+   ```
+   `-----BEGIN` satırından `-----END` satırına kadar **her şeyi** kopyalayın.
+5. **Add secret**
+
+**Beklenen sonuç:** Listede `VPS_SSH_KEY` görünür. Değeri bir daha
+görüntülenemez — bu normaldir ve güvenlik içindir.
+
+---
+
+### Sonra ne olacak?
+
+Ben kurulumu başlatacağım. Sistem sırayla:
+
+1. Sunucuda Docker'ı hazırlar
+2. Yapılandırmayı gönderir
+3. **Gizli anahtarları sunucuda üretir** (hiçbiri bana veya GitHub'a geçmez)
+4. Uygulama paketini indirir ve başlatır
+5. Veritabanı şemasını kurar
+6. HTTPS sertifikasını otomatik alır
+7. Sağlık kontrolü yapar ve sonucu bildirir
+
+Sorun çıkarsa log'ları okuyup düzeltirim. Geri dönüş yolu açık:
+sunucu yedeği 20 Eylül'de alındı.

@@ -10,7 +10,8 @@ Son güncelleme: 20 Eylül 2026
 |---|---|
 | Depo | https://github.com/BrandCoor/agency-cortex (özel) |
 | Kod | ~6.100 satır Python |
-| Test | 118, tamamı geçiyor |
+| Test | 118, tamamı geçiyor (CI'da da) |
+| Docker imajı | ✅ Derlendi ve çalıştığı doğrulandı |
 | Sunucu | Hostinger KVM 4 (`1990274`) — **kurulum bekliyor** |
 | Domain | agencycortex.tech → 187.124.22.8 ✅ |
 | Sunucu yedeği | 20 Eylül 2026'da alındı ✅ |
@@ -77,8 +78,8 @@ Bunlar yazıldı **ve çalıştığı kanıtlandı:**
 **Ayrıntı:** `docs/platforms/meta.md`
 
 ### 2. Sunucu kurulumu
-**Durum:** Yapılandırma hazır, kurulum başlamadı.
-**Engel:** Sunucunun uygulama imajına nasıl erişeceği kararı bekliyor.
+**Durum:** Her şey hazır — imaj derlendi, deploy iş akışı yazıldı.
+**Engel:** Sunucuya erişim anahtarı bekleniyor (bkz. INSTALLATION.md, Bölüm 4).
 
 ### 3. Rapor motoru, içerik üretimi, panel
 Aşama 4-9. Sıradaki iş.
@@ -102,6 +103,7 @@ Aşama 4-9. Sıradaki iş.
 | Secret'lar Git'e girmiyor | ✅ Her gönderimde kontrol edildi |
 | Backup/restore testi geçiyor | ⬜ Aşama 10 |
 | Sunucu yeniden başlayınca servisler geliyor | ⬜ Kurulumdan sonra test edilecek |
+| Docker imajı derlenip çalışıyor | ✅ CI'da doğrulandı |
 | README teknik olmayan kullanıcıya uygun | ✅ |
 
 ---
@@ -111,8 +113,9 @@ Aşama 4-9. Sıradaki iş.
 1. **Bu geliştirme ortamı VPS'e erişemiyor.** SSH (port 22) her hedefe kapalı.
    Kurulum Hostinger API veya GitHub Actions üzerinden yapılır.
 2. **Docker imajları bu ortamdan indirilemiyor.** İmaj doğrulaması GitHub
-   Actions'ta yapılıyor — nitekim yerelde görülemeyen bir Dockerfile hatasını
-   orada yakaladık.
+   Actions'ta yapılıyor — nitekim yerelde görülemeyen iki hatayı orada
+   yakaladık (Dockerfile sırası ve imaj adındaki büyük harf). İmajın
+   açıldığı artık her kod gönderiminde otomatik doğrulanıyor.
 3. **Meta dokümanlarına erişim engelli.** 4 sabit boş bırakıldı; boşken sistem
    canlı moda geçmiyor.
 4. **Panel henüz yok.** Aşama 7'ye kadar işlemler API üzerinden yapılır.
