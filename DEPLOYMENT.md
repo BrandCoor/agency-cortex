@@ -23,6 +23,52 @@ edilen imajın **birebir aynısının** çalıştığı garanti edilir.
 
 ---
 
+## 1b. Panele giriş için ilk hesabı açmak
+
+Sistemde dışarıya açık bir "kayıt ol" sayfası **yoktur** (nedeni:
+DECISIONS.md K-020). İlk hesap kurulum sırasında sunucunun içinde açılır.
+Bunun için GitHub'a iki bilgi girmeniz gerekir.
+
+### Adım adım (tarayıcıdan)
+
+1. https://github.com/BrandCoor/agency-cortex adresini açın.
+2. Üst menüden **Settings** (Ayarlar) sekmesine tıklayın.
+3. Sol taraftaki listeden **Secrets and variables** başlığına tıklayın,
+   altından **Actions** seçeneğine girin.
+4. Yeşil **New repository secret** düğmesine basın.
+5. **Name** kutusuna tam olarak şunu yazın: `ILK_YONETICI_EMAIL`
+   **Secret** kutusuna giriş yapmak istediğiniz e-posta adresinizi yazın.
+   **Add secret** ile kaydedin.
+6. Aynı işlemi tekrarlayın:
+   **Name**: `ILK_YONETICI_SIFRE`
+   **Secret**: kendi seçeceğiniz şifre — **en az 12 karakter.**
+7. (İsteğe bağlı) Aynı şekilde `ILK_YONETICI_AD` ekleyip adınızı yazın.
+   Yazmazsanız "Ajans Yoneticisi" görünür.
+
+**Bu şifreyi bana sohbette yazmayın.** GitHub'ın bu kutusu şifreli saklar
+ve kurulum kayıtlarında yıldızlı görünür; sohbet geçmişi öyle değildir.
+
+### Sonra ne oluyor?
+
+Bir sonraki kurulumda "İlk yönetici hesabı" adımı çalışır ve hesabınızı
+açar. Sistemde **zaten bir kullanıcı varsa hiçbir şey yapmaz** — yani bu
+adım her kurulumda güvenle tekrar çalışır, mevcut şifrenizi ezmez.
+
+### İlk girişten sonra
+
+1. https://agencycortex.tech/panel adresinden girin.
+2. Üstteki **"Şifre değiştir"** bağlantısından şifrenizi değiştirin.
+3. Bana haber verin: GitHub'daki `ILK_YONETICI_SIFRE` kaydını sileceğim.
+   (Şifre orada kaldığı sürece GitHub'a erişen biri onu kullanabilir.)
+
+### Şifrenizi unutursanız
+
+Sunucudan sıfırlanabilir. Bana söyleyin; `sifre-degistir` komutuyla
+sıfırlıyorum. Yeni şifreyi yine GitHub Secrets üzerinden alırım,
+sohbetten değil.
+
+---
+
 ## 2. Servisler
 
 | Servis | Görevi | Dışarı açık mı? |

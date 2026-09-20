@@ -12,7 +12,7 @@ RUN apt-get update \
  && rm -rf /var/lib/apt/lists/*
 
 # DIKKAT: `app` klasoru pip install'den ONCE kopyalanmalidir.
-# pyproject.toml "packages = [app]" diyor; klasor yoksa kurulum
+# pyproject.toml paketleri "app*" kalibiyla ariyor; klasor yoksa kurulum
 # "package directory 'app' does not exist" hatasi verir.
 COPY pyproject.toml ./
 COPY app ./app

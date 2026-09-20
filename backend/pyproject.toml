@@ -35,10 +35,16 @@ dev = [
 requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
-# Paket kesfi acikca tanimlanir; aksi halde setuptools tests/ ve alembic/
+# Paket kesfi acikca sinirlanir; aksi halde setuptools tests/ ve alembic/
 # klasorlerini de paket sanip hata verir.
-[tool.setuptools]
-packages = ["app"]
+# "app*" kalibi alt paketleri de (app.api, app.panel, app.cli ...) kapsar;
+# yalnizca "app" yazilsaydi alt paketler kurulan pakete girmezdi.
+[tool.setuptools.packages.find]
+include = ["app*"]
+
+# Jinja sablonlari Python dosyasi degildir; acikca eklenmezse pakete girmez.
+[tool.setuptools.package-data]
+"app.panel" = ["templates/*.html"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

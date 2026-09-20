@@ -9,6 +9,7 @@ Uye degilse 404 doner (403 degil - 403, o musterinin varligini ele verirdi).
 
 from __future__ import annotations
 
+import re
 import uuid
 from pathlib import Path
 from typing import Annotated
@@ -17,9 +18,11 @@ from fastapi import APIRouter, Form, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 
 from app.api.deps import DbSession
-from app.core.security import create_token, verify_password
+from app.cli.hesap import MIN_SIFRE_UZUNLUGU
+from app.core.security import create_token, hash_password, verify_password
 from app.models.content import ContentScript
 from app.models.enums import ContentStatus, WorkspaceRole
 from app.models.identity import User, Workspace, WorkspaceMember
@@ -125,14 +128,73 @@ def logout():
     return yanit
 
 
-# --- Musteri listesi ---------------------------------------------------------
+# --- Sifre degistirme --------------------------------------------------------
 
-@router.get("", response_class=HTMLResponse)
-def workspaces_page(request: Request, db: DbSession):
+def _sifre_sayfasi(request, user, *, error=None, ok=None, kod=200):
+    return templates.TemplateResponse(
+        request, "password.html",
+        {"user": user, "error": error, "ok": ok, "min_uzunluk": MIN_SIFRE_UZUNLUGU},
+        status_code=kod,
+    )
+
+
+@router.get("/sifre", response_class=HTMLResponse)
+def password_page(request: Request, db: DbSession):
+    user = current_user_from_cookie(request, db)
+    if user is None:
+        return _giris_yonlendir()
+    return _sifre_sayfasi(request, user)
+
+
+@router.post("/sifre")
+def password_submit(
+    request: Request,
+    db: DbSession,
+    mevcut: Annotated[str, Form()],
+    yeni: Annotated[str, Form()],
+    yeni_tekrar: Annotated[str, Form()],
+):
     user = current_user_from_cookie(request, db)
     if user is None:
         return _giris_yonlendir()
 
+    # Cerez calinmis olsa bile mevcut sifre bilinmeden degistirilemez.
+    if not verify_password(mevcut, user.password_hash):
+        return _sifre_sayfasi(
+            request, user, error="Mevcut şifre hatalı.",
+            kod=status.HTTP_401_UNAUTHORIZED,
+        )
+    if yeni != yeni_tekrar:
+        return _sifre_sayfasi(
+            request, user, error="Yeni şifreler birbirini tutmuyor.",
+            kod=status.HTTP_400_BAD_REQUEST,
+        )
+    if len(yeni) < MIN_SIFRE_UZUNLUGU:
+        return _sifre_sayfasi(
+            request, user,
+            error=f"Yeni şifre en az {MIN_SIFRE_UZUNLUGU} karakter olmalı.",
+            kod=status.HTTP_400_BAD_REQUEST,
+        )
+    if yeni == mevcut:
+        return _sifre_sayfasi(
+            request, user, error="Yeni şifre eskisiyle aynı olamaz.",
+            kod=status.HTTP_400_BAD_REQUEST,
+        )
+
+    user.password_hash = hash_password(yeni)
+    db.commit()
+
+    # Yeni bir oturum anahtari verilir; eski anahtarin omru kisalmaz ama
+    # kullanici en azindan temiz bir oturumla devam eder.
+    yanit = _sifre_sayfasi(request, user, ok="Şifreniz değiştirildi.")
+    set_session_cookie(yanit, create_token(user.id, "access"))
+    return yanit
+
+
+# --- Musteri listesi ---------------------------------------------------------
+
+def _musteri_listesi(request, db, user, *, error=None, kod=200):
+    """Musteri listesi sayfasini cizer. Liste her zaman kullaniciya gore filtrelidir."""
     satirlar = db.execute(
         select(Workspace, WorkspaceMember.role)
         .join(WorkspaceMember, WorkspaceMember.workspace_id == Workspace.id)
@@ -144,11 +206,70 @@ def workspaces_page(request: Request, db: DbSession):
         request, "workspaces.html",
         {
             "user": user,
+            "error": error,
             "memberships": [
                 {"workspace": ws, "role_label": ROLE_LABELS.get(rol.value, rol.value)}
                 for ws, rol in satirlar
             ],
         },
+        status_code=kod,
+    )
+
+
+@router.get("", response_class=HTMLResponse)
+def workspaces_page(request: Request, db: DbSession):
+    user = current_user_from_cookie(request, db)
+    if user is None:
+        return _giris_yonlendir()
+    return _musteri_listesi(request, db, user)
+
+
+# --- Yeni musteri ------------------------------------------------------------
+
+# Turkce harfler URL'de sorun cikarir; once ASCII karsiliklarina cevrilir.
+TR_HARFLER = str.maketrans({
+    "ç": "c", "Ç": "c", "ğ": "g", "Ğ": "g", "ı": "i", "İ": "i",
+    "ö": "o", "Ö": "o", "ş": "s", "Ş": "s", "ü": "u", "Ü": "u",
+})
+
+
+def kisa_ad_uret(ad: str) -> str:
+    """Musteri adindan URL'de kullanilabilir kisa ad (slug) uretir."""
+    temiz = ad.translate(TR_HARFLER).lower()
+    temiz = re.sub(r"[^a-z0-9]+", "-", temiz).strip("-")
+    # Ayni ada sahip iki musteri olabilir; sonuna kisa bir ek konur.
+    return f"{temiz[:80] or 'musteri'}-{uuid.uuid4().hex[:6]}"
+
+
+@router.post("/musteri-ekle")
+def workspace_create(request: Request, db: DbSession, ad: Annotated[str, Form()]):
+    user = current_user_from_cookie(request, db)
+    if user is None:
+        return _giris_yonlendir()
+
+    ad = ad.strip()
+    if len(ad) < 2:
+        return _musteri_listesi(request, db, user, error="Müşteri adı en az 2 karakter olmalı.")
+
+    workspace = Workspace(name=ad, slug=kisa_ad_uret(ad))
+    db.add(workspace)
+    db.flush()
+    # Musteriyi ekleyen kisi otomatik olarak sahibi (owner) olur.
+    db.add(
+        WorkspaceMember(
+            workspace_id=workspace.id, user_id=user.id, role=WorkspaceRole.OWNER
+        )
+    )
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        return _musteri_listesi(
+            request, db, user, error="Müşteri eklenemedi, lütfen tekrar deneyin."
+        )
+
+    return RedirectResponse(
+        f"/panel/musteri/{workspace.id}", status_code=status.HTTP_303_SEE_OTHER
     )
 
 

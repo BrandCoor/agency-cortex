@@ -293,6 +293,55 @@ jobs:
           exit 1
           UZAK
 
+      # Sisteme disaridan acik bir "kayit ol" sayfasi YOKTUR. Ilk hesap
+      # yalnizca burada, sunucunun icinde acilir.
+      #
+      # Sifre nereden geliyor? GitHub deposunun Secrets bolumunden.
+      # Sifre bu adimda komut satirina yazilmaz (sunucudaki `ps` ciktisinda
+      # gorunmez), dosyaya yazilmaz ve ekrana basilmaz. Yalnizca standart
+      # girdi (stdin) uzerinden komuta aktarilir.
+      #
+      # Sistemde zaten kullanici varsa komut hicbir sey yapmaz; bu adim her
+      # kurulumda guvenle tekrar calistirilabilir.
+      - name: Ilk yonetici hesabi
+        env:
+          ILK_EMAIL: ${{ secrets.ILK_YONETICI_EMAIL }}
+          ILK_AD: ${{ secrets.ILK_YONETICI_AD }}
+          ILK_SIFRE: ${{ secrets.ILK_YONETICI_SIFRE }}
+        run: |
+          if [ -z "$ILK_EMAIL" ] || [ -z "$ILK_SIFRE" ]; then
+            echo "ATLANDI: ILK_YONETICI_EMAIL veya ILK_YONETICI_SIFRE tanimli degil."
+            echo "Panele giris yapabilmek icin bu degerleri GitHub deposunda"
+            echo "Settings > Secrets and variables > Actions altina ekleyin,"
+            echo "sonra bu is akisini tekrar calistirin."
+            exit 0
+          fi
+
+          # 1) Uzak betik sunucuya yazilir. Icinde hicbir gizli bilgi yoktur.
+          #    python -c ile verilen kod da gizli bilgi icermez; gizli
+          #    degerler yalnizca stdin'den okunur.
+          ssh -i ~/.ssh/id_deploy -o BatchMode=yes "$VPS_USER@$VPS_HOST" \
+            "cat > /tmp/ilk_yonetici.sh" <<'UZAK'
+          set -eu
+          cd /opt/agency-cortex
+          docker compose exec -T api python -c '
+          import os, sys
+          os.environ["ILK_YONETICI_EMAIL"] = sys.stdin.readline().rstrip("\n")
+          os.environ["ILK_YONETICI_AD"] = sys.stdin.readline().rstrip("\n")
+          os.environ["ILK_YONETICI_SIFRE"] = sys.stdin.readline().rstrip("\n")
+          from app.cli.hesap import main
+          raise SystemExit(main(["ilk-yonetici"]))
+          '
+          UZAK
+
+          # 2) Gizli degerler yalnizca stdin uzerinden gonderilir.
+          {
+            printf '%s\n' "$ILK_EMAIL"
+            printf '%s\n' "${ILK_AD:-Ajans Yoneticisi}"
+            printf '%s\n' "$ILK_SIFRE"
+          } | ssh -i ~/.ssh/id_deploy -o BatchMode=yes "$VPS_USER@$VPS_HOST" \
+                'bash /tmp/ilk_yonetici.sh; cikis=$?; rm -f /tmp/ilk_yonetici.sh; exit $cikis'
+
       - name: Disaridan HTTPS kontrolu
         run: |
           echo "HTTPS sertifikasinin olusmasi birkac dakika surebilir."

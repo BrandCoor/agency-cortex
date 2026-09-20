@@ -4,9 +4,20 @@
 <h1>Müşteriler</h1>
 <p class="sub">Yalnızca yetkili olduğunuz müşteriler görünür.</p>
 
+{% if error %}<div class="err">{{ error }}</div>{% endif %}
+
 {% if not memberships %}
-  <div class="card empty">Henüz bir müşteriye atanmamışsınız.</div>
+  <div class="card empty">
+    Henüz bir müşteriniz yok. Aşağıdan ilk müşterinizi ekleyerek başlayabilirsiniz.
+  </div>
 {% endif %}
+
+<form method="post" action="/panel/musteri-ekle" class="card">
+  <label for="ad">Yeni müşteri adı</label>
+  <input id="ad" name="ad" type="text" required minlength="2" maxlength="200"
+         placeholder="Örn: Gaziantepli Taha Usta">
+  <div style="margin-top:12px"><button type="submit">Müşteri ekle</button></div>
+</form>
 
 {% for m in memberships %}
 <div class="card row">

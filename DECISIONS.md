@@ -335,3 +335,39 @@ Format: Karar / Seçenekler / Neden / Risk / Geri alma
   panel de aynı gerçeği gösteriyor.
 - **Risk:** Yok.
 - **Geri alma:** Yayın özelliği açıldığında seçenek listeye eklenir.
+
+---
+
+## K-020 — Sisteme açık "kayıt ol" sayfası konulmadı
+
+- **Karar:** Hesap açmanın tek yolu sunucu üzerinde çalışan bir komut
+  (`python -m app.cli.hesap ilk-yonetici`). Panelde veya API'de dışarıya
+  açık bir kayıt ucu yok.
+- **Seçenekler:** (a) sunucudaki komut, (b) panelde "kayıt ol" sayfası,
+  (c) davet bağlantısı sistemi.
+- **Neden (a):** (b) seçilseydi adresi bilen herkes hesap açabilirdi.
+  (c) daha iyi bir son çözüm ama e-posta gönderimi gerektiriyor; henüz
+  e-posta altyapısı yok. Gerçekte olmayan bir şeyi varmış gibi göstermemek
+  için en basit ve en kapalı yol seçildi.
+- **Risk:** Düşük. Yeni kullanıcı eklemek için sunucuya erişim gerekir.
+- **Geri alma:** E-posta altyapısı kurulunca davet sistemi eklenebilir;
+  bu komut yerinde kalır (kurtarma yolu olarak gereklidir).
+
+---
+
+## K-021 — İlk şifre GitHub Secrets üzerinden giriliyor, sohbete yazılmıyor
+
+- **Karar:** İlk yönetici şifresi, GitHub deposunun Secrets alanına
+  kullanıcı tarafından girilir. Kurulum iş akışı bu değeri yalnızca
+  standart girdi (stdin) üzerinden sunucuya aktarır.
+- **Seçenekler:** (a) GitHub Secrets + stdin, (b) sunucuda rastgele şifre
+  üretip kuruluma yazdırmak, (c) şifreyi sohbette istemek.
+- **Neden (a):** (c) kesinlikle yasak (şifre sohbet geçmişine düşer).
+  (b) seçilseydi şifre GitHub Actions kayıtlarına düşerdi ve kayıtlar
+  silinene kadar orada kalırdı. (a)'da değer GitHub tarafından şifreli
+  saklanır, kayıtlarda maskelenir, komut satırına ve dosyaya yazılmaz.
+- **Risk:** Şifre ilk girişe kadar GitHub Secrets içinde durur. Bu yüzden
+  panele ilk girişten sonra şifre değiştirme sayfası eklendi ve secret'ın
+  silinmesi önerilir.
+- **Geri alma:** Secret silinir; şifre `sifre-degistir` komutuyla veya
+  panelden değiştirilir.

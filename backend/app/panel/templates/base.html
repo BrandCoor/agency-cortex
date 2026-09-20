@@ -46,6 +46,8 @@
           padding: 10px 12px; border-radius: 6px; margin: 10px 0; }
   .err { background: rgba(248,81,73,.12); border-left: 3px solid var(--bad);
          padding: 10px 12px; border-radius: 6px; margin: 10px 0; }
+  .ok { background: rgba(63,185,80,.12); border-left: 3px solid var(--ok);
+        padding: 10px 12px; border-radius: 6px; margin: 10px 0; }
   button, .btn { font: inherit; padding: 8px 14px; border-radius: 7px;
                  border: 1px solid var(--line); background: var(--card);
                  color: var(--text); cursor: pointer; }
@@ -72,6 +74,7 @@
   <a href="/panel">Müşteriler</a>
   <span class="spacer"></span>
   <span class="muted">{{ user.email }}</span>
+  <a href="/panel/sifre">Şifre değiştir</a>
   <form method="post" action="/panel/cikis" style="margin:0">
     <button type="submit">Çıkış</button>
   </form>

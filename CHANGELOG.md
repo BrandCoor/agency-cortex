@@ -333,3 +333,38 @@ Panel ayrıca "Yayınlandı" seçeneğini hiç göstermez.
 - **Panel uçtan uca çalıştırıldı**: giriş → müşteri → senaryo → onay akışı
 - Başka müşterinin sayfası ve var olmayan müşteri **aynı 404** yanıtını verdi
 - Çıkıştan sonra oturumun kapandığı
+
+## [0.7.1] - 2026-09-20 — Aşama 7 düzeltmesi
+
+### Düzeltildi
+- **Panel canlıda açılmıyordu.** Ters vekil (Caddy) yapılandırması yalnızca
+  `/api/*`, `/healthz`, `/readyz` ve `/version` yollarını uygulamaya
+  yönlendiriyordu; diğer tüm adresler Aşama 1'den kalma "Panel henüz
+  kurulmadı." mesajını döndürüyordu. Kurulum kontrolü yalnızca `/healthz`
+  adresine baktığı için hata fark edilmemişti.
+- Kök adres (`/`) artık panele yönlendiriyor.
+- Kurulan paket eksikti: `packages = ["app"]` alt paketleri (`app.api`,
+  `app.panel` ...) kapsamıyordu. `app*` kalıbına çevrildi, Jinja şablonları
+  paket verisi olarak eklendi. (Çalışmayı bozmuyordu çünkü uygulama kopyalanan
+  kaynak ağacından çalışıyor; yine de yanlıştı.)
+
+### Eklendi
+- Sunucuda çalışan hesap komutu: `python -m app.cli.hesap ilk-yonetici`
+  ve `sifre-degistir`. Şifre yalnızca ortam değişkeninden okunur, hiçbir
+  zaman ekrana veya loga yazılmaz.
+- Kurulum iş akışına "İlk yönetici hesabı" adımı. Şifre GitHub Secrets'tan
+  gelir ve sunucuya yalnızca standart girdi (stdin) üzerinden aktarılır.
+- Panelde şifre değiştirme sayfası (`/panel/sifre`). Mevcut şifre
+  doğrulanmadan değişiklik yapılamaz.
+- Panelde yeni müşteri ekleme formu. Ekleyen kişi otomatik olarak sahip
+  (owner) olur; Türkçe harfler URL'ye uygun kısa ada çevrilir.
+- **28 yeni test** (panel giriş/oturum/yetki/şifre + hesap komutu).
+
+### Doğrulandı
+- 270/270 test geçti (önceki 242 + 28 yeni).
+- `ruff check app tests` temiz; `alembic check` bekleyen değişiklik yok.
+- Kurulum iş akışının ilk yönetici adımındaki komut, gerçek PostgreSQL
+  üzerinde birebir çalıştırıldı: hesap açıldı, ikinci çalıştırmada
+  "ATLANDI" dedi (tekrar çalıştırmaya güvenli).
+- Kurulum kontrolü artık `/panel/giris` sayfasını dışarıdan çekiyor ve
+  giriş formunu bulamazsa kurulumu HATA ile bitiriyor.

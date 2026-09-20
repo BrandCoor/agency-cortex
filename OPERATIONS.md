@@ -21,22 +21,37 @@ Bana bildirirken **ekrandaki yazının tamamını** kopyalayıp gönderin.
 
 ---
 
-## 2. Müşteri ekleme
+## 2. Panele giriş
+
+**https://agencycortex.tech/panel**
+
+E-posta ve şifrenizi girin. Şifrenizi ilk girişten sonra mutlaka değiştirin:
+üstteki menüden **"Şifre değiştir"**. Şifreyi değiştirdikten sonra bana
+haber verin; GitHub'daki geçici şifre kaydını sildireceğim.
+
+Şifrenizi unuttuysanız bana söyleyin — sunucudan sıfırlayabiliyorum.
+Şifrenizi bana **sohbette yazmayın.**
+
+---
+
+## 3. Müşteri ekleme
 
 Her müşteri ayrı bir **çalışma alanıdır.** Bir müşterinin verisi diğerine
 asla görünmez.
 
-Sıralama:
-1. Çalışma alanı oluşturulur (müşteri adı)
-2. Ekibinizden kişiler yetkiyle eklenir
-3. Müşterinin Instagram hesabı bağlanır
-4. Marka bilgileri girilir (dil, hedef kitle, yasaklı ifadeler)
+Panelde **Müşteriler** sayfasındaki forma müşteri adını yazıp
+**"Müşteri ekle"** düğmesine basın. Eklediğiniz müşterinin otomatik olarak
+sahibi (en yetkili kişi) olursunuz.
 
-Panel Aşama 7'de gelecek. O zamana kadar bu işlemleri ben yaparım.
+Sonraki adımlar:
+1. ~~Çalışma alanı oluşturulur~~ ✅ panelden yapılabiliyor
+2. Ekibinizden kişiler yetkiyle eklenir — **henüz panelde yok, ben yapıyorum**
+3. Müşterinin Instagram hesabı bağlanır — **Meta onayı bekliyor (Aşama 6)**
+4. Marka bilgileri girilir — **henüz panelde yok, ben yapıyorum**
 
 ---
 
-## 3. Yetkiler
+## 4. Yetkiler
 
 | Rol | Ne yapabilir |
 |---|---|
@@ -53,7 +68,7 @@ hiçbir şeyi değiştiremezler.
 
 ---
 
-## 4. Instagram hesabı bağlama
+## 5. Instagram hesabı bağlama
 
 **Ön koşul:** Hesap **profesyonel** (Business/Creator) olmalı. Kişisel
 hesaplarda içgörü verisi yoktur.
@@ -65,7 +80,7 @@ yazıyor mu? `false` ise içgörü verisi gelmeyecektir.
 
 ---
 
-## 5. Sık sorulan sorunlar
+## 6. Sık sorulan sorunlar
 
 ### "Rapor boş geldi / veri yok"
 Sırayla kontrol edin:
@@ -90,7 +105,7 @@ hangisi olduğunu söylemez — ikisinde de aynı mesajı verir.
 
 ---
 
-## 6. Yapay zekâ maliyetleri
+## 7. Yapay zekâ maliyetleri
 
 Her AI çağrısı kaydedilir: hangi model, kaç kelime, tahmini maliyet.
 
@@ -101,7 +116,7 @@ Bütçe değişikliği isterseniz bana söyleyin.
 
 ---
 
-## 7. Güvenlik kuralları
+## 8. Güvenlik kuralları
 
 **Asla yapmayın:**
 - Şifre, API anahtarı veya token'ı sohbete yazmak
@@ -116,7 +131,7 @@ Bütçe değişikliği isterseniz bana söyleyin.
 
 ---
 
-## 8. Bir sorun olduğunda bana ne göndermeliyim?
+## 9. Bir sorun olduğunda bana ne göndermeliyim?
 
 1. **Ne yapmaya çalıştınız?** ("Müşteri X'in raporunu açtım")
 2. **Ne oldu?** ("Sayfa boş geldi")

@@ -9,8 +9,8 @@ Son güncelleme: 20 Eylül 2026
 | | |
 |---|---|
 | Depo | https://github.com/BrandCoor/agency-cortex (özel) |
-| Kod | ~6.100 satır Python |
-| Test | 242, tamamı geçiyor (CI'da da) |
+| Kod | ~6.500 satır Python |
+| Test | 270, tamamı geçiyor (CI'da da) |
 | Docker imajı | ✅ Derlendi ve çalıştığı doğrulandı |
 | Sunucu | Hostinger KVM 4 (`1990274`) — ✅ **ÇALIŞIYOR** |
 | Canlı adres | https://agencycortex.tech ✅ HTTPS aktif |
@@ -119,3 +119,31 @@ Aşama 5-9. Sıradaki iş.
 3. **Meta dokümanlarına erişim engelli.** 4 sabit boş bırakıldı; boşken sistem
    canlı moda geçmiyor.
 4. **Panel hazır** — `https://agencycortex.tech/panel` adresinden girilir.
+   20 Eylül'de panelin canlıda açılmadığı fark edildi: ters vekil (Caddy)
+   `/panel` yolunu uygulamaya yönlendirmiyordu. Düzeltildi; kurulum kontrolü
+   artık giriş sayfasını gerçekten çekiyor.
+5. **Bu geliştirme ortamı hiçbir dış adrese çıkamıyor.** `developers.facebook.com`,
+   `graph.facebook.com`, `manus.im`, `open.manus.ai` ve hatta kendi domainimiz
+   `agencycortex.tech` dahil hepsi ağ geçidinde HTTP 403 ile engelleniyor
+   (20 Eylül 2026'da tek tek denendi). Dışarıdan doğrulama yalnızca GitHub
+   Actions üzerinden yapılabiliyor.
+
+---
+
+## Dış bağlantılar — doğrulama durumu
+
+| Adres | Amaç | Durum | Not |
+|---|---|---|---|
+| `developers.facebook.com` | Meta resmî dokümanı okumak | **UNVERIFIED** | Bu ortamdan erişilemiyor; 4 Meta sabiti hâlâ boş |
+| `graph.facebook.com` | Meta Graph API çağrıları | **UNVERIFIED** | Sürüm ve uç adresleri doğrulanmadı |
+| `open.manus.ai` | Manus API dokümanı (aday) | **NEEDS_URL_CONFIRMATION** | Kullanıcının belgesinde geçiyor; erişilemedi |
+| `manus.im/docs/integrations/manus-api` | Manus API dokümanı (aday) | **NEEDS_URL_CONFIRMATION** | Kullanıcının belgesinde geçiyor; erişilemedi |
+| `docs.manus.ai` | Manus dokümanı | **UNVERIFIED** | Resmî olduğu teyit edilmedi; kodda kullanılmıyor |
+| `api.manus.ai` | Manus API host'u | **UNVERIFIED** | Resmî olduğu teyit edilmedi; **kodda kullanılmıyor** |
+| `agencycortex.tech` | Kendi uygulamamız | **VERIFIED** | HTTPS aktif; GitHub Actions'tan doğrulanıyor |
+| `ghcr.io` | Docker imaj kayıt defteri | **VERIFIED** | Her kurulumda kullanılıyor |
+| `api.anthropic.com` | Claude API | **VERIFIED** | SDK parametreleri doğrulandı; anahtar henüz alınmadı |
+
+Hiçbir Manus adresi koda yazılmadı. Manus sağlayıcısı şu an yalnızca
+"henüz bağlanmadı" diyen bir taslaktır (`ManusProviderStub`) — sahte bir
+entegrasyon değildir.
