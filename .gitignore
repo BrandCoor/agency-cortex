@@ -1,0 +1,33 @@
+# Gizli bilgiler - ASLA git'e girmez
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Node
+node_modules/
+dist/
+
+# Veri ve loglar
+data/
+logs/
+*.log
+caddy_data/
+caddy_config/
+
+# Yedekler
+backups/
+*.dump
+*.bak

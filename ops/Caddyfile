@@ -1,0 +1,40 @@
+# Caddy: HTTPS sertifikasini otomatik alir ve yeniler.
+# Elle sertifika yonetimi gerekmez.
+
+{
+	email {$ACME_EMAIL}
+}
+
+{$PUBLIC_DOMAIN} {
+	encode gzip
+
+	# Guvenlik basliklari
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+
+	handle /api/* {
+		reverse_proxy api:8000
+	}
+
+	handle /healthz {
+		reverse_proxy api:8000
+	}
+
+	handle /readyz {
+		reverse_proxy api:8000
+	}
+
+	handle /version {
+		reverse_proxy api:8000
+	}
+
+	# Panel Asama 2'de eklenecek; su an bilgilendirme doner.
+	handle {
+		respond "Agency Cortex calisiyor. Panel henuz kurulmadi." 200
+	}
+}
