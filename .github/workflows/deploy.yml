@@ -1,0 +1,199 @@
+name: Sunucuya Kur
+
+# Bu is akisi VPS'e SSH ile baglanip sistemi kurar/gunceller.
+#
+# GIZLI BILGILER NEREDE?
+# SECRET_KEY, ENCRYPTION_KEY ve veritabani sifresi SUNUCUDA URETILIR.
+# Hicbiri GitHub'a, sohbete veya baska bir yere kopyalanmaz.
+# Bir kez uretildikten sonra korunur; sonraki kurulumlarda degismez.
+
+on:
+  workflow_dispatch:
+    inputs:
+      onay:
+        description: 'Uretim sunucusuna kurulum yapilacak. Onaylamak icin KUR yazin.'
+        required: true
+        default: ''
+
+env:
+  VPS_HOST: 187.124.22.8
+  VPS_USER: root
+  PROJE_DIZINI: /opt/agency-cortex
+  PUBLIC_DOMAIN: agencycortex.tech
+
+jobs:
+  deploy:
+    name: Kurulum
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+
+    steps:
+      - name: Onay kontrolu
+        run: |
+          if [ "${{ github.event.inputs.onay }}" != "KUR" ]; then
+            echo "Onay verilmedi. Kurulum durduruldu."
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+
+      - name: Imaj adini hazirla
+        id: img
+        run: |
+          ad="$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')-api"
+          echo "ref=ghcr.io/${ad}" >> "$GITHUB_OUTPUT"
+
+      - name: SSH anahtarini kur
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          # Sunucunun kimligi ilk baglantida kaydedilir.
+          ssh-keyscan -H "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Sunucuyu hazirla
+        run: |
+          ssh -i ~/.ssh/id_deploy "$VPS_USER@$VPS_HOST" bash -s <<'UZAK'
+          set -eu
+          DIZIN=/opt/agency-cortex
+          mkdir -p "$DIZIN"
+
+          # Docker kurulu degilse kur
+          if ! command -v docker >/dev/null 2>&1; then
+            echo "Docker kuruluyor..."
+            curl -fsSL https://get.docker.com | sh
+          fi
+          docker --version
+          docker compose version
+          UZAK
+
+      - name: Dosyalari gonder
+        run: |
+          scp -i ~/.ssh/id_deploy \
+            ops/docker-compose.prod.yml \
+            "$VPS_USER@$VPS_HOST:$PROJE_DIZINI/docker-compose.yml"
+          scp -i ~/.ssh/id_deploy \
+            ops/Caddyfile \
+            "$VPS_USER@$VPS_HOST:$PROJE_DIZINI/Caddyfile"
+
+      - name: Ayar dosyasini hazirla (gizli degerler SUNUCUDA uretilir)
+        run: |
+          ssh -i ~/.ssh/id_deploy "$VPS_USER@$VPS_HOST" \
+            "DIZIN='$PROJE_DIZINI' IMAJ='${{ steps.img.outputs.ref }}:latest' \
+             DOMAIN='$PUBLIC_DOMAIN' bash -s" <<'UZAK'
+          set -eu
+          cd "$DIZIN"
+
+          if [ ! -f .env ]; then
+            echo "Ilk kurulum: gizli degerler sunucuda uretiliyor..."
+            cat > .env <<EOF
+          APP_ENV=production
+          APP_NAME=Agency Cortex
+          LOG_LEVEL=INFO
+          TZ=Europe/Istanbul
+
+          SECRET_KEY=$(openssl rand -base64 48 | tr -d '\n')
+          ENCRYPTION_KEY=$(openssl rand -base64 48 | tr -d '\n')
+          ACCESS_TOKEN_TTL_MINUTES=30
+          REFRESH_TOKEN_TTL_DAYS=14
+
+          POSTGRES_HOST=postgres
+          POSTGRES_PORT=5432
+          POSTGRES_DB=agency_cortex
+          POSTGRES_USER=agency
+          POSTGRES_PASSWORD=$(openssl rand -base64 32 | tr -d '\n=/+' | head -c 40)
+
+          REDIS_HOST=redis
+          REDIS_PORT=6379
+          REDIS_DB=0
+
+          PUBLIC_DOMAIN=${DOMAIN}
+          ACME_EMAIL=kocyap41@gmail.com
+          CORS_ORIGINS=https://${DOMAIN}
+
+          AI_PROVIDER_MODE=fake
+          PLATFORM_MODE=fake
+          AI_MONTHLY_BUDGET_USD=50
+
+          FEATURE_PUBLISHING_ENABLED=false
+          FEATURE_COMMENT_REPLY_ENABLED=false
+          FEATURE_DM_ENABLED=false
+
+          META_LOGIN_MODE=instagram_login
+          META_REDIRECT_URI=https://${DOMAIN}/api/v1/oauth/meta/callback
+          META_WEBHOOK_CALLBACK_URL=https://${DOMAIN}/api/v1/webhooks/meta
+          META_WEBHOOK_VERIFY_TOKEN=$(openssl rand -hex 24)
+          EOF
+            chmod 600 .env
+            echo "Ayar dosyasi olusturuldu ve korumaya alindi."
+          else
+            echo "Mevcut ayar dosyasi korunuyor (gizli degerler degistirilmedi)."
+          fi
+
+          # Imaj adresi her kurulumda guncellenir.
+          grep -v '^APP_IMAGE=' .env > .env.tmp 2>/dev/null || true
+          mv .env.tmp .env 2>/dev/null || true
+          echo "APP_IMAGE=${IMAJ}" >> .env
+          chmod 600 .env
+          UZAK
+
+      - name: Imaji indir ve baslat
+        run: |
+          ssh -i ~/.ssh/id_deploy "$VPS_USER@$VPS_HOST" \
+            "DIZIN='$PROJE_DIZINI' KULLANICI='${{ github.actor }}' \
+             JETON='${{ secrets.GITHUB_TOKEN }}' bash -s" <<'UZAK'
+          set -eu
+          cd "$DIZIN"
+
+          # Ozel kayit defterine giris. Jeton kisa omurludur ve is bitince gecersizlesir.
+          echo "$JETON" | docker login ghcr.io -u "$KULLANICI" --password-stdin
+
+          docker compose pull
+          docker compose up -d --remove-orphans
+
+          # Giris bilgisi sunucuda birakilmaz.
+          docker logout ghcr.io
+
+          echo "--- servis durumu ---"
+          docker compose ps
+          UZAK
+
+      - name: Saglik kontrolu
+        run: |
+          ssh -i ~/.ssh/id_deploy "$VPS_USER@$VPS_HOST" bash -s <<'UZAK'
+          set -eu
+          cd /opt/agency-cortex
+          for i in $(seq 1 40); do
+            if docker compose exec -T api curl -fsS http://localhost:8000/readyz >/dev/null 2>&1; then
+              echo "BASARILI: sistem hazir"
+              docker compose exec -T api curl -sS http://localhost:8000/readyz
+              echo
+              docker compose exec -T api curl -sS http://localhost:8000/version
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "HATA: sistem 200 saniyede hazir olmadi"
+          echo "--- son loglar ---"
+          docker compose logs --tail=60
+          exit 1
+          UZAK
+
+      - name: Disaridan HTTPS kontrolu
+        run: |
+          echo "HTTPS sertifikasinin olusmasi birkac dakika surebilir."
+          for i in $(seq 1 20); do
+            kod=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 15 \
+              "https://$PUBLIC_DOMAIN/healthz" 2>/dev/null || echo "000")
+            echo "deneme $i: HTTP $kod"
+            if [ "$kod" = "200" ]; then
+              echo "BASARILI: https://$PUBLIC_DOMAIN/healthz calisiyor"
+              curl -sS "https://$PUBLIC_DOMAIN/version"
+              exit 0
+            fi
+            sleep 15
+          done
+          echo "UYARI: HTTPS henuz yanit vermiyor. Sertifika hazirlaniyor olabilir."
+          echo "Sistem sunucu icinde saglikli; yalnizca disaridan erisim bekleniyor."
