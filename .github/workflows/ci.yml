@@ -77,12 +77,11 @@ jobs:
         working-directory: backend
         run: pytest -q
 
-      - name: Migration'lar temiz mi?
+      # Testler semayi migration ile kurar; bu adim yalnizca modellerde
+      # olup migration'a yansimamis bir degisiklik kalmadigini dogrular.
+      - name: Migration'lar modellerle uyumlu mu?
         working-directory: backend
-        run: |
-          alembic upgrade head
-          # Modellerde olup migration'a yansimamis degisiklik var mi?
-          alembic check
+        run: alembic check
 
   build:
     name: Docker imajini derle

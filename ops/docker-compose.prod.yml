@@ -1,0 +1,145 @@
+# URETIM - VPS uzerinde calisan surum
+#
+# Gelistirme dosyasindan farki: kaynak koddan DERLEME YAPMAZ.
+# Imaj, GitHub Actions tarafindan derlenip kayit defterine gonderilir;
+# sunucu yalnizca hazir imaji indirir.
+#
+# NEDEN: Uretim sunucusunda derleme yapmak yavastir, kaynak tuketir ve
+# derleme hatasi sistemi ayakta tutan sunucuyu mesgul eder. Ayrica test
+# edilen imajin birebir aynisinin calistigi garanti edilir.
+
+services:
+  postgres:
+    image: postgres:16.10-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      TZ: ${TZ:-Europe/Istanbul}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    # Disariya ACILMAZ. Veritabanina yalnizca ic agdan erisilir.
+    expose:
+      - "5432"
+    logging: &log
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  redis:
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--save", "60", "1"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    expose:
+      - "6379"
+    logging: *log
+
+  # Veritabani semasini gunceller, sonra kapanir.
+  # API bu is BASARIYLA bitmeden baslamaz.
+  migrate:
+    image: ${APP_IMAGE}
+    restart: "no"
+    env_file: .env
+    command: ["alembic", "upgrade", "head"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    logging: *log
+
+  api:
+    image: ${APP_IMAGE}
+    restart: unless-stopped
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/healthz"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+    expose:
+      - "8000"
+    logging: *log
+
+  worker:
+    image: ${APP_IMAGE}
+    restart: unless-stopped
+    env_file: .env
+    command:
+      - celery
+      - -A
+      - app.workers.celery_app
+      - worker
+      - --loglevel=INFO
+      - --concurrency=2
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    logging: *log
+
+  beat:
+    image: ${APP_IMAGE}
+    restart: unless-stopped
+    env_file: .env
+    command:
+      - celery
+      - -A
+      - app.workers.celery_app
+      - beat
+      - --loglevel=INFO
+    depends_on:
+      redis:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    logging: *log
+
+  caddy:
+    image: caddy:2.10-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      PUBLIC_DOMAIN: ${PUBLIC_DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # HTTPS sertifikalari burada saklanir. Bu birim SILINIRSE sertifika
+      # yeniden alinir ve Let's Encrypt gunluk sinirina takilabilirsiniz.
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - api
+    logging: *log
+
+volumes:
+  postgres_data:
+  redis_data:
+  caddy_data:
+  caddy_config:

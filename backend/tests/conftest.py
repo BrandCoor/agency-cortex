@@ -12,6 +12,7 @@ from __future__ import annotations
 import os
 import uuid
 from collections.abc import Iterator
+from pathlib import Path
 
 # GUVENLIK: Test veritabani ZORLA ayarlanir, `setdefault` ile DEGIL.
 #
@@ -39,12 +40,12 @@ if not os.environ["POSTGRES_DB"].endswith("_test"):
 
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
-from sqlalchemy import create_engine  # noqa: E402
+from sqlalchemy import create_engine, text  # noqa: E402
 from sqlalchemy.orm import Session, sessionmaker  # noqa: E402
 
 import app.models  # noqa: F401,E402  - tablolarin kayit olmasi icin
 from app.core.config import get_settings  # noqa: E402
-from app.core.db import Base, get_db  # noqa: E402
+from app.core.db import get_db  # noqa: E402
 from app.core.security import create_token, hash_password  # noqa: E402
 from app.main import app as fastapi_app  # noqa: E402
 from app.models.enums import WorkspaceRole  # noqa: E402
@@ -55,7 +56,29 @@ _engine = create_engine(get_settings().database_url, future=True)
 
 @pytest.fixture(scope="session", autouse=True)
 def _create_schema() -> Iterator[None]:
-    Base.metadata.create_all(_engine)
+    """Test semasini MIGRATION ile kurar.
+
+    Neden `Base.metadata.create_all` degil:
+    Uretimde sema migration'larla kurulur. Testler semayi baska bir yolla
+    kurarsa, bozuk bir migration hicbir testte yakalanmaz ve hata ilk kez
+    URETIMDE ortaya cikar. Migration'lari testlerin kendisi calistirinca,
+    her test kosusunda migration zinciri de dogrulanmis olur.
+    """
+    from alembic.config import Config
+
+    from alembic import command
+
+    # Onceki kosudan kalan sema varsa tamamen temizlenir.
+    with _engine.begin() as conn:
+        conn.execute(text("DROP SCHEMA public CASCADE"))
+        conn.execute(text("CREATE SCHEMA public"))
+
+    alembic_cfg = Config(str(Path(__file__).resolve().parent.parent / "alembic.ini"))
+    alembic_cfg.set_main_option(
+        "script_location",
+        str(Path(__file__).resolve().parent.parent / "alembic"),
+    )
+    command.upgrade(alembic_cfg, "head")
     yield
 
 
