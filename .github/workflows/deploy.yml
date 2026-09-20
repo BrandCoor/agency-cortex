@@ -45,17 +45,56 @@ jobs:
           ad="$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')-api"
           echo "ref=ghcr.io/${ad}" >> "$GITHUB_OUTPUT"
 
-      - name: SSH anahtarini kur
+      - name: SSH anahtarini kur ve dogrula
         run: |
+          set -eu
           mkdir -p ~/.ssh
-          echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_deploy
+
+          # 1) Kasada anahtar var mi?
+          if [ -z "${{ secrets.VPS_SSH_KEY }}" ]; then
+            echo "HATA: VPS_SSH_KEY adli gizli deger bulunamadi veya bos."
+            echo "GitHub > Settings > Secrets and variables > Actions altinda"
+            echo "VPS_SSH_KEY adiyla tanimlanmis olmalidir."
+            exit 1
+          fi
+
+          printf '%s\n' "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_deploy
           chmod 600 ~/.ssh/id_deploy
-          # Sunucunun kimligi ilk baglantida kaydedilir.
-          ssh-keyscan -H "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+
+          # 2) Anahtar gecerli bicimde mi?
+          if ! ssh-keygen -y -f ~/.ssh/id_deploy > ~/.ssh/id_deploy.pub 2>/dev/null; then
+            echo "HATA: VPS_SSH_KEY gecerli bir SSH gizli anahtari degil."
+            echo "-----BEGIN satirindan -----END satirina kadar TAMAMI"
+            echo "yapistirilmis olmali."
+            exit 1
+          fi
+
+          # 3) Bu gizli anahtar hangi acik anahtara denk geliyor?
+          #    Sunucuya tanitilan anahtarla ayni mi, karsilastirilabilsin diye
+          #    yazdiriliyor. Acik anahtar gizli bilgi DEGILDIR.
+          echo "Kasadaki gizli anahtarin karsiligi olan ACIK anahtar:"
+          cat ~/.ssh/id_deploy.pub
+          echo "Parmak izi:"
+          ssh-keygen -lf ~/.ssh/id_deploy.pub
+
+          ssh-keyscan -H "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+          # 4) Baglanti gercekten kuruluyor mu? (sifre denemeden)
+          echo "Sunucuya baglanti deneniyor..."
+          if ssh -i ~/.ssh/id_deploy -o BatchMode=yes -o ConnectTimeout=15 \
+               "$VPS_USER@$VPS_HOST" 'echo "BAGLANTI BASARILI: $(hostname)"'; then
+            echo "SSH erisimi calisiyor."
+          else
+            echo ""
+            echo "HATA: Sunucu bu anahtari kabul etmedi."
+            echo "Anahtar bicimi gecerli oldugu icin sorun SUNUCU tarafindadir:"
+            echo "acik anahtar henuz /root/.ssh/authorized_keys icine islenmemis."
+            exit 1
+          fi
 
       - name: Sunucuyu hazirla
         run: |
-          ssh -i ~/.ssh/id_deploy "$VPS_USER@$VPS_HOST" bash -s <<'UZAK'
+          ssh -i ~/.ssh/id_deploy -o BatchMode=yes "$VPS_USER@$VPS_HOST" bash -s <<'UZAK'
           set -eu
           DIZIN=/opt/agency-cortex
           mkdir -p "$DIZIN"
@@ -71,16 +110,16 @@ jobs:
 
       - name: Dosyalari gonder
         run: |
-          scp -i ~/.ssh/id_deploy \
+          scp -i ~/.ssh/id_deploy -o BatchMode=yes \
             ops/docker-compose.prod.yml \
             "$VPS_USER@$VPS_HOST:$PROJE_DIZINI/docker-compose.yml"
-          scp -i ~/.ssh/id_deploy \
+          scp -i ~/.ssh/id_deploy -o BatchMode=yes \
             ops/Caddyfile \
             "$VPS_USER@$VPS_HOST:$PROJE_DIZINI/Caddyfile"
 
       - name: Ayar dosyasini hazirla (gizli degerler SUNUCUDA uretilir)
         run: |
-          ssh -i ~/.ssh/id_deploy "$VPS_USER@$VPS_HOST" \
+          ssh -i ~/.ssh/id_deploy -o BatchMode=yes "$VPS_USER@$VPS_HOST" \
             "DIZIN='$PROJE_DIZINI' IMAJ='${{ steps.img.outputs.ref }}:latest' \
              DOMAIN='$PUBLIC_DOMAIN' bash -s" <<'UZAK'
           set -eu
@@ -141,7 +180,7 @@ jobs:
 
       - name: Imaji indir ve baslat
         run: |
-          ssh -i ~/.ssh/id_deploy "$VPS_USER@$VPS_HOST" \
+          ssh -i ~/.ssh/id_deploy -o BatchMode=yes "$VPS_USER@$VPS_HOST" \
             "DIZIN='$PROJE_DIZINI' KULLANICI='${{ github.actor }}' \
              JETON='${{ secrets.GITHUB_TOKEN }}' bash -s" <<'UZAK'
           set -eu
@@ -162,7 +201,7 @@ jobs:
 
       - name: Saglik kontrolu
         run: |
-          ssh -i ~/.ssh/id_deploy "$VPS_USER@$VPS_HOST" bash -s <<'UZAK'
+          ssh -i ~/.ssh/id_deploy -o BatchMode=yes "$VPS_USER@$VPS_HOST" bash -s <<'UZAK'
           set -eu
           cd /opt/agency-cortex
           for i in $(seq 1 40); do
