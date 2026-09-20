@@ -85,3 +85,74 @@ def sync_social_accounts(self, workspace_id: str | None = None) -> dict:
         return ozet
     finally:
         db.close()
+
+
+def _rapor_uret(period_value: str, workspace_id: str | None = None) -> dict:
+    """Tum aktif musteriler icin donem raporu uretir.
+
+    Tekrar calistirilabilir: ayni donemin raporu ikinci kez uretilmez.
+    Bir musterinin hatasi digerlerini durdurmaz.
+    """
+    from datetime import date
+
+    from sqlalchemy import select
+
+    from app.core.db import SessionLocal
+    from app.models.enums import ReportPeriod
+    from app.models.identity import Workspace
+    from app.services.reports import generate_report
+
+    period = ReportPeriod(period_value)
+    db = SessionLocal()
+    ozet = {"donem": period_value, "musteri": 0, "uretilen": 0, "hatali": 0, "hatalar": []}
+    try:
+        sorgu = select(Workspace).where(Workspace.is_active.is_(True))
+        if workspace_id:
+            sorgu = sorgu.where(Workspace.id == workspace_id)
+
+        for ws in db.execute(sorgu).scalars():
+            ozet["musteri"] += 1
+            try:
+                generate_report(
+                    db, workspace_id=ws.id, period=period, reference=date.today()
+                )
+                db.commit()
+                ozet["uretilen"] += 1
+            except Exception as exc:  # noqa: BLE001 - bir musteri digerlerini durdurmaz
+                db.rollback()
+                ozet["hatali"] += 1
+                ozet["hatalar"].append(f"{ws.id}: {type(exc).__name__}")
+                log.exception("rapor_hatasi", workspace_id=str(ws.id), period=period_value)
+
+        log.info("rapor_isi_bitti", **{k: v for k, v in ozet.items() if k != "hatalar"})
+        return ozet
+    finally:
+        db.close()
+
+
+@celery_app.task(
+    name="app.workers.tasks.generate_daily_report",
+    bind=True, max_retries=2, autoretry_for=(Exception,),
+    retry_backoff=True, retry_backoff_max=600, retry_jitter=True,
+)
+def generate_daily_report(self, workspace_id: str | None = None) -> dict:
+    """Gunluk rapor. Dun tamamlandigi icin dunku veriyi raporlar."""
+    return _rapor_uret("daily", workspace_id)
+
+
+@celery_app.task(
+    name="app.workers.tasks.generate_weekly_report",
+    bind=True, max_retries=2, autoretry_for=(Exception,),
+    retry_backoff=True, retry_backoff_max=600, retry_jitter=True,
+)
+def generate_weekly_report(self, workspace_id: str | None = None) -> dict:
+    return _rapor_uret("weekly", workspace_id)
+
+
+@celery_app.task(
+    name="app.workers.tasks.generate_monthly_report",
+    bind=True, max_retries=2, autoretry_for=(Exception,),
+    retry_backoff=True, retry_backoff_max=600, retry_jitter=True,
+)
+def generate_monthly_report(self, workspace_id: str | None = None) -> dict:
+    return _rapor_uret("monthly", workspace_id)
