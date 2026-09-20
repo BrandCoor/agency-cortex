@@ -83,6 +83,30 @@ jobs:
         working-directory: backend
         run: alembic check
 
+      # Caddy (ters vekil) yapilandirmasinda yazim hatasi varsa dagitim
+      # sirasinda degil, burada yakalansin.
+      - name: Caddy yapilandirmasi gecerli mi?
+        run: |
+          docker run --rm \
+            -v "$PWD/ops/Caddyfile:/etc/caddy/Caddyfile:ro" \
+            -e PUBLIC_DOMAIN=ornek.test \
+            -e ACME_EMAIL=ci@ornek.test \
+            caddy:2-alpine caddy validate --adapter caddyfile --config /etc/caddy/Caddyfile
+
+      # Panel yolunun ters vekilde acikta kalmadigini dogrular.
+      - name: Caddyfile panel yolunu uygulamaya yonlendiriyor mu?
+        run: |
+          if grep -q 'Panel henuz kurulmadi' ops/Caddyfile; then
+            echo "HATA: Caddyfile hala Asama 1 yer tutucusunu donduruyor."
+            exit 1
+          fi
+          if ! grep -qE '^\s*handle \{' ops/Caddyfile; then
+            echo "HATA: Caddyfile'da genel (catch-all) handle blogu yok;"
+            echo "panel gibi yeni yollar disaridan erisilemez kalir."
+            exit 1
+          fi
+          echo "TAMAM: genel handle blogu mevcut."
+
   build:
     name: Docker imajini derle
     runs-on: ubuntu-latest

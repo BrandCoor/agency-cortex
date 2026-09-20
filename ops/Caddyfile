@@ -33,8 +33,13 @@
 		reverse_proxy api:8000
 	}
 
-	# Panel Asama 2'de eklenecek; su an bilgilendirme doner.
+	# Kok adres panele yonlendirilir.
+	handle / {
+		redir * /panel 302
+	}
+
+	# Panel ve diger tum yollar uygulamaya gider (Asama 7'de eklendi).
 	handle {
-		respond "Agency Cortex calisiyor. Panel henuz kurulmadi." 200
+		reverse_proxy api:8000
 	}
 }

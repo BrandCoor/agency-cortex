@@ -296,16 +296,45 @@ jobs:
       - name: Disaridan HTTPS kontrolu
         run: |
           echo "HTTPS sertifikasinin olusmasi birkac dakika surebilir."
+          saglik="hayir"
           for i in $(seq 1 20); do
             kod=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 15 \
               "https://$PUBLIC_DOMAIN/healthz" 2>/dev/null || echo "000")
-            echo "deneme $i: HTTP $kod"
+            echo "saglik denemesi $i: HTTP $kod"
             if [ "$kod" = "200" ]; then
-              echo "BASARILI: https://$PUBLIC_DOMAIN/healthz calisiyor"
-              curl -sS "https://$PUBLIC_DOMAIN/version"
-              exit 0
+              saglik="evet"
+              break
             fi
             sleep 15
           done
-          echo "UYARI: HTTPS henuz yanit vermiyor. Sertifika hazirlaniyor olabilir."
-          echo "Sistem sunucu icinde saglikli; yalnizca disaridan erisim bekleniyor."
+
+          if [ "$saglik" != "evet" ]; then
+            echo "UYARI: HTTPS henuz yanit vermiyor. Sertifika hazirlaniyor olabilir."
+            echo "Sistem sunucu icinde saglikli; yalnizca disaridan erisim bekleniyor."
+            exit 0
+          fi
+
+          echo "BASARILI: https://$PUBLIC_DOMAIN/healthz calisiyor"
+          curl -sS "https://$PUBLIC_DOMAIN/version"
+          echo
+
+          # Panel gercekten disaridan aciliyor mu? Sadece /healthz kontrolu
+          # Asama 7'de panelin erisilemez kaldigini fark etmemizi engellemisti.
+          echo "Panel giris sayfasi kontrol ediliyor..."
+          govde=""
+          for i in $(seq 1 10); do
+            govde=$(curl -sS --max-time 15 "https://$PUBLIC_DOMAIN/panel/giris" 2>/dev/null || echo "")
+            if printf '%s' "$govde" | grep -q 'action="/panel/giris"'; then
+              echo "BASARILI: https://$PUBLIC_DOMAIN/panel/giris giris formunu donduruyor"
+              exit 0
+            fi
+            echo "panel denemesi $i: form bulunamadi, tekrar denenecek"
+            sleep 10
+          done
+
+          echo "HATA: Panel giris sayfasi disaridan acilmiyor."
+          echo "Donen govdenin ilk 400 karakteri:"
+          printf '%s' "$govde" | head -c 400
+          echo
+          echo "Olasi neden: ters vekil (Caddy) /panel yolunu uygulamaya yonlendirmiyor."
+          exit 1
