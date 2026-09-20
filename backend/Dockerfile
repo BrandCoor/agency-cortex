@@ -11,10 +11,12 @@ RUN apt-get update \
  && apt-get install -y --no-install-recommends curl \
  && rm -rf /var/lib/apt/lists/*
 
+# DIKKAT: `app` klasoru pip install'den ONCE kopyalanmalidir.
+# pyproject.toml "packages = [app]" diyor; klasor yoksa kurulum
+# "package directory 'app' does not exist" hatasi verir.
 COPY pyproject.toml ./
-RUN pip install --upgrade pip && pip install .
-
 COPY app ./app
+RUN pip install --upgrade pip && pip install .
 COPY alembic.ini ./
 COPY alembic ./alembic
 
