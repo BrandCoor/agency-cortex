@@ -10,7 +10,7 @@ Son güncelleme: 20 Eylül 2026
 |---|---|
 | Depo | https://github.com/BrandCoor/agency-cortex (özel) |
 | Kod | ~6.100 satır Python |
-| Test | 264, tamamı geçiyor (CI'da da) |
+| Test | 242, tamamı geçiyor (CI'da da) |
 | Docker imajı | ✅ Derlendi ve çalıştığı doğrulandı |
 | Sunucu | Hostinger KVM 4 (`1990274`) — ✅ **ÇALIŞIYOR** |
 | Canlı adres | https://agencycortex.tech ✅ HTTPS aktif |

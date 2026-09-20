@@ -323,7 +323,7 @@ Panel ayrıca "Yayınlandı" seçeneğini hiç göstermez.
 - Onay geçmişi: kim, ne zaman, hangi notla
 
 ### Doğrulandı
-- 264/264 test geçti (önceki 242) — 22 yeni onay testi
+- 242/242 test geçti (önceki 220) — 22 yeni onay testi
 - Onaylanmış ve planlanmış içerik bile **yayınlanamadı**
 - Kilit açıldığında bile onay kaydı silinmişse yayın engellendi
 - Onaydan sonra metin değiştirildiğinde yayın engellendi
