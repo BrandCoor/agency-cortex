@@ -15,7 +15,7 @@ from app.platforms.base import (
     PublishingDisabled,
 )
 from app.platforms.fake import FakeInstagramAdapter
-from app.platforms.meta import MetaAdapter
+from app.platforms.meta import MetaAdapter, MetaConfigurationIncomplete
 from app.platforms.registry import get_adapter, platform_status
 
 
@@ -40,12 +40,17 @@ def test_gelistirilmemis_platformlar_acik_hata_verir(platform):
     assert adapter.health_check().ok is False
 
 
-def test_meta_adaptoru_hazir_gorunmez():
-    """Gercek Meta adaptoru dogrulanmadan 'calisiyor' dememeli."""
+def test_meta_adaptoru_ayarsizken_hazir_gorunmez():
+    """Meta ayarlari doldurulmadan adaptor 'calisiyor' dememeli.
+
+    Adaptorun akisi yazildi, ancak Meta'ya ozgu adresler ve izin adlari
+    ayarlardan gelir. Ayar eksikken hicbir yetenek bildirilmez.
+    Ayrintili testler: tests/test_meta_oauth.py
+    """
     adapter = MetaAdapter()
     assert adapter.capabilities == frozenset()
     assert adapter.health_check().ok is False
-    with pytest.raises(PlatformNotImplemented):
+    with pytest.raises(MetaConfigurationIncomplete):
         adapter.authorize(state="s", redirect_uri="https://ornek.com")
 
 

@@ -190,3 +190,67 @@ Format: Karar / Seçenekler / Neden / Risk / Geri alma
 - **Risk:** Düşük.
 - **Doğrulama:** Aynı senkronizasyon üç kez çalıştırıldı; içerik ve ölçüm
   sayıları değişmedi.
+
+---
+
+## K-012 — Instagram Login seçildi (Facebook Login değil)
+
+- **Karar:** Meta entegrasyonunda **Instagram Login (Business Login for
+  Instagram)** kullanılacak. `META_LOGIN_MODE=instagram_login`.
+- **Seçenekler:** (a) Instagram Login, (b) Facebook Login for Business.
+- **Neden (a):**
+  1. Bağlı bir Facebook Sayfası gerektirmiyor — müşterilerinizin bağlanma
+     adımı sadeleşiyor. Facebook Login, her müşterinin Instagram hesabının
+     bir Facebook Sayfasına bağlı olmasını zorunlu kılardı.
+  2. İlk sürümümüz yalnızca okuma yapıyor; Facebook varlık yönetimine
+     ihtiyaç yok.
+  3. Meta'nın App Review dokümanı, bir uygulamanın bu iki modelden
+     **yalnızca birini** seçmesini belirtiyor — sonradan geçiş maliyetli
+     olduğu için baştan doğru seçim önemli.
+- **Risk:** Orta. İleride Facebook Sayfası verisi (reklam, sayfa içgörüsü)
+  gerekirse model değişimi gerekir.
+- **Azaltma:** `META_LOGIN_MODE` ayarı ve `facebook_login` için gereken tüm
+  değişkenler (`META_FACEBOOK_*`, `META_PAGE_ID`, `META_BUSINESS_ID`)
+  şimdiden tanımlandı; geçiş kod değişikliği değil ayar değişikliği olacak.
+- **Geri alma:** Ayar değiştirilir ve Meta panelinde yeni bir uygulama
+  kurulur; bağlı hesapların yeniden yetkilendirilmesi gerekir.
+- **Kaynak:** Kullanıcının ilettiği "Meta/Instagram Entegrasyonu Rehberi"
+  (Manus AI), Meta resmî dokümanlarına atıfla.
+
+---
+
+## K-013 — Meta'ya özgü değerler koda gömülmüyor, ayardan geliyor
+
+- **Karar:** İzin ekranı adresi, token ucu, API sürümü ve izin adları koda
+  yazılmadı; `META_API_VERSION`, `META_AUTHORIZE_URL`, `META_TOKEN_URL`,
+  `META_GRAPH_BASE_URL`, `META_SCOPES` ayarlarından okunuyor.
+  **Varsayılan değerleri yok.**
+- **Seçenekler:** (a) Ayardan okumak, (b) ezberden koda yazmak,
+  (c) adaptörü tamamen boş bırakmak (önceki durum).
+- **Neden (a):** (b) sessizce yanlış veri üretir — en tehlikeli senaryo.
+  (c) ise gereğinden fazla muhafazakârdı: OAuth akışının kendisi (state
+  üretimi, tek kullanımlık kod, hata yönetimi, token yenileme) Meta'ya özgü
+  değil ve doğru yazılabilir. (a) ile akış tamamen yazıldı, yalnızca
+  doğrulanması gereken 4-5 sabit dışarıda bırakıldı.
+- **Risk:** Düşük. Ayar boşken sistem canlı moda geçmez ve açık hata verir;
+  yanlış veri üretme ihtimali yok.
+- **Doğrulama:** `test_ayar_eksikken_acik_hata_verir` ve
+  `test_ayarlar_tamamlaninca_yetenekler_acilir` testleri bu davranışı
+  doğruluyor.
+- **Geri alma:** Gerekmez; doğrulanan değerler `.env` dosyasına yazılınca
+  kod değişikliği olmadan çalışır.
+
+---
+
+## K-014 — İlk sürümde yalnızca okuma izinleri istenecek
+
+- **Karar:** `MetaAdapter` yalnızca okuma yeteneklerini açıyor:
+  `AUTHORIZE`, `REFRESH_TOKEN`, `LIST_MEDIA`, `FETCH_MEDIA_METRICS`,
+  `FETCH_ACCOUNT_METRICS`. Yayınlama, yorum yönetimi ve mesajlaşma
+  **bilerek dışarıda**.
+- **Neden:** Gereksiz izin istemek Meta uygulama inceleme sürecini
+  zorlaştırır ve uzatır. Meta, istenen her izin için uçtan uca kullanım
+  kaydı ister; kullanılmayan izin reddedilme sebebidir. Ayrıca ürün kuralımız
+  zaten insan onayı olmadan yayın yapılmamasını gerektiriyor.
+- **Risk:** Düşük. İzinler aşama aşama genişletilebilir.
+- **Geri alma:** Yeni izinler ayrı bir inceleme başvurusuyla eklenir.

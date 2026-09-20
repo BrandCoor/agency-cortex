@@ -75,10 +75,36 @@ class Settings(BaseSettings):
     platform_mode: Literal["fake", "live"] = "fake"
 
     # --- Meta / Instagram ---
+    # Giris modeli: "instagram_login" veya "facebook_login".
+    # Meta App Review dokumani bir uygulamanin bu ikisinden BIRINI secmesini
+    # belirtir; ikisi ayni uygulamada birlikte kullanilmaz.
+    meta_login_mode: Literal["instagram_login", "facebook_login"] = "instagram_login"
     meta_app_id: str = ""
     meta_app_secret: str = ""
     meta_redirect_uri: str = ""
+    meta_deauthorize_callback_url: str = ""
+    meta_data_deletion_request_url: str = ""
+    meta_webhook_callback_url: str = ""
     meta_webhook_verify_token: str = ""
+    meta_webhook_app_secret: str = ""
+
+    # ASAGIDAKI UC DEGER RESMI META DOKUMANINDAN DOGRULANMADAN DOLDURULMAZ.
+    # Bos birakildiginda canli mod acilmaz; tahminle deger yazilmaz.
+    meta_api_version: str = ""        # ornek bicim: v21.0 - dokumandan alinacak
+    meta_authorize_url: str = ""      # izin ekraninin tam adresi
+    meta_token_url: str = ""          # kodu anahtara ceviren ucun tam adresi
+    meta_graph_base_url: str = ""     # veri uclarinin kok adresi
+    meta_scopes: str = ""             # virgulle ayrilmis izin adlari
+
+    # Facebook Login secilirse gerekli ek alanlar
+    meta_facebook_app_id: str = ""
+    meta_facebook_app_secret: str = ""
+    meta_facebook_redirect_uri: str = ""
+    meta_business_id: str = ""
+    meta_page_id: str = ""
+
+    # OAuth state degerinin gecerlilik suresi (CSRF korumasi)
+    oauth_state_ttl_seconds: int = 600
 
     # --- Yayin kilitleri (ilk surumde kapali) ---
     feature_publishing_enabled: bool = False
@@ -107,6 +133,32 @@ class Settings(BaseSettings):
         return f"redis://{auth}{self.redis_host}:{self.redis_port}/{self.redis_db}"
 
     @property
+    def meta_scope_list(self) -> list[str]:
+        return [s.strip() for s in self.meta_scopes.split(",") if s.strip()]
+
+    def meta_live_config_errors(self) -> list[str]:
+        """Canli Meta baglantisi icin eksik olan ayarlari listeler.
+
+        Bos liste donerse yapilandirma tamamdir. Bu kontrol, dogrulanmamis
+        varsayilan degerlerle canli moda gecilmesini engeller.
+        """
+        eksikler: list[str] = []
+        gerekli = {
+            "META_APP_ID": self.meta_app_id,
+            "META_APP_SECRET": self.meta_app_secret,
+            "META_REDIRECT_URI": self.meta_redirect_uri,
+            "META_API_VERSION": self.meta_api_version,
+            "META_AUTHORIZE_URL": self.meta_authorize_url,
+            "META_TOKEN_URL": self.meta_token_url,
+            "META_GRAPH_BASE_URL": self.meta_graph_base_url,
+            "META_SCOPES": self.meta_scopes,
+        }
+        for ad, deger in gerekli.items():
+            if not deger:
+                eksikler.append(ad)
+        return eksikler
+
+    @property
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
 
@@ -132,8 +184,12 @@ class Settings(BaseSettings):
             errors.append("ACME_EMAIL ayarlanmamis. HTTPS sertifikasi icin gerekli.")
         if self.ai_provider_mode == "live" and not self.anthropic_api_key:
             errors.append("AI_PROVIDER_MODE=live ama ANTHROPIC_API_KEY bos.")
-        if self.platform_mode == "live" and not (self.meta_app_id and self.meta_app_secret):
-            errors.append("PLATFORM_MODE=live ama META_APP_ID/META_APP_SECRET eksik.")
+        if self.platform_mode == "live":
+            eksikler = self.meta_live_config_errors()
+            if eksikler:
+                errors.append(
+                    "PLATFORM_MODE=live ama su Meta ayarlari eksik: " + ", ".join(eksikler)
+                )
         return errors
 
 

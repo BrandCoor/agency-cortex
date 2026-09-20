@@ -18,7 +18,7 @@ içerik senaryosu önerir.
 | 0 | VPS ve repo keşfi | ✅ Tamamlandı |
 | 1 | Docker, PostgreSQL, Redis, sağlık kontrolü, loglama | ✅ Tamamlandı |
 | 2 | Kullanıcı, çalışma alanı, rol, oturum | ✅ Tamamlandı |
-| 3 | Platform adaptör mimarisi + sahte Instagram | 🟡 Kısmen (gerçek Meta bağlantısı bekliyor) |
+| 3 | Instagram/Facebook OAuth + veri senkronu | 🟡 Kod hazır, 4 Meta sabiti doğrulanmayı bekliyor |
 | 4 | Metrikler, KPI motoru, günlük/haftalık rapor | ⬜ Sırada |
 | 5 | Claude API ile içerik senaryosu | ⬜ |
 | 6 | Manus API ile araştırma | ⬜ |
@@ -85,3 +85,5 @@ Bunlar koda gömülüdür, isteğe bağlı değildir:
 | `DECISIONS.md` | Alınan teknik kararlar ve gerekçeleri |
 | `CHANGELOG.md` | Neyin ne zaman değiştiği |
 | `CREDENTIALS.md` | Hangi gizli bilginin nereye yazılacağı |
+| `INSTALLATION.md` | Sizin yapacağınız adımlar (Meta hesap kurulumu) |
+| `docs/platforms/meta.md` | Meta entegrasyonunda doğrulanacaklar |

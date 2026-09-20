@@ -1,6 +1,51 @@
 # Meta (Instagram / Facebook) Entegrasyonu
 
-**Durum: TAMAMLANMADI.** Bu belge, tamamlanması için gerekenleri listeler.
+**Durum: KOD HAZIR — 4 sabit doğrulanmayı bekliyor.**
+
+| Ne | Durum |
+|---|---|
+| Giriş modeli seçimi | ✅ Instagram Login (bkz. `DECISIONS.md` K-012) |
+| OAuth akışı (state, kod değişimi, hata yönetimi) | ✅ Yazıldı ve test edildi |
+| Token şifreli saklama | ✅ Yazıldı ve test edildi |
+| Webhook imza + tekrar koruma | ✅ Yazıldı ve test edildi |
+| Redirect / webhook adresleri | ✅ Üretildi (aşağıda) |
+| **API sürümü, izin adları, uç adresleri** | ❌ **Doğrulanmadı** |
+| Gerçek hesapla uçtan uca test | ❌ Yapılmadı |
+
+---
+
+## Üretilen adresler
+
+Meta App Dashboard'a **birebir aynı** girilmelidir:
+
+```
+Redirect URI    : https://agencycortex.tech/api/v1/oauth/meta/callback
+Deauthorize     : https://agencycortex.tech/api/v1/oauth/meta/deauthorize
+Data deletion   : https://agencycortex.tech/api/v1/oauth/meta/data-deletion
+Webhook         : https://agencycortex.tech/api/v1/webhooks/meta
+```
+
+---
+
+## Doğrulanması gereken 4 değer
+
+Bunlar `.env` içinde **boş** bırakıldı. Boşken sistem canlı moda geçmez.
+
+| Ayar | Ne olacağı | Kaynak |
+|---|---|---|
+| `META_API_VERSION` | Kullanılacak Graph API sürümü | Meta API sürüm sayfası |
+| `META_AUTHORIZE_URL` | İzin ekranının tam adresi | Business Login for Instagram |
+| `META_TOKEN_URL` | Kodu anahtara çeviren uç | Business Login for Instagram |
+| `META_SCOPES` | İstenecek izin adları (`instagram_business_*` ailesi) | Instagram Login izin listesi |
+| `META_GRAPH_BASE_URL` | Veri uçlarının kök adresi | Instagram Platform overview |
+
+> Rehbere göre Instagram Login izin ailesi `instagram_business_*` biçimindedir.
+> Kesin adlar Meta panelinde ve resmî dokümanda gösterilenlerle
+> doğrulanacaktır.
+
+---
+
+## Bu belgenin geri kalanı: ilk tespit
 
 ---
 

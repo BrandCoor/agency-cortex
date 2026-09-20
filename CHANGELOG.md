@@ -90,3 +90,49 @@
   erişim ağ politikası tarafından engellendi (HTTP 403). Endpoint ve izin
   adları tahminle yazılmayacak. Ayrıntı: `docs/platforms/meta.md`
 - Docker imajları indirilemediği için konteyner içi test hâlâ yapılamadı
+
+## [0.4.0] - 2026-09-20 — Meta OAuth altyapısı
+
+Kullanıcının ilettiği Meta entegrasyon rehberi doğrultusunda yapıldı.
+
+### Eklendi
+- **Gerçek `MetaAdapter`**: OAuth akışı, token değişimi, token yenileme,
+  hata yönetimi, zaman aşımı, istek sınırı (rate limit) yakalama
+- Meta'ya özgü değerler **ayardan** okunuyor, koda gömülmüyor
+- **OAuth `state` korumasi**: tahmin edilemez, Redis'te saklanan,
+  **tek kullanımlık** değer (CSRF ve replay koruması)
+- OAuth uçları: izin akışını başlatma ve geri dönüş işleme
+- **Webhook güvenliği**: verify token kontrolü, HMAC-SHA256 imza
+  doğrulama, tekrar koruma (idempotency)
+- `META_LOGIN_MODE` ayarı: Instagram Login / Facebook Login seçimi
+- 19 Meta ortam değişkeni `.env.example` içinde tanımlandı
+- **`INSTALLATION.md`**: kullanıcının Meta panelinde yapacağı adımlar
+- Üretilen adresler (redirect, webhook, deauthorize, veri silme)
+
+### Düzeltildi
+- **Webhook tekrar kaydında veri kaybı hatası.** Aynı olay ikinci kez
+  geldiğinde `db.rollback()` çağrılıyordu; bu, o işlemde yapılmış **tüm**
+  değişiklikleri geri alırdı. SAVEPOINT kullanımına geçildi: artık yalnızca
+  başarısız ekleme geri alınıyor. Bu hatayı test yakaladı.
+
+### Doğrulandı
+- 118/118 test geçti (önceki 90)
+- Ayar eksikken adaptörün hiçbir yetenek bildirmediği
+- Ayarlar dolunca yeteneklerin otomatik açıldığı — kod değişikliği olmadan
+- Yayınlama/yorum/mesaj yeteneklerinin açılmadığı
+- `state` değerinin tek kullanımlık olduğu (ikinci kullanım reddediliyor)
+- 20 state üretiminin hepsinin benzersiz olduğu
+- Gövde değiştirilince webhook imzasının geçersizleştiği
+- App secret ayarlanmamışken imzanın geçerli sayılmadığı
+- Aynı webhook olayının iki kez işlenmediği
+- İmzasız ve sahte imzalı isteklerin 401 ile reddedildiği
+- Gizli anahtarın izin adresine konulmadığı
+- Yetkisiz kullanıcının hesap bağlayamadığı (izleyici → 403)
+- Başka müşterinin çalışma alanına hesap bağlanamadığı (→ 404)
+
+### Tamamlanmadı
+- **4 Meta sabiti doğrulanmadı**: `META_API_VERSION`, `META_AUTHORIZE_URL`,
+  `META_TOKEN_URL`, `META_SCOPES`. Resmî dokümana erişim hâlâ engelli
+  (HTTP 403). Boş oldukları için sistem canlı moda geçmiyor.
+- Gerçek bir Instagram hesabıyla uçtan uca test yapılmadı
+- Docker imajları indirilemediği için konteyner içi test yapılamadı
