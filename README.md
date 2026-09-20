@@ -18,8 +18,8 @@ içerik senaryosu önerir.
 | 0 | VPS ve repo keşfi | ✅ Tamamlandı |
 | 1 | Docker, PostgreSQL, Redis, sağlık kontrolü, loglama | ✅ Tamamlandı |
 | 2 | Kullanıcı, çalışma alanı, rol, oturum | ✅ Tamamlandı |
-| 3 | Instagram/Facebook bağlantısı (yalnızca okuma) | ⬜ Sırada |
-| 4 | Metrikler, KPI motoru, günlük/haftalık rapor | ⬜ |
+| 3 | Platform adaptör mimarisi + sahte Instagram | 🟡 Kısmen (gerçek Meta bağlantısı bekliyor) |
+| 4 | Metrikler, KPI motoru, günlük/haftalık rapor | ⬜ Sırada |
 | 5 | Claude API ile içerik senaryosu | ⬜ |
 | 6 | Manus API ile araştırma | ⬜ |
 | 7 | İnsan onay paneli | ⬜ |

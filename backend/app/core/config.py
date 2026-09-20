@@ -70,6 +70,10 @@ class Settings(BaseSettings):
     ai_max_retries: int = 2
     ai_timeout_seconds: int = 120
 
+    # --- Platform adaptorleri ---
+    # "fake": gercek hesap olmadan gelistirme. "live": gercek API.
+    platform_mode: Literal["fake", "live"] = "fake"
+
     # --- Meta / Instagram ---
     meta_app_id: str = ""
     meta_app_secret: str = ""
@@ -128,6 +132,8 @@ class Settings(BaseSettings):
             errors.append("ACME_EMAIL ayarlanmamis. HTTPS sertifikasi icin gerekli.")
         if self.ai_provider_mode == "live" and not self.anthropic_api_key:
             errors.append("AI_PROVIDER_MODE=live ama ANTHROPIC_API_KEY bos.")
+        if self.platform_mode == "live" and not (self.meta_app_id and self.meta_app_secret):
+            errors.append("PLATFORM_MODE=live ama META_APP_ID/META_APP_SECRET eksik.")
         return errors
 
 

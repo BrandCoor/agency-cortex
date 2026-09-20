@@ -58,3 +58,35 @@
 
 ### Doğrulanamadı (ortam kısıtı)
 - Docker imajları indirilemediği için konteyner içi test hâlâ yapılamadı
+
+## [0.3.0] - 2026-09-20 — Aşama 3 (kısmi)
+
+### Eklendi
+- **Platform adaptör arayüzü**: 9 ortak metot (`authorize`, `callback`,
+  `refresh_token`, `list_media`, `fetch_media_metrics`,
+  `fetch_account_metrics`, `fetch_comments_if_allowed`,
+  `publish_draft_if_enabled`, `health_check`)
+- **Yetenek bildirimi**: her adaptör gerçekten yapabildiği işleri bildirir
+- **Sahte Instagram adaptörü**: gerçek hesap olmadan tüm sistem çalışır
+- Şifreli anahtar saklama servisi (`token_store`)
+- Senkronizasyon servisi: ham veri → normalize ölçüm
+- Kuyruk işi: `sync_social_accounts` (artan bekleme süresiyle tekrar deneme)
+- `/api/v1/platforms` ucu: hangi platformun gerçekten çalıştığını bildirir
+- `docs/platforms/meta.md`: gerçek Meta entegrasyonu için doğrulanacaklar
+
+### Doğrulandı
+- 90/90 test geçti (Aşama 2'de 61 idi)
+- **Tekrar çalıştırma testi**: aynı senkronizasyon 3 kez çalıştırıldı,
+  içerik 12'de, ölçüm 72'de sabit kaldı — veri katlanmadı
+- Ham veri ikinci seferde tekrar yazılmadı (12 kayıt atlandı)
+- Her normalize ölçümün ham veriye bağlı olduğu doğrulandı
+- Anahtar olmayan hesapta **sessiz sıfır değil, açık hata** döndüğü doğrulandı
+- Yayınlama kilidinin adaptör içinde olduğu ve atlanamadığı doğrulandı
+- Geliştirilmemiş 5 platformun "yok" olarak bildirildiği doğrulandı
+- Token'ların veritabanında düz metin olmadığı doğrulandı
+
+### Tamamlanmadı
+- **Gerçek Meta (Instagram/Facebook) bağlantısı.** Resmî dokümantasyona
+  erişim ağ politikası tarafından engellendi (HTTP 403). Endpoint ve izin
+  adları tahminle yazılmayacak. Ayrıntı: `docs/platforms/meta.md`
+- Docker imajları indirilemediği için konteyner içi test hâlâ yapılamadı

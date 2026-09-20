@@ -140,3 +140,53 @@ Format: Karar / Seçenekler / Neden / Risk / Geri alma
 - **Risk:** Yok.
 - **Geri alma:** İleride GitHub Actions yolu seçilirse ayrı, yalnızca deploy için
   üretilmiş bir anahtar oluşturulur; mevcut kişisel anahtar yine kullanılmaz.
+
+---
+
+## K-009 — Doğrulanmamış hiçbir platform yeteneği "hazır" gösterilmeyecek
+
+- **Karar:** Her platform adaptörü, gerçekten yapabildiği işleri
+  `capabilities` ile açıkça bildirir. Bildirmediği bir iş çağrıldığında
+  sessizce boş sonuç dönmez, **açık hata** verir.
+- **Seçenekler:** (a) Yetenek bildirimi + açık hata, (b) yapamadığı işte boş
+  liste dönmek, (c) Meta uçlarını ezberden yazmak.
+- **Neden (a):** (b) en tehlikeli seçenek: rapor "erişim 0" der, bu gerçek bir
+  sıfır mı yoksa çalışmayan bir bağlantı mı ayırt edilemez ve müşteriye yanlış
+  bilgi gider. (c) ise yanlış veri üretir; yanlış veri normalize edilip rapora
+  girdiğinde hatayı bulmak çok zorlaşır.
+- **Risk:** Düşük. Panelde bazı platformlar "yok" görünür — ama bu gerçeğin
+  kendisidir.
+- **Geri alma:** Gerçek adaptör yazıldığında yalnızca `capabilities` kümesi
+  doldurulur; başka hiçbir katman değişmez.
+
+---
+
+## K-010 — Gerçek Meta adaptörü resmî doküman doğrulanmadan yazılmayacak
+
+- **Karar:** `MetaAdapter` sınıfı boş bırakıldı; hiçbir yetenek bildirmiyor.
+  Tamamlanması için gerekenler `docs/platforms/meta.md` içinde madde madde
+  listelendi.
+- **Neden:** Geliştirme ortamından `developers.facebook.com` ve
+  `graph.facebook.com` adreslerine erişim ağ politikası tarafından engellendi
+  (HTTP 403). Ortam belgesi bu durumda "raporla, etrafından dolaşma" diyor.
+  Ezberden yazılan endpoint ve izin adları sessizce yanlış veri üretir.
+- **Risk:** Orta. Aşama 3 tam tamamlanmış sayılmaz.
+- **Azaltma:** Sahte adaptör ile tüm üst katmanlar (senkronizasyon, normalize
+  etme, şifreli anahtar saklama, kuyruk işleri) eksiksiz yazıldı ve test edildi.
+  Gerçek adaptör geldiğinde bu katmanların hiçbiri değişmeyecek.
+- **Engeli kaldırma:** (1) `developers.facebook.com` adresinin ortam erişim
+  listesine eklenmesi, veya (2) doküman içeriğinin kullanıcı tarafından
+  iletilmesi.
+
+---
+
+## K-011 — Senkronizasyon işleri tekrar çalıştırmaya dayanıklı (idempotent)
+
+- **Karar:** Ham veri parmak izi (SHA-256) ile, normalize ölçümler ise
+  veritabanı benzersizlik kısıtı + `ON CONFLICT DO UPDATE` ile korunur.
+- **Neden:** Bir iş yarıda kalıp yeniden başlarsa veya zamanlayıcı aynı işi
+  tekrar tetiklerse, müşteri raporlarında iki katına çıkmış sahte rakamlar
+  oluşurdu. Bu, fark edilmesi en zor hata türüdür.
+- **Risk:** Düşük.
+- **Doğrulama:** Aynı senkronizasyon üç kez çalıştırıldı; içerik ve ölçüm
+  sayıları değişmedi.
