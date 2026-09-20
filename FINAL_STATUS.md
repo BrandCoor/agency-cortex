@@ -12,7 +12,8 @@ Son güncelleme: 20 Eylül 2026
 | Kod | ~6.100 satır Python |
 | Test | 118, tamamı geçiyor (CI'da da) |
 | Docker imajı | ✅ Derlendi ve çalıştığı doğrulandı |
-| Sunucu | Hostinger KVM 4 (`1990274`) — **kurulum bekliyor** |
+| Sunucu | Hostinger KVM 4 (`1990274`) — ✅ **ÇALIŞIYOR** |
+| Canlı adres | https://agencycortex.tech ✅ HTTPS aktif |
 | Domain | agencycortex.tech → 187.124.22.8 ✅ |
 | Sunucu yedeği | 20 Eylül 2026'da alındı ✅ |
 
@@ -32,7 +33,7 @@ Son güncelleme: 20 Eylül 2026
 | 7 | İnsan onay paneli | ⬜ |
 | 8 | Rakip ve trend modülü | ⬜ |
 | 9 | Gemini sağlayıcısı | ⬜ |
-| 10 | Güvenlik, yedekleme, üretim kurulumu | 🟡 Başladı |
+| 10 | Güvenlik, yedekleme, üretim kurulumu | 🟡 Kurulum ✅, yedekleme testi kaldı |
 
 ---
 
@@ -78,8 +79,7 @@ Bunlar yazıldı **ve çalıştığı kanıtlandı:**
 **Ayrıntı:** `docs/platforms/meta.md`
 
 ### 2. Sunucu kurulumu
-**Durum:** Her şey hazır — imaj derlendi, deploy iş akışı yazıldı.
-**Engel:** Sunucuya erişim anahtarı bekleniyor (bkz. INSTALLATION.md, Bölüm 4).
+**Durum:** ✅ Tamamlandı. Sistem canlıda, HTTPS aktif, dışarıdan doğrulandı.
 
 ### 3. Rapor motoru, içerik üretimi, panel
 Aşama 4-9. Sıradaki iş.
@@ -102,7 +102,7 @@ Aşama 4-9. Sıradaki iş.
 | İnsan onayı olmadan yayın yapılamıyor | ✅ |
 | Secret'lar Git'e girmiyor | ✅ Her gönderimde kontrol edildi |
 | Backup/restore testi geçiyor | ⬜ Aşama 10 |
-| Sunucu yeniden başlayınca servisler geliyor | ⬜ Kurulumdan sonra test edilecek |
+| Sunucu yeniden başlayınca servisler geliyor | ⬜ Yeniden başlatma testi yapılmadı |
 | Docker imajı derlenip çalışıyor | ✅ CI'da doğrulandı |
 | README teknik olmayan kullanıcıya uygun | ✅ |
 

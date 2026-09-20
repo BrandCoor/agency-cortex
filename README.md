@@ -1,5 +1,7 @@
 # Agency Cortex
 
+**Canlı:** https://agencycortex.tech · [Sağlık kontrolü](https://agencycortex.tech/readyz)
+
 Sosyal medya ajansları için çok müşterili sosyal medya asistanı.
 
 Her müşteri kendi izole **çalışma alanında** (workspace) tutulur. Sistem izinli

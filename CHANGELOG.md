@@ -172,3 +172,38 @@ Kullanıcının ilettiği Meta entegrasyon rehberi doğrultusunda yapıldı.
   açık olan doğrulama boşluğu kapandı
 - Bağımlılıklar erişilemezken `/healthz` yanıt verdi (onlara bakmadığı
   doğrulandı)
+
+## [0.6.0] - 2026-09-20 — ÜRETİM KURULUMU TAMAMLANDI
+
+Sistem Hostinger VPS'e (1990274) kuruldu ve dışarıdan doğrulandı.
+
+### Doğrulandı (gerçek sunucuda)
+- Sunucu içi sağlık kontrolü:
+  `{"status":"ready","checks":{"database":{"ok":true},"redis":{"ok":true}}}`
+- Sürüm bilgisi: `environment: production`, `publishing_enabled: false`
+- **Dışarıdan HTTPS**: `https://agencycortex.tech/healthz` → HTTP 200
+- HTTPS sertifikası otomatik alındı (Caddy), ikinci denemede hazırdı
+- Veritabanı şeması migration ile kuruldu
+- Gizli anahtarlar sunucuda üretildi — hiçbiri GitHub'a veya sohbete geçmedi
+
+### Kurulum sırasında çözülen sorunlar
+1. **GitHub kasasına anahtarın eksik ulaşması.** Çok satırlı anahtar metni
+   üç denemede de eksik yapıştırıldı. Çözüm: tek satır base64 biçimi desteği
+   eklendi; tek satır bölünemediği için insan hatası ortadan kalktı.
+2. **Base64 tanıma hatası (kendi hatam).** Çözülen içeriğin
+   `openssh-key-v1` ile başladığını varsaymıştım; aslında
+   `-----BEGIN ... PRIVATE KEY-----` ile başlıyor. Üç biçim de yerelde test
+   edilerek düzeltildi.
+3. **Hostinger anahtarı çalışan sunucuya yazmıyor.** API anahtarı hesaba
+   kaydediyor ancak `/root/.ssh/authorized_keys` dosyasına işlemiyor.
+   Kullanıcı tarayıcı terminalinden ekledi.
+4. **`authorized_keys` satır sonu hatası (kendi hatam).** Verdiğim
+   `echo >>` komutu, dosya satır sonuyla bitmediği için anahtarı önceki
+   satırın sonuna yapıştırdı. Dosya yedeklenip anahtarlar ayrıştırılarak
+   yeniden yazıldı.
+
+### Henüz doğrulanmadı
+- Sunucu yeniden başladığında servislerin kendiliğinden gelmesi
+  (`restart: unless-stopped` tanımlı, ancak gerçek yeniden başlatmayla
+  test edilmedi)
+- Yedekleme/geri yükleme testi (Aşama 10)
