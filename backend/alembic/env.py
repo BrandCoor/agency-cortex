@@ -10,8 +10,8 @@ from sqlalchemy import engine_from_config, pool
 from app.core.config import get_settings
 from app.core.db import Base
 
-# Tum modeller burada import edilmeli ki Alembic degisiklikleri gorebilsin.
-# Modeller Asama 2'de eklenecek.
+# Tum modeller import edilmeli ki Alembic tablolari gorebilsin.
+import app.models  # noqa: F401
 
 config = context.config
 if config.config_file_name is not None:
