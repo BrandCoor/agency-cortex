@@ -13,13 +13,12 @@ import uuid
 
 import pytest
 
-from app.core.config import Settings, get_settings
+from app.core.config import Settings
 from app.models.enums import WorkspaceRole
 from app.platforms.base import PlatformError
 from app.platforms.meta import MetaAdapter, MetaConfigurationIncomplete
 from app.services.oauth_state import StateError, consume_state, create_state
 from app.services.webhook_guard import record_event, verify_signature, verify_token_matches
-
 
 # ---------------------------------------------------------------------------
 # 1. Ayar eksikken acik ve anlasilir hata

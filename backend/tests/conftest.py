@@ -13,15 +13,29 @@ import os
 import uuid
 from collections.abc import Iterator
 
-# Ayarlar, uygulama import edilmeden ONCE sabitlenmelidir.
-os.environ.setdefault("APP_ENV", "development")
+# GUVENLIK: Test veritabani ZORLA ayarlanir, `setdefault` ile DEGIL.
+#
+# `setdefault` kullanilsaydi, kabukta POSTGRES_DB tanimliysa testler o
+# veritabanina baglanirdi. Gelistirme veya URETIM veritabaninda test
+# calistirmak, testlerin veriyi silmesi anlamina gelir.
+#
+# Bu satirlar uygulama import edilmeden ONCE calismalidir.
+os.environ["APP_ENV"] = "development"
+os.environ["POSTGRES_DB"] = os.environ.get("POSTGRES_TEST_DB", "agency_cortex_test")
+os.environ["SECRET_KEY"] = "test-secret-anahtari"
+os.environ["ENCRYPTION_KEY"] = "test-sifreleme-anahtari"
+# Baglanti bilgileri disaridan verilebilir (CI icin), veritabani ADI verilemez.
 os.environ.setdefault("POSTGRES_HOST", "localhost")
-os.environ.setdefault("POSTGRES_DB", "agency_cortex_test")
 os.environ.setdefault("POSTGRES_USER", "agency")
 os.environ.setdefault("POSTGRES_PASSWORD", "dev-parola")
 os.environ.setdefault("REDIS_HOST", "localhost")
-os.environ.setdefault("SECRET_KEY", "test-secret-anahtari")
-os.environ.setdefault("ENCRYPTION_KEY", "test-sifreleme-anahtari")
+
+# Son kontrol: veritabani adi "_test" ile bitmiyorsa HICBIR SEY calistirilmaz.
+if not os.environ["POSTGRES_DB"].endswith("_test"):
+    raise RuntimeError(
+        "Testler yalnizca adi '_test' ile biten bir veritabaninda calisabilir. "
+        f"Verilen: {os.environ['POSTGRES_DB']}"
+    )
 
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402

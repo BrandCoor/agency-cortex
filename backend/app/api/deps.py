@@ -17,8 +17,8 @@ from sqlalchemy.orm import Session
 
 from app.core.db import get_db
 from app.core.security import TokenError, decode_token
-from app.models.identity import User, WorkspaceMember
 from app.models.enums import WorkspaceRole
+from app.models.identity import User, WorkspaceMember
 
 bearer_scheme = HTTPBearer(auto_error=False)
 
