@@ -45,9 +45,35 @@ sahibi (en yetkili kişi) olursunuz.
 
 Sonraki adımlar:
 1. ~~Çalışma alanı oluşturulur~~ ✅ panelden yapılabiliyor
-2. Ekibinizden kişiler yetkiyle eklenir — **henüz panelde yok, ben yapıyorum**
-3. Müşterinin Instagram hesabı bağlanır — **Meta onayı bekliyor (Aşama 6)**
-4. Marka bilgileri girilir — **henüz panelde yok, ben yapıyorum**
+2. ~~Ekibinizden kişiler yetkiyle eklenir~~ ✅ panelden yapılabiliyor
+3. ~~Marka bilgileri girilir~~ ✅ panelden yapılabiliyor
+4. Müşterinin Instagram hesabı bağlanır — **Meta onayı bekliyor (Aşama 6)**
+
+### Marka bilgileri
+Müşteri ekranında **"Marka bilgileri"** bağlantısı. Buraya girdikleriniz
+yapay zekânın içerik üretirken uyacağı kurallardır:
+
+| Alan | Ne işe yarar |
+|---|---|
+| Konuşma tonu | Üretilen metnin üslubunu belirler |
+| Hedef kitle | Kime seslenileceğini belirler |
+| **Yasaklı ifadeler** | Her üretilen içerikte aranır ve işaretlenir |
+| Tercih edilen ifadeler | Kullanılması istenen sözler |
+
+Yasaklı ifadeleri **her satıra bir tane** yazın. Örnek: reklam mevzuatı
+açısından riskli olan *"dünyanın en iyisi"*, *"şifalı"* gibi sözler.
+
+Değiştirmek için en az **stratejist** yetkisi gerekir.
+
+### Ekip
+Müşteri ekranında **"Ekip"** bağlantısı. Kişi eklemek için en az
+**yönetici** yetkisi gerekir.
+
+İki kural var:
+- Eklenecek kişinin sistemde **zaten hesabı olmalı.** Yoksa bana söyleyin,
+  açayım — sonra siz ekleyebilirsiniz.
+- **Kendi yetkinizden yüksek bir yetki veremezsiniz.** Yönetici birini sahip
+  yapamaz. Aynı şekilde kendinizden yüksek yetkilideki birini çıkaramazsınız.
 
 ---
 

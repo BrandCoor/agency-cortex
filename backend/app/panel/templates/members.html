@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}Ekip — {{ workspace.name }}{% endblock %}
+{% block content %}
+<p class="muted"><a href="/panel/musteri/{{ workspace.id }}">← {{ workspace.name }}</a></p>
+<h1>Ekip</h1>
+<p class="sub">Bu müşteride kimin hangi yetkiye sahip olduğu.</p>
+
+{% if error %}<div class="err">{{ error }}</div>{% endif %}
+{% if ok %}<div class="ok">{{ ok }}</div>{% endif %}
+
+<div class="card"><table>
+  <tr><th>Kişi</th><th>Yetki</th><th></th></tr>
+  {% for u in uyeler %}
+  <tr>
+    <td>{{ u.email }}<br><span class="muted">{{ u.full_name }}</span></td>
+    <td>{{ u.role_label }}</td>
+    <td>
+      {% if yonetebilir and not u.kendisi %}
+      <form method="post" action="/panel/musteri/{{ workspace.id }}/ekip/cikar" style="margin:0">
+        <input type="hidden" name="user_id" value="{{ u.id }}">
+        <button type="submit">Çıkar</button>
+      </form>
+      {% elif u.kendisi %}
+      <span class="muted">siz</span>
+      {% endif %}
+    </td>
+  </tr>
+  {% endfor %}
+</table></div>
+
+{% if yonetebilir %}
+<h2>Ekibe kişi ekle</h2>
+<div class="card">
+  <p class="muted">
+    Eklemek istediğiniz kişinin sistemde <strong>zaten bir hesabı olmalı.</strong>
+    Hesabı yoksa bana söyleyin, açayım — sonra buradan ekleyebilirsiniz.
+  </p>
+  <form method="post" action="/panel/musteri/{{ workspace.id }}/ekip/ekle">
+    <label for="email">E-posta</label>
+    <input id="email" name="email" type="email" required>
+    <label for="rol">Yetki</label>
+    <select id="rol" name="rol" required>
+      {% for deger, etiket, aciklama in rol_secenekleri %}
+      <option value="{{ deger }}">{{ etiket }} — {{ aciklama }}</option>
+      {% endfor %}
+    </select>
+    <div style="margin-top:16px"><button type="submit">Ekle</button></div>
+  </form>
+</div>
+{% else %}
+<div class="warn">Ekip yönetimi için en az <strong>yönetici</strong> yetkisi gerekir.</div>
+{% endif %}
+{% endblock %}

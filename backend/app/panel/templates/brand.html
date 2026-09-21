@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Marka bilgileri — {{ workspace.name }}{% endblock %}
+{% block content %}
+<p class="muted"><a href="/panel/musteri/{{ workspace.id }}">← {{ workspace.name }}</a></p>
+<h1>Marka bilgileri</h1>
+<p class="sub">
+  Yapay zekâ içerik üretirken bu bilgilere göre yazar. Ne kadar net
+  doldurursanız üretilen içerik o kadar markanıza benzer.
+</p>
+
+{% if not duzenleyebilir %}
+  <div class="warn">Bu sayfayı yalnızca görüntüleyebilirsiniz. Değiştirmek için
+    en az <strong>stratejist</strong> yetkisi gerekir.</div>
+{% endif %}
+{% if error %}<div class="err">{{ error }}</div>{% endif %}
+{% if ok %}<div class="ok">{{ ok }}</div>{% endif %}
+
+<form method="post" action="/panel/musteri/{{ workspace.id }}/marka" class="card">
+  <label for="ad">Marka adı</label>
+  <input id="ad" name="ad" type="text" required maxlength="200"
+         value="{{ marka.name if marka else workspace.name }}"
+         {% if not duzenleyebilir %}disabled{% endif %}>
+
+  <label for="sektor">Sektör</label>
+  <input id="sektor" name="sektor" type="text" maxlength="120"
+         placeholder="Örn: Restoran, kuyumcu, emlak"
+         value="{{ marka.sector or '' if marka else '' }}"
+         {% if not duzenleyebilir %}disabled{% endif %}>
+
+  <label for="site">Web sitesi</label>
+  <input id="site" name="site" type="text" maxlength="500"
+         placeholder="https://..."
+         value="{{ marka.website or '' if marka else '' }}"
+         {% if not duzenleyebilir %}disabled{% endif %}>
+
+  <label for="aciklama">Marka nedir, ne yapar?</label>
+  <textarea id="aciklama" name="aciklama" rows="3"
+            {% if not duzenleyebilir %}disabled{% endif %}>{{ marka.description or '' if marka else '' }}</textarea>
+
+  <label for="ton">Konuşma tonu</label>
+  <textarea id="ton" name="ton" rows="3"
+            placeholder="Örn: Samimi ama abartısız. Esnaf ağzı değil, güven veren bir dil."
+            {% if not duzenleyebilir %}disabled{% endif %}>{{ kilavuz.tone_of_voice or '' if kilavuz else '' }}</textarea>
+
+  <label for="kitle">Hedef kitle</label>
+  <textarea id="kitle" name="kitle" rows="3"
+            placeholder="Örn: 25-45 yaş, Gaziantep ve çevresi, aile yemeği arayan çalışanlar."
+            {% if not duzenleyebilir %}disabled{% endif %}>{{ kilavuz.target_audience or '' if kilavuz else '' }}</textarea>
+
+  <label for="yasakli">Yasaklı ifadeler <span class="muted">(her satıra bir tane)</span></label>
+  <textarea id="yasakli" name="yasakli" rows="4"
+            placeholder="dünyanın en iyisi&#10;bir numara&#10;şifalı"
+            {% if not duzenleyebilir %}disabled{% endif %}>{{ yasakli_metin }}</textarea>
+  <div class="muted">Bu ifadeler üretilen her içerikte aranır ve işaretlenir.</div>
+
+  <label for="tercih">Tercih edilen ifadeler <span class="muted">(her satıra bir tane)</span></label>
+  <textarea id="tercih" name="tercih" rows="3"
+            {% if not duzenleyebilir %}disabled{% endif %}>{{ tercih_metin }}</textarea>
+
+  <label for="notlar">Ek notlar</label>
+  <textarea id="notlar" name="notlar" rows="3"
+            {% if not duzenleyebilir %}disabled{% endif %}>{{ kilavuz.notes or '' if kilavuz else '' }}</textarea>
+
+  {% if duzenleyebilir %}
+  <div style="margin-top:16px"><button type="submit">Kaydet</button></div>
+  {% endif %}
+</form>
+{% endblock %}

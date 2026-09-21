@@ -23,6 +23,7 @@ from sqlalchemy.exc import IntegrityError
 from app.api.deps import DbSession
 from app.cli.hesap import MIN_SIFRE_UZUNLUGU
 from app.core.security import create_token, hash_password, verify_password
+from app.models.brand import Brand, BrandGuideline
 from app.models.content import ContentScript
 from app.models.enums import ContentStatus, WorkspaceRole
 from app.models.identity import User, Workspace, WorkspaceMember
@@ -392,6 +393,293 @@ def workspace_page(workspace_id: uuid.UUID, request: Request, db: DbSession):
             "using_fake": get_fake_mode(),
         },
     )
+
+
+# --- Marka bilgileri ---------------------------------------------------------
+#
+# Yapay zeka icerik uretirken bu kayitlari temel alir. Bos birakilirsa uretilen
+# icerik genel gecer olur; bu yuzden panelden doldurulabilmesi gerekir.
+
+ROL_ACIKLAMALARI = [
+    ("admin", "Yönetici", "her şey + ekip yönetimi"),
+    ("strategist", "Stratejist", "içerik/rapor üretir, onaya sunar"),
+    ("editor", "Editör", "içerik düzenler, onaya sunamaz"),
+    ("viewer", "İzleyici", "yalnızca okur"),
+]
+
+
+def _satirlara_bol(metin: str) -> list[str]:
+    """Her satiri ayri bir ifade sayar. Bos satirlar atilir."""
+    return [satir.strip() for satir in (metin or "").splitlines() if satir.strip()]
+
+
+def _marka_sayfasi(request, db, user, uyelik, workspace, *, error=None, ok=None, kod=200):
+    marka = db.execute(
+        select(Brand).where(Brand.workspace_id == workspace.id)
+    ).scalars().first()
+    kilavuz = None
+    if marka is not None:
+        kilavuz = db.execute(
+            select(BrandGuideline).where(BrandGuideline.brand_id == marka.id)
+        ).scalars().first()
+
+    return templates.TemplateResponse(
+        request, "brand.html",
+        {
+            "user": user,
+            "workspace": workspace,
+            "marka": marka,
+            "kilavuz": kilavuz,
+            "yasakli_metin": "\n".join(kilavuz.forbidden_phrases) if kilavuz else "",
+            "tercih_metin": "\n".join(kilavuz.preferred_phrases) if kilavuz else "",
+            "duzenleyebilir": uyelik.role.covers(WorkspaceRole.STRATEGIST),
+            "error": error,
+            "ok": ok,
+        },
+        status_code=kod,
+    )
+
+
+@router.get("/musteri/{workspace_id}/marka", response_class=HTMLResponse)
+def brand_page(workspace_id: uuid.UUID, request: Request, db: DbSession):
+    user = current_user_from_cookie(request, db)
+    if user is None:
+        return _giris_yonlendir()
+    uyelik = _uyelik(db, user, workspace_id)
+    if uyelik is None:
+        return HTMLResponse("Bulunamadı.", status_code=404)
+    return _marka_sayfasi(request, db, user, uyelik, db.get(Workspace, workspace_id))
+
+
+@router.post("/musteri/{workspace_id}/marka")
+def brand_submit(
+    workspace_id: uuid.UUID,
+    request: Request,
+    db: DbSession,
+    ad: Annotated[str, Form()],
+    sektor: Annotated[str, Form()] = "",
+    site: Annotated[str, Form()] = "",
+    aciklama: Annotated[str, Form()] = "",
+    ton: Annotated[str, Form()] = "",
+    kitle: Annotated[str, Form()] = "",
+    yasakli: Annotated[str, Form()] = "",
+    tercih: Annotated[str, Form()] = "",
+    notlar: Annotated[str, Form()] = "",
+):
+    user = current_user_from_cookie(request, db)
+    if user is None:
+        return _giris_yonlendir()
+    uyelik = _uyelik(db, user, workspace_id)
+    if uyelik is None:
+        return HTMLResponse("Bulunamadı.", status_code=404)
+
+    workspace = db.get(Workspace, workspace_id)
+    # Yetki sunucuda dogrulanir; formun kapali olmasi tek basina yeterli degil.
+    if not uyelik.role.covers(WorkspaceRole.STRATEGIST):
+        return _marka_sayfasi(
+            request, db, user, uyelik, workspace,
+            error="Bu işlem için en az stratejist yetkisi gerekir.",
+            kod=status.HTTP_403_FORBIDDEN,
+        )
+
+    ad = ad.strip()
+    if len(ad) < 2:
+        return _marka_sayfasi(
+            request, db, user, uyelik, workspace,
+            error="Marka adı en az 2 karakter olmalı.",
+            kod=status.HTTP_400_BAD_REQUEST,
+        )
+
+    marka = db.execute(
+        select(Brand).where(Brand.workspace_id == workspace_id)
+    ).scalars().first()
+    if marka is None:
+        marka = Brand(workspace_id=workspace_id, name=ad)
+        db.add(marka)
+        db.flush()
+
+    marka.name = ad
+    marka.sector = sektor.strip() or None
+    marka.website = site.strip() or None
+    marka.description = aciklama.strip() or None
+
+    kilavuz = db.execute(
+        select(BrandGuideline).where(BrandGuideline.brand_id == marka.id)
+    ).scalars().first()
+    if kilavuz is None:
+        kilavuz = BrandGuideline(workspace_id=workspace_id, brand_id=marka.id)
+        db.add(kilavuz)
+
+    kilavuz.tone_of_voice = ton.strip() or None
+    kilavuz.target_audience = kitle.strip() or None
+    kilavuz.forbidden_phrases = _satirlara_bol(yasakli)
+    kilavuz.preferred_phrases = _satirlara_bol(tercih)
+    kilavuz.notes = notlar.strip() or None
+    db.commit()
+
+    return _marka_sayfasi(
+        request, db, user, uyelik, workspace, ok="Marka bilgileri kaydedildi."
+    )
+
+
+# --- Ekip --------------------------------------------------------------------
+
+def _ekip_sayfasi(request, db, user, uyelik, workspace, *, error=None, ok=None, kod=200):
+    satirlar = db.execute(
+        select(WorkspaceMember, User)
+        .join(User, User.id == WorkspaceMember.user_id)
+        .where(WorkspaceMember.workspace_id == workspace.id)
+        .order_by(User.email)
+    ).all()
+
+    return templates.TemplateResponse(
+        request, "members.html",
+        {
+            "user": user,
+            "workspace": workspace,
+            "uyeler": [
+                {
+                    "id": str(u.id),
+                    "email": u.email,
+                    "full_name": u.full_name,
+                    "role_label": ROLE_LABELS.get(m.role.value, m.role.value),
+                    "kendisi": u.id == user.id,
+                }
+                for m, u in satirlar
+            ],
+            "yonetebilir": uyelik.role.covers(WorkspaceRole.ADMIN),
+            "rol_secenekleri": ROL_ACIKLAMALARI,
+            "error": error,
+            "ok": ok,
+        },
+        status_code=kod,
+    )
+
+
+@router.get("/musteri/{workspace_id}/ekip", response_class=HTMLResponse)
+def members_page(workspace_id: uuid.UUID, request: Request, db: DbSession):
+    user = current_user_from_cookie(request, db)
+    if user is None:
+        return _giris_yonlendir()
+    uyelik = _uyelik(db, user, workspace_id)
+    if uyelik is None:
+        return HTMLResponse("Bulunamadı.", status_code=404)
+    return _ekip_sayfasi(request, db, user, uyelik, db.get(Workspace, workspace_id))
+
+
+@router.post("/musteri/{workspace_id}/ekip/ekle")
+def member_add(
+    workspace_id: uuid.UUID,
+    request: Request,
+    db: DbSession,
+    email: Annotated[str, Form()],
+    rol: Annotated[str, Form()],
+):
+    user = current_user_from_cookie(request, db)
+    if user is None:
+        return _giris_yonlendir()
+    uyelik = _uyelik(db, user, workspace_id)
+    if uyelik is None:
+        return HTMLResponse("Bulunamadı.", status_code=404)
+
+    workspace = db.get(Workspace, workspace_id)
+    if not uyelik.role.covers(WorkspaceRole.ADMIN):
+        return _ekip_sayfasi(
+            request, db, user, uyelik, workspace,
+            error="Ekip yönetimi için en az yönetici yetkisi gerekir.",
+            kod=status.HTTP_403_FORBIDDEN,
+        )
+
+    # Kimse kendinden yuksek yetki veremez; aksi halde yonetici kendini
+    # sahip yapabilirdi.
+    try:
+        yeni_rol = WorkspaceRole(rol)
+    except ValueError:
+        return _ekip_sayfasi(
+            request, db, user, uyelik, workspace,
+            error="Geçersiz yetki.", kod=status.HTTP_400_BAD_REQUEST,
+        )
+    if not uyelik.role.covers(yeni_rol):
+        return _ekip_sayfasi(
+            request, db, user, uyelik, workspace,
+            error="Kendi yetkinizden yüksek bir yetki veremezsiniz.",
+            kod=status.HTTP_403_FORBIDDEN,
+        )
+
+    hedef = db.execute(
+        select(User).where(User.email == email.strip().lower())
+    ).scalar_one_or_none()
+    if hedef is None:
+        return _ekip_sayfasi(
+            request, db, user, uyelik, workspace,
+            error="Bu e-posta ile kayıtlı bir kullanıcı yok. Önce hesabı açılmalı.",
+            kod=status.HTTP_404_NOT_FOUND,
+        )
+
+    db.add(WorkspaceMember(workspace_id=workspace_id, user_id=hedef.id, role=yeni_rol))
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        return _ekip_sayfasi(
+            request, db, user, uyelik, workspace,
+            error="Bu kişi zaten ekipte.", kod=status.HTTP_409_CONFLICT,
+        )
+
+    return _ekip_sayfasi(
+        request, db, user, uyelik, workspace, ok=f"{hedef.email} ekibe eklendi."
+    )
+
+
+@router.post("/musteri/{workspace_id}/ekip/cikar")
+def member_remove(
+    workspace_id: uuid.UUID,
+    request: Request,
+    db: DbSession,
+    user_id: Annotated[uuid.UUID, Form()],
+):
+    user = current_user_from_cookie(request, db)
+    if user is None:
+        return _giris_yonlendir()
+    uyelik = _uyelik(db, user, workspace_id)
+    if uyelik is None:
+        return HTMLResponse("Bulunamadı.", status_code=404)
+
+    workspace = db.get(Workspace, workspace_id)
+    if not uyelik.role.covers(WorkspaceRole.ADMIN):
+        return _ekip_sayfasi(
+            request, db, user, uyelik, workspace,
+            error="Ekip yönetimi için en az yönetici yetkisi gerekir.",
+            kod=status.HTTP_403_FORBIDDEN,
+        )
+    if user_id == user.id:
+        return _ekip_sayfasi(
+            request, db, user, uyelik, workspace,
+            error="Kendinizi çıkaramazsınız.", kod=status.HTTP_400_BAD_REQUEST,
+        )
+
+    hedef_uyelik = db.execute(
+        select(WorkspaceMember).where(
+            WorkspaceMember.workspace_id == workspace_id,
+            WorkspaceMember.user_id == user_id,
+        )
+    ).scalar_one_or_none()
+    if hedef_uyelik is None:
+        return _ekip_sayfasi(
+            request, db, user, uyelik, workspace,
+            error="Bu kişi ekipte değil.", kod=status.HTTP_404_NOT_FOUND,
+        )
+    # Kendinden yuksek yetkilinin cikarilmasi engellenir.
+    if not uyelik.role.covers(hedef_uyelik.role):
+        return _ekip_sayfasi(
+            request, db, user, uyelik, workspace,
+            error="Kendi yetkinizden yüksek birini çıkaramazsınız.",
+            kod=status.HTTP_403_FORBIDDEN,
+        )
+
+    db.delete(hedef_uyelik)
+    db.commit()
+    return _ekip_sayfasi(request, db, user, uyelik, workspace, ok="Kişi ekipten çıkarıldı.")
 
 
 def get_fake_mode() -> bool:

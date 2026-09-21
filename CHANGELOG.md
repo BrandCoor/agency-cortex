@@ -536,3 +536,31 @@ Panel ayrıca "Yayınlandı" seçeneğini hiç göstermez.
     görünemez.
 - Yerelde birebir kanıtlandı: stdin'i yutan sahte bir `docker` ile
   düzeltilmiş betik sonraki adımı çalıştırıyor, eski betik çalıştırmıyor.
+
+## [0.11.0] - 2026-09-21 — Panel: marka bilgileri ve ekip yönetimi
+
+### Eklendi
+- **Marka bilgileri sayfası** (`/panel/musteri/<id>/marka`). Marka adı,
+  sektör, web sitesi, açıklama, konuşma tonu, hedef kitle, yasaklı ve
+  tercih edilen ifadeler, notlar. Yasaklı/tercih edilen ifadeler her satıra
+  bir tane yazılır. Değiştirmek için en az **stratejist** yetkisi gerekir.
+- **Ekip sayfası** (`/panel/musteri/<id>/ekip`). Üyeleri listeler, kişi
+  ekler ve çıkarır. Yönetmek için en az **yönetici** yetkisi gerekir.
+
+### Neden
+Bu iki iş daha önce panelde yoktu; ajans sahibi marka bilgisi girmek veya
+ekibine kişi eklemek için bana bağımlıydı. Kendi ekibini kendi yönetmeli.
+
+### Güvenlik sınırları (hepsi test edildi)
+- Yetki **sunucuda** doğrulanıyor. Formun kapalı görünmesi tek başına koruma
+  sayılmıyor: izleyici yetkisiyle gönderilen istek 403 alıyor.
+- **Kimse kendi yetkisinden yüksek bir yetki veremiyor.** Yönetici birini
+  sahip yapıp kendini aşamıyor.
+- Kendinden yüksek yetkili biri ekipten çıkarılamıyor.
+- Kimse kendini ekipten çıkaramıyor (müşteri sahipsiz kalmasın).
+- Üye olunmayan müşterinin sayfaları **404** dönüyor (403 değil — 403 o
+  müşterinin varlığını ele verirdi).
+
+### Doğrulandı
+- 312/312 test geçti (önceki 297 + 15 yeni).
+- `ruff check` temiz, `alembic check` bekleyen değişiklik yok.
