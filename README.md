@@ -27,7 +27,9 @@ içerik senaryosu önerir.
 | 7 | İnsan onay paneli | ✅ Tamamlandı |
 | 8 | Rakip ve trend modülü | ⬜ Sırada |
 | 9 | Gemini sağlayıcısı | ⬜ |
-| 10 | Güvenlik, yedekleme, üretim kurulumu | ⬜ |
+| 10 | Güvenlik, yedekleme, üretim kurulumu | ✅ Tamamlandı |
+| 11 | Kullanıcı yönetimi ve panel yenileme | ✅ Tamamlandı |
+| 12 | n8n otomasyon altyapısı | 🟡 Altyapı hazır, iş akışları n8n'de kurulacak |
 
 ---
 
@@ -63,6 +65,24 @@ Verileri de silmek için: `docker compose down -v` (**dikkat: veri silinir**)
 | **postgres** | Tüm veriler burada saklanır |
 | **redis** | İş kuyruğu |
 | **caddy** | Dış dünyaya açılan kapı; HTTPS sertifikasını kendi alır ve yeniler |
+| **n8n** | Otomasyon motoru: iş akışlarını zamanında çalıştırır |
+
+### n8n neden "ikinci bir uygulama" değil?
+
+n8n **yalnızca** zamanlama, sıralama, tekrar deneme ve dış servis
+çağrılarından sorumludur. Veritabanına **doğrudan yazmaz**; her şey
+Agency Cortex API'sinden geçer.
+
+| Kimin işi | Ne |
+|---|---|
+| **Agency Cortex** | Kimlik, yetki, müşteri izolasyonu, AI bütçesi, onay sistemi, iş kuralları |
+| **n8n** | Zamanlama, sıra, tekrar deneme, dış servis çağrıları |
+
+n8n'e ait bir kimlik vardır (makine kimliği) ve bu kimlik **yalnızca
+izin verilen müşterilerde** iş yapabilir. n8n'den gelen `workspace_id`
+tek başına hiçbir yetki sağlamaz — her istekte ayrıca doğrulanır.
+
+Gerekçesi: DECISIONS.md **K-032** ve **K-033**.
 
 ---
 

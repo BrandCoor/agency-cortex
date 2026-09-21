@@ -93,6 +93,71 @@ hiçbir şeyi değiştiremezler.
 
 > Son sahip çalışma alanından çıkarılamaz — yönetilemez hale gelmesin diye.
 
+### Bir kişinin yetkisini değiştirmek
+Müşteri ekranı &rsaquo; **Ekip** &rsaquo; kişinin satırındaki listeden yeni
+yetkiyi seçin, **Değiştir**'e basın.
+
+İki şeyi sistem **kabul etmez**, gerekçesiyle birlikte:
+- **Kendi yetkinizi değiştiremezsiniz.** Aksi halde bir yönetici kendini
+  sahip yapabilirdi.
+- **Kendinizden yüksek yetkiliye dokunamazsınız.** Bir yönetici, sahibin
+  yetkisini alamaz.
+
+---
+
+## 4b. Kullanıcılar (sistem hesapları)
+
+Sol menüde **Kullanıcılar** — yalnızca size görünür.
+
+Burası ile *Ekip* karıştırılmasın:
+
+| | Kullanıcılar | Ekip |
+|---|---|---|
+| Kapsamı | **Tüm sistem** | **Tek müşteri** |
+| Ne belirler | Kim giriş yapabilir | Kim hangi müşteride ne yapabilir |
+| Kim yönetir | Sistem yöneticisi | O müşterinin yöneticisi |
+
+### Yeni kişi eklemek — 3 adım
+1. **Kullanıcılar** &rsaquo; *Yeni kullanıcı*: ad soyad ve e-posta girin,
+   **Hesabı aç**.
+2. Ekranda bir **bağ (link)** çıkar. Bunu kişiye iletin (WhatsApp, e-posta,
+   fark etmez).
+3. Kişi bağa tıklar, **şifresini kendisi belirler** ve giriş yapar.
+
+Sonra o kişiyi ilgili müşterinin **Ekip** sayfasından ekleyin — yoksa giriş
+yapar ama hiçbir müşteri göremez.
+
+### Şifreyi siz belirlemiyorsunuz — neden?
+Şifre sizden kişiye giderken her durakta bozulabilir: kopyalarken kaçan bir
+boşluk, Türkçe harflerin farklı yazılışı, otomatik düzeltme. **21 Eylül'de
+tam olarak bu oldu ve sisteme günlerce girilemedi.** Bu akışta şifre hiç
+aktarılmıyor; kişi doğrudan kendi tarayıcısında belirliyor.
+
+> **Bağ 24 saat geçerlidir ve yalnızca bir kez kullanılır.** Süresi geçerse
+> veya kaybolursa listeden **Şifre bağı** düğmesiyle yenisini üretin; eski
+> bağ o anda geçersiz olur.
+
+### Bir hesabı kapatmak
+İki seçenek var:
+
+- **Pasif yapmak** (önerilen): *Düzenle* &rsaquo; "Giriş yapabilir"
+  işaretini kaldırın. Kişi giremez ama geçmiş kayıtlarında adı durur.
+- **Silmek**: geri alınamaz. Kişinin müşteri yetkileri de silinir.
+
+### Sistemin kilitlenmesini engelleyen kurallar
+Sistem şunlara **izin vermez** ve nedenini ekranda yazar:
+
+- Kendi hesabınızı silemez, kendinizi pasifleştiremezsiniz.
+- Kendi yönetici yetkinizi alamazsınız.
+- **Son etkin yöneticiyi** silemez, pasifleştiremez, yetkisini alamazsınız.
+
+Bu kurallar olmasaydı tek bir yanlış tıklama panele girişi tamamen
+kapatırdı ve düzeltmek için sunucuya komut girmek gerekirdi.
+
+> **Öneri:** Kendinizden başka **ikinci bir sistem yöneticisi** tanımlayın.
+> Hesabınıza erişemediğiniz bir durumda ikinci yönetici sizi kurtarır.
+> Tek yönetici varken panel bunu uyarı olarak gösterir.
+
 ---
 
 ### API anahtarlarını girmek
@@ -213,3 +278,66 @@ Bütçe değişikliği isterseniz bana söyleyin.
 4. **Ne zaman oldu?** (yaklaşık saat)
 
 Bu dördü ile sorunu genelde doğrudan bulabilirim.
+
+
+---
+
+## 10. Otomasyon (n8n)
+
+Sol menüde **Otomasyon**.
+
+### Ne yapar, ne yapmaz
+Arka planda çalışan 4 iş akışı vardır: günlük sosyal zekâ, trend
+araştırması, içerik zekâsı ve haftalık rapor. Bunlar **araştırır, analiz
+eder, önerir ve panele yazar**.
+
+**Hiçbiri paylaşım yapmaz, yoruma cevap vermez, DM göndermez.** Üretilen
+her şey taslaktır ve sizin onayınızı bekler. Bu, v1'de bilinçli bir
+sınırdır.
+
+### Açıp kapatmak
+Her iş akışı her müşteri için **ayrı ayrı** açılır ve **varsayılan olarak
+kapalıdır**. Panelden açmadan hiçbir şey çalışmaz.
+
+Tabloda her akış için şunları görürsünüz:
+- açık mı kapalı mı
+- ne zaman çalışması beklendiği
+- **en son ne zaman çalıştığı ve başarılı olup olmadığı**
+- hata verdiyse **hata mesajının kendisi**
+
+Hata gizlenmez. "Bir şeyler ters gitti" yazmaz; ne olduğunu yazar.
+
+### n8n'e girmeniz gerekiyor mu?
+**Normal kullanımda hayır.** Yukarıdaki tablo her şeyi gösterir.
+İş akışlarının kendisini düzenlemek gerekirse adres ve giriş bilgisi
+Otomasyon sayfasının altında, yalnızca size görünür.
+
+> **Orada iki ayrı giriş var:**
+> 1. Tarayıcının sorduğu **kullanıcı adı/şifre** — bu, n8n'i internetten
+>    gelen yabancılara kapatan kapıdır.
+> 2. Geçtikten sonra **n8n'in kendi hesabı** — ilk açılışta siz
+>    oluşturacaksınız.
+>
+> İkisi farklı şeydir. Birincisi olmasaydı, adresi bulan ilk yabancı n8n'in
+> sahibi olur ve otomasyonu ele geçirirdi.
+
+### n8n bağlantı anahtarları
+n8n sizin hesabınızı kullanmaz; kendi **makine kimliği** vardır.
+
+- Bir anahtar **yalnızca işaretlediğiniz müşterilerde** çalışabilir.
+  İşaretlemediğiniz müşteriye n8n **ulaşamaz** — n8n'de yanlış bir ayar
+  olsa bile.
+- Anahtar **bir kez** gösterilir. Kaybederseniz yenisini üretin;
+  eskisi geri getirilemez.
+- Bir anahtardan şüphelenirseniz **İptal et**. O anda çalışmaz hale gelir.
+- Anahtarın tamamı hiçbir yerde saklanmaz; listede yalnızca tanıtıcı
+  baş kısmı (`acx_...`) görünür.
+
+### Sık sorulan
+**"Akış açık ama hiç çalışmadı" yazıyor.**
+İş akışının n8n tarafında da kurulu olması gerekir. Panelde açmak "bu
+müşteride çalışmasına izin veriyorum" demektir; çalıştıran taraf n8n'dir.
+
+**"Hata" görüyorum.**
+Hata mesajı satırın altında yazar. Bana o mesajı iletin — hangi akış,
+hangi müşteri, ne zaman.
