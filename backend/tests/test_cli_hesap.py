@@ -29,7 +29,8 @@ def komut(db, monkeypatch):
 
 def _ortam(monkeypatch, **degerler):
     for ad in ["ILK_YONETICI_EMAIL", "ILK_YONETICI_AD", "ILK_YONETICI_SIFRE",
-               "HESAP_EMAIL", "HESAP_YENI_SIFRE"]:
+               "HESAP_EMAIL", "HESAP_YENI_SIFRE", "PUBLIC_DOMAIN",
+               "KURTARMA_OMUR_SAAT"]:
         monkeypatch.delenv(ad, raising=False)
     for ad, deger in degerler.items():
         monkeypatch.setenv(ad, deger)
@@ -210,3 +211,34 @@ def test_tanilama_bosluklu_sifreyi_isaret_ediyor(komut, make_user, capsys, monke
     )
 
     assert "basta/sonda bosluk var mi: EVET" in cikti
+
+
+# --- Kurtarma bagi omru -----------------------------------------------------
+
+def test_kurtarma_bagi_varsayilan_24_saat(komut, make_user, capsys, monkeypatch):
+    make_user(email="sahip@ornek.com")
+    _ortam(monkeypatch, HESAP_EMAIL="sahip@ornek.com", PUBLIC_DOMAIN="ornek.test")
+    monkeypatch.delenv("KURTARMA_OMUR_SAAT", raising=False)
+
+    assert komut.kurtarma_bagi() == 0
+
+    cikti = capsys.readouterr().out
+    assert "24 saat gecerli" in cikti
+    assert "https://ornek.test/panel/sifre-belirle?jeton=" in cikti
+
+
+def test_kurtarma_bagi_omru_ayarlanabiliyor(komut, make_user, capsys, monkeypatch):
+    make_user(email="sahip@ornek.com")
+    _ortam(monkeypatch, HESAP_EMAIL="sahip@ornek.com", PUBLIC_DOMAIN="ornek.test",
+           KURTARMA_OMUR_SAAT="48")
+
+    assert komut.kurtarma_bagi() == 0
+    assert "48 saat gecerli" in capsys.readouterr().out
+
+
+def test_kurtarma_bagi_sacma_omru_reddediyor(komut, make_user, monkeypatch):
+    make_user(email="sahip@ornek.com")
+    for gecersiz in ["0", "999", "abc"]:
+        _ortam(monkeypatch, HESAP_EMAIL="sahip@ornek.com", KURTARMA_OMUR_SAAT=gecersiz)
+        with pytest.raises(hesap.KurulumHatasi):
+            komut.kurtarma_bagi()

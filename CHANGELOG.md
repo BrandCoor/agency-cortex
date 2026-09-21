@@ -472,3 +472,11 @@ Panel ayrıca "Yayınlandı" seçeneğini hiç göstermez.
   giriş yapılabiliyor.
 - Bağlantının ikinci kez çalışmadığı, pasif kullanıcıda çalışmadığı,
   jetonun Redis'te düz metin saklanmadığı ayrı ayrı test edildi.
+
+### Düzeltildi (ek)
+- **Şifre belirleme bağlantısının ömrü çok kısaydı.** 30 dakika, bağlantının
+  üretilip kullanıcıya ulaşması ve kullanılması için pratikte yetmiyordu.
+  Varsayılan 24 saate çıkarıldı (`KURTARMA_OMUR_SAAT` ile 1-72 saat arası
+  ayarlanabilir). Bağlantı **tek kullanımlık** olmaya devam ediyor: kullanıldığı
+  anda geçersizleşir, yani asıl koruma süreden değil tek kullanımlılıktan
+  geliyor.

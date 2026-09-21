@@ -190,17 +190,28 @@ def kurtarma_bagi() -> int:
     email = _ortam("HESAP_EMAIL").lower()
     alan_adi = os.environ.get("PUBLIC_DOMAIN") or get_settings().public_domain
 
+    # Bagi kullanacak kisi ile bagi ureten kisi ayni anda klavye basinda
+    # olmayabilir (bag sohbet uzerinden iletiliyor). 30 dakika pratikte cok
+    # kisa kaliyordu; varsayilan 24 saat. Bag yine TEK KULLANIMLIK oldugu
+    # icin kullanildigi anda gecersizlesir.
+    try:
+        omur_saat = int(os.environ.get("KURTARMA_OMUR_SAAT") or 24)
+    except ValueError as hata:
+        raise KurulumHatasi("KURTARMA_OMUR_SAAT bir sayi olmali.") from hata
+    if not 1 <= omur_saat <= 72:
+        raise KurulumHatasi("KURTARMA_OMUR_SAAT 1 ile 72 arasinda olmali.")
+
     with SessionLocal() as db:
         kullanici = db.execute(select(User).where(User.email == email)).scalar_one_or_none()
         if kullanici is None:
             raise KurulumHatasi(f"Kullanici bulunamadi: {email}")
-        jeton = jeton_uret(kullanici.id)
+        jeton = jeton_uret(kullanici.id, omur_saniye=omur_saat * 3600)
 
-    print("Tek kullanimlik sifre belirleme bagi (30 dakika gecerli):")
+    print(f"Tek kullanimlik sifre belirleme bagi ({omur_saat} saat gecerli):")
     print()
     print(f"https://{alan_adi}/panel/sifre-belirle?jeton={jeton}")
     print()
-    print("Bu bag YALNIZCA BIR KEZ calisir ve 30 dakika sonra gecersiz olur.")
+    print(f"Bu bag YALNIZCA BIR KEZ calisir ve {omur_saat} saat sonra gecersiz olur.")
     print("Sifrenizi acilan sayfada kendiniz belirleyeceksiniz.")
     return 0
 
