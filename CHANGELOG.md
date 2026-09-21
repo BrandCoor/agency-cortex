@@ -510,3 +510,14 @@ Panel ayrıca "Yayınlandı" seçeneğini hiç göstermez.
 ### Henüz eksik (açıkça)
 - **Yedekler sunucu dışına kopyalanmıyor.** Sunucu tamamen kaybolursa
   yedekler de kaybolur. Bunun için bir depolama hesabı gerekiyor.
+
+### Düzeltildi (yedekleme, ilk kurulumda yakalandı)
+- **Yedekleme betikleri `.env` dosyasını kabukla çalıştırıyordu.** Üretimdeki
+  `.env` boşluk içeren bir değer barındırdığı için betik
+  `Cortex: command not found` hatasıyla durdu. Asıl sorun daha derindi:
+  bir `.env` dosyasını kabukla okumak, içindeki her satırın **komut olarak
+  çalıştırılması** demektir. Artık dosya yalnızca okunuyor; gereken iki
+  değer metin olarak ayıklanıyor, hiçbir şey çalıştırılmıyor.
+- Okuyucu şu durumlara karşı ayrıca sınandı: boşluklu değer, tırnaklı değer,
+  içinde `'` `"` `$` `` ` `` geçen parola, başında boşluk olan satır,
+  olmayan değer, ve `.env` içine komut yerleştirme denemesi (çalışmadı).

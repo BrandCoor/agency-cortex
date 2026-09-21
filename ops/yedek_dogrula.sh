@@ -15,9 +15,30 @@ YEDEK_DIZINI="${YEDEK_DIZINI:-$DIZIN/yedek}"
 DENEME_DB="yedek_dogrulama_gecici"
 
 cd "$DIZIN"
-# shellcheck disable=SC1091
-set -a; . ./.env; set +a
-: "${POSTGRES_DB:?}"; : "${POSTGRES_USER:?}"
+# .env'den TEK BIR degeri guvenle okur.
+#
+# NEDEN "set -a; . ./.env" DEGIL:
+# O yontem .env dosyasini KABUKLA CALISTIRIR. Bosluk iceren bir deger
+# (APP_NAME=Agency Cortex) "Cortex: command not found" hatasi verir; daha
+# kotusu, dosyaya girmis herhangi bir komut CALISIR. .env yalnizca
+# okunmalidir, calistirilmamalidir.
+env_oku() {
+  local ad="$1" satir deger
+  satir=$(grep -E "^[[:space:]]*${ad}=" "$DIZIN/.env" | tail -1 || true)
+  [ -n "$satir" ] || return 1
+  deger="${satir#*=}"
+  # Bastaki/sondaki tirnaklari ve bosluklari temizle
+  deger="${deger#"${deger%%[![:space:]]*}"}"
+  deger="${deger%"${deger##*[![:space:]]}"}"
+  case "$deger" in
+    \"*\") deger="${deger#\"}"; deger="${deger%\"}" ;;
+    \'*\') deger="${deger#\'}"; deger="${deger%\'}" ;;
+  esac
+  printf '%s' "$deger"
+}
+
+POSTGRES_DB=$(env_oku POSTGRES_DB) || { echo "HATA: POSTGRES_DB .env icinde yok." >&2; exit 1; }
+POSTGRES_USER=$(env_oku POSTGRES_USER) || { echo "HATA: POSTGRES_USER .env icinde yok." >&2; exit 1; }
 
 son=$(ls -1t "$YEDEK_DIZINI"/agency-cortex-*.dump 2>/dev/null | head -1 || true)
 if [ -z "$son" ]; then
