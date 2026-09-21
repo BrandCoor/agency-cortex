@@ -379,17 +379,21 @@ jobs:
       # kurulumda guvenle tekrar calistirilabilir.
       # Yedekleme her kurulumda kurulur ve GERCEKTEN calistigi dogrulanir.
       # "Yedek aliniyor" demek yetmez; geri yuklenemeyen bir yedek, yedek
-      # degildir. Bu yuzden her kurulumda bir yedek alinip AYRI bir gecici
-      # veritabanina geri yuklenerek sinaniyor.
+      # degildir.
+      #
+      # DIKKAT: uzak betik "bash -s" ile DEGIL, dosyadan calistiriliyor.
+      # "bash -s" betigi standart girdiden okur; icerideki "docker compose
+      # exec -T" cagrilari da standart girdiyi okuyup betigin kalanini
+      # yutar. 21 Eylul'de dogrulama adimi tam bu yuzden sessizce
+      # atlanmisti ve kurulum yine de yesil gorunmustu.
       - name: Yedekleme kur ve dogrula
         run: |
-          ssh -i ~/.ssh/id_deploy -o BatchMode=yes "$VPS_USER@$VPS_HOST" bash -s <<'UZAK'
+          ssh -i ~/.ssh/id_deploy -o BatchMode=yes "$VPS_USER@$VPS_HOST" \
+            "cat > /tmp/yedek_kur.sh" <<'UZAK'
           set -eu
           cd /opt/agency-cortex
 
           echo "--- zamanlanmis gorevler kuruluyor ---"
-          # Her gun 03:30'da yedek, her pazar 04:00'te dogrulama.
-          # crontab satirlari etikete gore degistirilir; tekrar eklenmez.
           mevcut=$(crontab -l 2>/dev/null | grep -v '# agency-cortex-yedek' || true)
           {
             printf '%s\n' "$mevcut"
@@ -406,7 +410,27 @@ jobs:
           echo ""
           echo "--- alinan yedek GERCEKTEN geri yuklenebiliyor mu? ---"
           /bin/bash ops/yedek_dogrula.sh
+
+          # Bu satir, dogrulamanin gercekten calistiginin kanitidir.
+          echo "YEDEKLEME_DOGRULAMASI_TAMAMLANDI"
           UZAK
+
+          cikti=$(ssh -i ~/.ssh/id_deploy -o BatchMode=yes "$VPS_USER@$VPS_HOST" \
+                    'bash /tmp/yedek_kur.sh; kod=$?; rm -f /tmp/yedek_kur.sh; exit $kod')
+          echo "$cikti"
+
+          # Adimlarin sessizce atlanmadigini dogrula.
+          for iz in "TAMAM:" "BASARILI: yedek geri yuklenebilir durumda." "YEDEKLEME_DOGRULAMASI_TAMAMLANDI"; do
+            if ! printf '%s' "$cikti" | grep -qF "$iz"; then
+              echo ""
+              echo "HATA: yedekleme adimi eksik calisti. Beklenen iz bulunamadi:"
+              echo "  $iz"
+              echo "Bu, bir alt adimin sessizce atlandigi anlamina gelir."
+              exit 1
+            fi
+          done
+          echo ""
+          echo "TAMAM: yedek alindi VE geri yuklenebildigi dogrulandi."
 
       - name: Ilk yonetici hesabi
         env:

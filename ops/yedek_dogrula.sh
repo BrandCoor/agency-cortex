@@ -56,13 +56,13 @@ fi
 temizle() {
   docker compose exec -T postgres \
     psql -U "$POSTGRES_USER" -d postgres \
-    -c "DROP DATABASE IF EXISTS $DENEME_DB" >/dev/null 2>&1 || true
+    -c "DROP DATABASE IF EXISTS $DENEME_DB" </dev/null >/dev/null 2>&1 || true
 }
 trap temizle EXIT
 
 temizle
 docker compose exec -T postgres \
-  psql -U "$POSTGRES_USER" -d postgres -c "CREATE DATABASE $DENEME_DB" >/dev/null
+  psql -U "$POSTGRES_USER" -d postgres -c "CREATE DATABASE $DENEME_DB" </dev/null >/dev/null
 
 # pg_restore uyarilari (sahiplik vb.) hata sayilmaz; asil olcut sonraki sayim.
 docker compose exec -T postgres \
@@ -71,7 +71,7 @@ docker compose exec -T postgres \
 
 tablo_sayisi=$(docker compose exec -T postgres psql -U "$POSTGRES_USER" \
   -d "$DENEME_DB" -tAc \
-  "SELECT count(*) FROM information_schema.tables WHERE table_schema='public'" | tr -d '[:space:]')
+  "SELECT count(*) FROM information_schema.tables WHERE table_schema='public'" </dev/null | tr -d '[:space:]')
 
 echo "[$(date -Is)] geri yuklenen tablo sayisi: $tablo_sayisi"
 
@@ -86,7 +86,7 @@ fi
 
 # Kullanici tablosu okunabiliyor mu? (Sema var ama veri okunamiyor olabilir.)
 kullanici_sayisi=$(docker compose exec -T postgres psql -U "$POSTGRES_USER" \
-  -d "$DENEME_DB" -tAc "SELECT count(*) FROM users" | tr -d '[:space:]')
+  -d "$DENEME_DB" -tAc "SELECT count(*) FROM users" </dev/null | tr -d '[:space:]')
 echo "[$(date -Is)] geri yuklenen kullanici sayisi: $kullanici_sayisi"
 
 echo "[$(date -Is)] BASARILI: yedek geri yuklenebilir durumda."

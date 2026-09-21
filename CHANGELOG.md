@@ -521,3 +521,18 @@ Panel ayrıca "Yayınlandı" seçeneğini hiç göstermez.
 - Okuyucu şu durumlara karşı ayrıca sınandı: boşluklu değer, tırnaklı değer,
   içinde `'` `"` `$` `` ` `` geçen parola, başında boşluk olan satır,
   olmayan değer, ve `.env` içine komut yerleştirme denemesi (çalışmadı).
+
+### Düzeltildi (yedekleme, ikinci tur)
+- **Yedek doğrulaması sessizce atlanıyordu ve kurulum yine de yeşil
+  görünüyordu.** Yedek alınıyordu, ama `pg_dump` standart girdiyi okuyup
+  kurulum betiğinin geri kalanını yutuyordu; `yedek_dogrula.sh` hiç
+  çalışmıyordu. Kayıtta yedek satırlarından sonra doğrulama çıktısı yoktu.
+  - Betiklerdeki tüm `docker compose exec -T` çağrılarına `</dev/null`
+    eklendi (girdiye gerçekten ihtiyaç duyan `pg_restore < dosya` hariç).
+  - Kurulum adımı artık uzak betiği `bash -s` ile değil **dosyadan**
+    çalıştırıyor; bu tuzağın kaynağı ortadan kalktı.
+  - Adım artık çıktıda üç **kanıt izi** arıyor. İzlerden biri yoksa kurulum
+    HATA veriyor. Böylece "bir alt adım sessizce atlandı" durumu yeşil
+    görünemez.
+- Yerelde birebir kanıtlandı: stdin'i yutan sahte bir `docker` ile
+  düzeltilmiş betik sonraki adımı çalıştırıyor, eski betik çalıştırmıyor.

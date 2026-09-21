@@ -59,7 +59,7 @@ echo "[$(date -Is)] yedek aliniyor -> $(basename "$hedef")"
 
 # -T yok: stdout'u dosyaya yonlendiriyoruz, terminal gerekmiyor.
 if ! docker compose exec -T postgres \
-      pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc > "$gecici" 2>/tmp/yedek_hata.log; then
+      pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" -Fc </dev/null > "$gecici" 2>/tmp/yedek_hata.log; then
   echo "HATA: pg_dump basarisiz." >&2
   sed -e 's/password=[^ ]*/password=***/g' /tmp/yedek_hata.log >&2 || true
   rm -f "$gecici"

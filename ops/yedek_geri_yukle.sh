@@ -87,7 +87,7 @@ for i in $(seq 1 40); do
   if docker compose exec -T api curl -fsS http://localhost:8000/readyz >/dev/null 2>&1 </dev/null; then
     echo "[$(date -Is)] BASARILI: sistem geri yuklendi ve calisiyor."
     docker compose exec -T postgres psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
-      -tAc "SELECT 'kullanici sayisi: ' || count(*) FROM users"
+      -tAc "SELECT 'kullanici sayisi: ' || count(*) FROM users" </dev/null
     exit 0
   fi
   sleep 5
