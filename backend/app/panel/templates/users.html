@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+{% block title %}Kullanıcılar{% endblock %}
+{% block content %}
+<div class="sayfa-ust">
+  <div class="metin">
+    <h1>Kullanıcılar</h1>
+    <p class="sub">Sisteme kim girebilir, kim sistem yöneticisidir.
+      Bir müşterideki yetki ayrı bir yerdedir: <em>Müşteri &rsaquo; Ekip</em>.</p>
+  </div>
+</div>
+
+{% if error %}<div class="err"><b>İşlem yapılmadı</b>{{ error }}</div>{% endif %}
+{% if ok %}<div class="ok">{{ ok }}</div>{% endif %}
+
+{% if bag %}
+<div class="bilgi">
+  <b>{{ bag_kisi }} için şifre belirleme bağı</b>
+  Bu bağ <strong>{{ bag_omur_saat }} saat</strong> geçerlidir ve
+  <strong>yalnızca bir kez</strong> kullanılabilir. Kişiye iletin; şifresini
+  kendisi belirleyecek.
+  <code class="kod blok" style="margin-top:9px">{{ bag }}</code>
+  <div class="sessiz" style="margin-top:6px">
+    Bu bağ bir daha gösterilmez. Sayfayı yenilerseniz kaybolur —
+    kaybolursa listeden yeni bir bağ üretebilirsiniz.
+  </div>
+</div>
+{% endif %}
+
+<div class="kutular">
+  <div class="kutu">
+    <div class="etiket">Toplam hesap</div>
+    <div class="deger">{{ kullanicilar | length }}</div>
+  </div>
+  <div class="kutu">
+    <div class="etiket">Etkin</div>
+    <div class="deger">{{ etkin_sayisi }}</div>
+    <div class="not">Giriş yapabilen hesap</div>
+  </div>
+  <div class="kutu {% if yonetici_sayisi < 2 %}uyari{% endif %}">
+    <div class="etiket">Sistem yöneticisi</div>
+    <div class="deger">{{ yonetici_sayisi }}</div>
+    <div class="not">
+      {% if yonetici_sayisi < 2 %}Tek yönetici var — ikinci bir yönetici önerilir{% else %}Etkin yönetici{% endif %}
+    </div>
+  </div>
+</div>
+
+<h2>Hesaplar</h2>
+<div class="card sikisik">
+  <div class="tablo-sar">
+  <table>
+    <thead>
+      <tr>
+        <th>Kişi</th><th>Durum</th><th>Yetki</th>
+        <th>Müşteri</th><th>Son giriş</th><th class="sag">İşlem</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for k in kullanicilar %}
+      <tr>
+        <td>
+          <a href="/panel/kullanicilar/{{ k.id }}"><strong>{{ k.full_name }}</strong></a>
+          {% if k.kendisi %}<span class="pill p-acc">siz</span>{% endif %}
+          <div class="sessiz">{{ k.email }}</div>
+        </td>
+        <td>
+          {% if k.is_active %}<span class="pill p-ok">Etkin</span>
+          {% else %}<span class="pill p-bad">Pasif</span>{% endif %}
+        </td>
+        <td>
+          {% if k.is_superuser %}<span class="pill p-acc">Sistem yöneticisi</span>
+          {% else %}<span class="pill p-notr">Normal</span>{% endif %}
+        </td>
+        <td class="muted">{{ k.uyelik }}</td>
+        <td class="muted">
+          {% if k.last_login_at %}{{ k.last_login_at.strftime("%d.%m.%Y %H:%M") }}
+          {% else %}<span class="sessiz">hiç girmedi</span>{% endif %}
+        </td>
+        <td class="sag daralt">
+          <div class="aksiyonlar" style="justify-content:flex-end">
+            <form method="post" action="/panel/kullanicilar/bag" style="margin:0">
+              <input type="hidden" name="user_id" value="{{ k.id }}">
+              <button type="submit" class="kucuk"
+                      {% if not k.is_active %}disabled title="Pasif hesap için bağ üretilmez"{% endif %}>
+                Şifre bağı
+              </button>
+            </form>
+            {% if not k.kendisi %}
+            <form method="post" action="/panel/kullanicilar/sil" style="margin:0"
+                  onsubmit="return confirm('{{ k.email }} kalıcı olarak silinecek. Bu geri alınamaz. Emin misiniz?')">
+              <input type="hidden" name="user_id" value="{{ k.id }}">
+              <button type="submit" class="kucuk tehlikeli">Sil</button>
+            </form>
+            {% endif %}
+          </div>
+        </td>
+      </tr>
+      <tr>
+        <td colspan="6" style="padding-top:0">
+          <details>
+            <summary>Düzenle</summary>
+            <form method="post" action="/panel/kullanicilar/duzenle">
+              <input type="hidden" name="user_id" value="{{ k.id }}">
+              <div class="izgara">
+                <div>
+                  <label for="ad-{{ k.id }}">Ad soyad</label>
+                  <input id="ad-{{ k.id }}" name="ad" type="text" required
+                         maxlength="200" value="{{ k.full_name }}">
+                </div>
+                <div>
+                  <label>Yetkiler</label>
+                  <label class="satirici">
+                    <input type="checkbox" name="etkin" value="1"
+                           {% if k.is_active %}checked{% endif %}
+                           {% if k.kendisi %}disabled{% endif %}>
+                    Giriş yapabilir
+                  </label>
+                  <label class="satirici">
+                    <input type="checkbox" name="yonetici" value="1"
+                           {% if k.is_superuser %}checked{% endif %}
+                           {% if k.kendisi %}disabled{% endif %}>
+                    Sistem yöneticisi
+                  </label>
+                  {% if k.kendisi %}
+                  <input type="hidden" name="etkin" value="1">
+                  <input type="hidden" name="yonetici" value="1">
+                  <div class="ipucu">Kendi yetkilerinizi değiştiremezsiniz.
+                    Bunu sizden başka bir yönetici yapmalıdır.</div>
+                  {% endif %}
+                </div>
+              </div>
+              <div style="margin-top:13px">
+                <button type="submit" class="birincil">Kaydet</button>
+              </div>
+            </form>
+          </details>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>
+
+<h2>Yeni kullanıcı</h2>
+<div class="card">
+  <p class="muted" style="margin-top:0">
+    Şifreyi siz belirlemezsiniz. Hesap açıldığında size tek kullanımlık bir
+    bağ verilir; kişi şifresini o bağdan kendisi belirler. Böylece şifre
+    hiçbir yerde yazılı kalmaz.
+  </p>
+  <form method="post" action="/panel/kullanicilar/ekle">
+    <div class="izgara">
+      <div>
+        <label for="ad">Ad soyad</label>
+        <input id="ad" name="ad" type="text" required maxlength="200"
+               placeholder="Örn: Ayşe Yılmaz">
+      </div>
+      <div>
+        <label for="email">E-posta</label>
+        <input id="email" name="email" type="email" required maxlength="320"
+               placeholder="ad@ornek.com">
+        <div class="ipucu">Giriş bu adresle yapılır.</div>
+      </div>
+    </div>
+    <label class="satirici">
+      <input type="checkbox" name="yonetici" value="1">
+      Sistem yöneticisi olsun
+    </label>
+    <div class="ipucu">
+      Sistem yöneticisi kullanıcıları ve API anahtarlarını yönetebilir.
+      Bu, müşteri verisine otomatik erişim <strong>vermez</strong> — onun için
+      müşterinin ekibine eklenmesi gerekir.
+    </div>
+    <div style="margin-top:15px"><button type="submit" class="birincil">Hesabı aç</button></div>
+  </form>
+</div>
+{% endblock %}

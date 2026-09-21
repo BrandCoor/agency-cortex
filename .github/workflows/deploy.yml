@@ -293,6 +293,39 @@ jobs:
           mv .env.tmp .env 2>/dev/null || true
           echo "APP_IMAGE=${IMAJ}" >> .env
           chmod 600 .env
+
+          # --- Sonradan eklenen ayarlar ---------------------------------
+          # KURAL: yalnizca EKSIK olan eklenir. Var olan bir degere asla
+          # dokunulmaz; aksi halde her kurulumda uretilen yeni bir anahtar
+          # eski verinin okunamamasina yol acardi.
+          ekle_yoksa() {
+            ad="$1"; deger="$2"
+            if grep -qE "^[[:space:]]*${ad}=" .env; then
+              return 0
+            fi
+            printf '%s=%s\n' "$ad" "$deger" >> .env
+            echo "  + ${ad} eklendi"
+          }
+
+          ekle_yoksa N8N_DOMAIN "n8n.${DOMAIN}"
+          ekle_yoksa N8N_DB "n8n"
+          # DEGISIRSE n8n'deki kayitli kimlik bilgileri okunamaz hale gelir.
+          ekle_yoksa N8N_ENCRYPTION_KEY "$(openssl rand -hex 32)"
+          ekle_yoksa N8N_BASIC_USER "ajans"
+          ekle_yoksa N8N_BASIC_PASSWORD "$(openssl rand -base64 24 | tr -d '\n=/+' | head -c 20)"
+          chmod 600 .env
+
+          # Caddy duz sifreyi kabul etmez; bcrypt ozeti gerekir.
+          # Ozet, sifre degistiyse yeniden uretilir.
+          duz_sifre=$(grep -E '^[[:space:]]*N8N_BASIC_PASSWORD=' .env | tail -1 | cut -d= -f2-)
+          if ! grep -qE '^[[:space:]]*N8N_BASIC_HASH=' .env; then
+            ozet=$(docker run --rm caddy:2.10-alpine caddy hash-password --plaintext "$duz_sifre")
+            printf 'N8N_BASIC_HASH=%s\n' "$ozet" >> .env
+            chmod 600 .env
+            echo "  + N8N_BASIC_HASH uretildi"
+          fi
+
+          echo "Ayar dosyasi hazir."
           UZAK
 
       - name: Imaji indir ve baslat
@@ -592,3 +625,58 @@ jobs:
           echo
           echo "Olasi neden: ters vekil (Caddy) /panel yolunu uygulamaya yonlendirmiyor."
           exit 1
+
+      # n8n gercekten ayakta mi ve onundeki kilit calisiyor mu?
+      #
+      # Ayaktalik ic agdan, kilit ise DISARIDAN sinanir. "Servis calisiyor"
+      # demek yetmez: kilitsiz acilan bir n8n'i ilk bulan kisi sahip hesabini
+      # olusturur ve otomasyonu ele gecirir.
+      - name: n8n kontrolu
+        run: |
+          echo "--- sunucu icinde ---"
+          ssh -i ~/.ssh/id_deploy -o BatchMode=yes "$VPS_USER@$VPS_HOST" bash -s <<'UZAK'
+          set -eu
+          cd /opt/agency-cortex
+
+          echo "n8n veritabani olusturuldu mu?"
+          docker compose logs n8n_veritabani --tail=5 </dev/null
+
+          hazir="hayir"
+          for i in $(seq 1 40); do
+            if docker compose exec -T api curl -fsS http://n8n:5678/healthz >/dev/null 2>&1 </dev/null; then
+              hazir="evet"
+              break
+            fi
+            sleep 5
+          done
+
+          if [ "$hazir" != "evet" ]; then
+            echo "HATA: n8n 200 saniyede ayaga kalkmadi."
+            docker compose logs n8n --tail=60 </dev/null
+            exit 1
+          fi
+          echo "BASARILI: n8n ic agdan yanit veriyor."
+          UZAK
+
+          echo "--- disaridan ---"
+          n8n_alan="n8n.$PUBLIC_DOMAIN"
+          kod="000"
+          for i in $(seq 1 20); do
+            kod=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 15 \
+              "https://$n8n_alan/" 2>/dev/null || echo "000")
+            echo "deneme $i: HTTP $kod"
+            # 401 BEKLENEN sonuctur: kilit devrede demektir.
+            if [ "$kod" = "401" ]; then
+              echo "BASARILI: https://$n8n_alan kilitli (HTTP 401)."
+              exit 0
+            fi
+            if [ "$kod" = "200" ]; then
+              echo "HATA: n8n sifresiz aciliyor. Ilk acan kisi sahip hesabini alir."
+              exit 1
+            fi
+            sleep 15
+          done
+
+          echo "UYARI: https://$n8n_alan disaridan henuz yanit vermiyor (son kod: $kod)."
+          echo "Olasi neden: DNS yayilmasi veya sertifika hazirligi suruyor."
+          echo "Sistem sunucu icinde saglikli; bu adim kurulumu durdurmuyor."

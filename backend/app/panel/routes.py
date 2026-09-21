@@ -42,6 +42,7 @@ from app.services.approvals import (
     transition,
 )
 from app.services.baglanti_sinama import SINAYICILAR, sina
+from app.services.denetim import kaydet
 from app.services.sifre_sifirlama import JetonHatasi, jeton_gecerli_mi, jetonu_tuket
 from app.services.sistem_ayarlari import (
     AYAR_ANAHTARLARI,
@@ -566,13 +567,17 @@ def _ekip_sayfasi(request, db, user, uyelik, workspace, *, error=None, ok=None, 
                     "id": str(u.id),
                     "email": u.email,
                     "full_name": u.full_name,
+                    "role": m.role.value,
                     "role_label": ROLE_LABELS.get(m.role.value, m.role.value),
                     "kendisi": u.id == user.id,
+                    # Kendinden yuksek yetkilinin ayarlari degistirilemez.
+                    "degistirilebilir": uyelik.role.covers(m.role) and u.id != user.id,
                 }
                 for m, u in satirlar
             ],
             "yonetebilir": uyelik.role.covers(WorkspaceRole.ADMIN),
             "rol_secenekleri": ROL_ACIKLAMALARI,
+            "yol": "Ekip",
             "error": error,
             "ok": ok,
         },
@@ -641,6 +646,11 @@ def member_add(
         )
 
     db.add(WorkspaceMember(workspace_id=workspace_id, user_id=hedef.id, role=yeni_rol))
+    kaydet(
+        db, action="ekip.ekle", actor_user_id=user.id, workspace_id=workspace_id,
+        subject_type="user", subject_id=hedef.id, request=request,
+        details={"email": hedef.email, "rol": yeni_rol.value},
+    )
     try:
         db.commit()
     except IntegrityError:
@@ -652,6 +662,88 @@ def member_add(
 
     return _ekip_sayfasi(
         request, db, user, uyelik, workspace, ok=f"{hedef.email} ekibe eklendi."
+    )
+
+
+@router.post("/musteri/{workspace_id}/ekip/rol")
+def member_role_change(
+    workspace_id: uuid.UUID,
+    request: Request,
+    db: DbSession,
+    user_id: Annotated[uuid.UUID, Form()],
+    rol: Annotated[str, Form()],
+):
+    """Bir ekip uyesinin yetkisini degistirir.
+
+    Iki sinir: kimse kendi yetkisini degistiremez (kendini sahip yapardi)
+    ve kimse kendinden yuksek yetkiliye dokunamaz.
+    """
+    user = current_user_from_cookie(request, db)
+    if user is None:
+        return _giris_yonlendir()
+    uyelik = _uyelik(db, user, workspace_id)
+    if uyelik is None:
+        return HTMLResponse("Bulunamadı.", status_code=404)
+
+    workspace = db.get(Workspace, workspace_id)
+    if not uyelik.role.covers(WorkspaceRole.ADMIN):
+        return _ekip_sayfasi(
+            request, db, user, uyelik, workspace,
+            error="Ekip yönetimi için en az yönetici yetkisi gerekir.",
+            kod=status.HTTP_403_FORBIDDEN,
+        )
+    if user_id == user.id:
+        return _ekip_sayfasi(
+            request, db, user, uyelik, workspace,
+            error="Kendi yetkinizi değiştiremezsiniz. Bunu başka bir yönetici yapmalıdır.",
+            kod=status.HTTP_400_BAD_REQUEST,
+        )
+
+    try:
+        yeni_rol = WorkspaceRole(rol)
+    except ValueError:
+        return _ekip_sayfasi(
+            request, db, user, uyelik, workspace,
+            error="Geçersiz yetki.", kod=status.HTTP_400_BAD_REQUEST,
+        )
+    if not uyelik.role.covers(yeni_rol):
+        return _ekip_sayfasi(
+            request, db, user, uyelik, workspace,
+            error="Kendi yetkinizden yüksek bir yetki veremezsiniz.",
+            kod=status.HTTP_403_FORBIDDEN,
+        )
+
+    hedef_uyelik = db.execute(
+        select(WorkspaceMember).where(
+            WorkspaceMember.workspace_id == workspace_id,
+            WorkspaceMember.user_id == user_id,
+        )
+    ).scalar_one_or_none()
+    if hedef_uyelik is None:
+        return _ekip_sayfasi(
+            request, db, user, uyelik, workspace,
+            error="Bu kişi ekipte değil.", kod=status.HTTP_404_NOT_FOUND,
+        )
+    if not uyelik.role.covers(hedef_uyelik.role):
+        return _ekip_sayfasi(
+            request, db, user, uyelik, workspace,
+            error="Kendi yetkinizden yüksek birinin yetkisini değiştiremezsiniz.",
+            kod=status.HTTP_403_FORBIDDEN,
+        )
+    if hedef_uyelik.role is yeni_rol:
+        return _ekip_sayfasi(request, db, user, uyelik, workspace, ok="Değişiklik yok.")
+
+    eski_rol = hedef_uyelik.role.value
+    hedef_uyelik.role = yeni_rol
+    kaydet(
+        db, action="ekip.yetki_degistir", actor_user_id=user.id,
+        workspace_id=workspace_id, subject_type="user", subject_id=user_id,
+        request=request, details={"eski": eski_rol, "yeni": yeni_rol.value},
+    )
+    db.commit()
+    return _ekip_sayfasi(
+        request, db, user, uyelik, workspace,
+        ok=f"Yetki güncellendi: {ROLE_LABELS.get(yeni_rol.value, yeni_rol.value)}",
     )
 
 
@@ -701,6 +793,11 @@ def member_remove(
             kod=status.HTTP_403_FORBIDDEN,
         )
 
+    kaydet(
+        db, action="ekip.cikar", actor_user_id=user.id, workspace_id=workspace_id,
+        subject_type="user", subject_id=user_id, request=request,
+        details={"rol": hedef_uyelik.role.value},
+    )
     db.delete(hedef_uyelik)
     db.commit()
     return _ekip_sayfasi(request, db, user, uyelik, workspace, ok="Kişi ekipten çıkarıldı.")

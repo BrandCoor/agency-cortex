@@ -3,205 +3,359 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark light">
 <title>{% block title %}Agency Cortex{% endblock %}</title>
 <style>
-  /* ---------------------------------------------------------------
-     Renkler tek yerde tanimlanir. Koyu tema varsayilan; kullanicinin
-     cihazi acik tema istiyorsa otomatik gecer.
-     --------------------------------------------------------------- */
+  /* =================================================================
+     Renk ve olcu degerleri TEK YERDE. Bir rengi degistirmek icin tum
+     dosyayi taramak gerekmez.
+     ================================================================= */
   :root {
-    --bg: #0f1115; --panel: #14171d; --card: #181b22; --line: #272b35;
-    --text: #e8eaed; --muted: #9aa1ad; --accent: #4f8ef7; --accent-soft: rgba(79,142,247,.14);
-    --ok: #3fb950; --warn: #d29922; --bad: #f85149; --lock: #8957e5;
-    --radius: 10px;
+    --bg:#0d1017; --panel:#12151c; --card:#171a22; --card-ust:#1c202a;
+    --line:#242936; --line-koyu:#2f3545;
+    --text:#e9ecf1; --muted:#98a1b2; --sessiz:#6b7484;
+    --accent:#4f8ef7; --accent-2:#6ba4ff; --accent-soft:rgba(79,142,247,.13);
+    --ok:#3fb950; --ok-soft:rgba(63,185,80,.13);
+    --warn:#d9a441; --warn-soft:rgba(217,164,65,.13);
+    --bad:#f0574f; --bad-soft:rgba(240,87,79,.13);
+    --lock:#9b6ef0; --lock-soft:rgba(155,110,240,.13);
+    --r:10px; --r-sm:7px;
+    --golge:0 1px 2px rgba(0,0,0,.28), 0 4px 16px rgba(0,0,0,.18);
+    --yan-en:246px;
   }
   @media (prefers-color-scheme: light) {
-    :root { --bg:#f4f6f8; --panel:#fff; --card:#fff; --line:#e3e6ea;
-            --text:#1c2024; --muted:#5c6470; --accent:#1f6feb;
-            --accent-soft: rgba(31,111,235,.10); }
+    :root {
+      --bg:#f3f5f8; --panel:#ffffff; --card:#ffffff; --card-ust:#f7f9fb;
+      --line:#e2e6ec; --line-koyu:#cfd6e0;
+      --text:#161a20; --muted:#5a6473; --sessiz:#828c9b;
+      --accent:#1f6feb; --accent-2:#1a5fd0; --accent-soft:rgba(31,111,235,.09);
+      --golge:0 1px 2px rgba(16,24,40,.05), 0 4px 14px rgba(16,24,40,.06);
+    }
   }
-  * { box-sizing: border-box; }
-  body { margin:0; background:var(--bg); color:var(--text);
-         font: 15px/1.6 -apple-system, "Segoe UI", Roboto, Arial, sans-serif; }
-  a { color: var(--accent); text-decoration: none; }
-  a:hover { text-decoration: underline; }
 
-  /* --- Duzen: solda menu, sagda icerik ------------------------------ */
-  .kabuk { display: flex; min-height: 100vh; }
+  *,*::before,*::after { box-sizing:border-box; }
+  html,body { height:100%; }
+  body {
+    margin:0; background:var(--bg); color:var(--text);
+    font:15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto,
+         "Helvetica Neue", Arial, sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  a { color:var(--accent); text-decoration:none; }
+  a:hover { text-decoration:underline; }
+  svg { display:block; }
+
+  /* ---------- Duzen ------------------------------------------------ */
+  .kabuk { display:flex; min-height:100vh; }
 
   .yan {
-    width: 250px; flex: 0 0 250px; background: var(--panel);
-    border-right: 1px solid var(--line); padding: 18px 12px;
-    display: flex; flex-direction: column; gap: 4px;
+    width:var(--yan-en); flex:0 0 var(--yan-en); background:var(--panel);
+    border-right:1px solid var(--line); padding:14px 10px 16px;
+    display:flex; flex-direction:column; gap:2px;
+    position:sticky; top:0; height:100vh; overflow-y:auto;
   }
-  .yan .logo { font-weight: 700; font-size: 17px; padding: 6px 12px 16px;
-               display:flex; align-items:center; gap:9px; }
-  .yan .logo .nokta { width:10px; height:10px; border-radius:50%;
-                      background: var(--accent); flex:0 0 10px; }
-  .yan .baslik { font-size: 11px; text-transform: uppercase; letter-spacing: .07em;
-                 color: var(--muted); padding: 16px 12px 6px; font-weight: 600; }
-  .yan a.bag { display:flex; align-items:center; gap:10px; padding: 9px 12px;
-               border-radius: 8px; color: var(--text); font-size: 14px; }
-  .yan a.bag:hover { background: var(--card); text-decoration: none; }
-  .yan a.bag.aktif { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
-  .yan .simge { width:18px; text-align:center; flex:0 0 18px; opacity:.85; }
-  .yan .alt { margin-top: auto; padding-top: 16px; border-top: 1px solid var(--line); }
-  .yan .kisi { padding: 4px 12px 10px; font-size: 13px; color: var(--muted);
-               overflow-wrap: anywhere; }
+  .yan .logo {
+    display:flex; align-items:center; gap:10px; padding:6px 10px 14px;
+    font-weight:700; font-size:16px; letter-spacing:-.015em;
+  }
+  .yan .logo .mark {
+    width:26px; height:26px; flex:0 0 26px; border-radius:7px;
+    background:linear-gradient(135deg,var(--accent),var(--lock));
+    display:flex; align-items:center; justify-content:center;
+    color:#fff; font-size:13px; font-weight:800;
+  }
+  .yan .baslik {
+    font-size:10.5px; text-transform:uppercase; letter-spacing:.09em;
+    color:var(--sessiz); padding:15px 10px 5px; font-weight:700;
+  }
+  .yan .baslik.musteri {
+    display:flex; align-items:center; gap:6px; text-transform:none;
+    letter-spacing:0; font-size:12.5px; color:var(--muted); font-weight:600;
+    overflow-wrap:anywhere;
+  }
+  .yan a.bag {
+    display:flex; align-items:center; gap:10px; padding:8px 10px;
+    border-radius:var(--r-sm); color:var(--text); font-size:14px;
+    border:1px solid transparent;
+  }
+  .yan a.bag:hover { background:var(--card-ust); text-decoration:none; }
+  .yan a.bag.aktif {
+    background:var(--accent-soft); color:var(--accent);
+    font-weight:600; border-color:rgba(79,142,247,.22);
+  }
+  .yan .simge { width:17px; height:17px; flex:0 0 17px; opacity:.9; }
+  .yan a.bag.aktif .simge { opacity:1; }
+  .yan .alt { margin-top:auto; padding-top:14px; border-top:1px solid var(--line); }
+  .yan .kisi { display:flex; align-items:center; gap:9px; padding:8px 10px 10px; }
+  .yan .kisi .harf {
+    width:30px; height:30px; flex:0 0 30px; border-radius:50%;
+    background:var(--accent-soft); color:var(--accent);
+    display:flex; align-items:center; justify-content:center;
+    font-weight:700; font-size:13px;
+  }
+  .yan .kisi .ad { min-width:0; font-size:13px; line-height:1.3; }
+  .yan .kisi .ad b { display:block; font-weight:600; }
+  .yan .kisi .ad span { color:var(--sessiz); font-size:11.5px;
+                        display:block; overflow-wrap:anywhere; }
 
-  .govde { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-  .ustcubuk { display:none; }
-  main { width:100%; max-width: 1000px; margin: 0 auto; padding: 28px 24px 72px; }
+  .govde { flex:1; min-width:0; display:flex; flex-direction:column; }
+  .ustcubuk {
+    display:flex; align-items:center; gap:12px; padding:0 26px;
+    height:56px; border-bottom:1px solid var(--line); background:var(--panel);
+    position:sticky; top:0; z-index:5;
+  }
+  .ustcubuk .yol { font-size:13px; color:var(--muted); min-width:0;
+                   overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .ustcubuk .yol a { color:var(--muted); }
+  .ustcubuk .yol b { color:var(--text); font-weight:600; }
+  main { width:100%; max-width:1180px; margin:0 auto; padding:26px 26px 80px; }
 
-  /* --- Telefon: menu uste tasinir ----------------------------------- */
-  @media (max-width: 860px) {
-    .kabuk { flex-direction: column; }
-    .yan { width: 100%; flex: none; border-right: none;
-           border-bottom: 1px solid var(--line); padding: 12px;
-           flex-direction: row; flex-wrap: wrap; align-items: center; gap: 6px; }
-    .yan .logo { padding: 4px 8px; }
-    .yan .baslik { display: none; }
-    .yan a.bag { padding: 7px 10px; font-size: 13px; }
-    .yan .alt { margin: 0 0 0 auto; padding: 0; border: none; display:flex;
-                align-items:center; gap:8px; }
-    .yan .kisi { display: none; }
-    main { padding: 20px 16px 56px; }
+  @media (max-width:900px) {
+    .kabuk { flex-direction:column; }
+    .yan {
+      width:100%; flex:none; height:auto; position:static;
+      border-right:none; border-bottom:1px solid var(--line);
+      flex-direction:row; flex-wrap:wrap; align-items:center; gap:5px; padding:10px;
+    }
+    .yan .logo { padding:4px 8px; font-size:15px; }
+    .yan .baslik { display:none; }
+    .yan .baslik.musteri { display:flex; padding:4px 8px; }
+    .yan a.bag { padding:6px 9px; font-size:13px; }
+    .yan .alt { margin:0 0 0 auto; padding:0; border:none;
+                display:flex; align-items:center; gap:8px; }
+    .yan .kisi .ad { display:none; }
+    .yan .kisi { padding:0; }
+    .ustcubuk { padding:0 16px; height:48px; }
+    main { padding:18px 16px 60px; }
   }
 
-  /* --- Basliklar ---------------------------------------------------- */
-  h1 { font-size: 24px; margin: 0 0 4px; letter-spacing: -.01em; }
-  h2 { font-size: 16px; margin: 30px 0 12px; letter-spacing: -.005em; }
-  .sub { color: var(--muted); margin: 0 0 22px; }
-  .kirinti { color: var(--muted); font-size: 13px; margin: 0 0 14px; }
+  /* ---------- Baslik alani ----------------------------------------- */
+  .sayfa-ust { display:flex; align-items:flex-start; gap:16px;
+               flex-wrap:wrap; margin-bottom:20px; }
+  .sayfa-ust .metin { min-width:0; flex:1; }
+  h1 { font-size:23px; margin:0 0 3px; letter-spacing:-.02em; font-weight:700; }
+  h2 { font-size:15px; margin:30px 0 11px; letter-spacing:-.005em; font-weight:700; }
+  h3 { font-size:14px; margin:0 0 8px; font-weight:600; }
+  .sub { color:var(--muted); margin:0; font-size:14px; }
+  .kirinti { color:var(--muted); font-size:13px; margin:0 0 12px; }
 
-  /* --- Kartlar ------------------------------------------------------ */
-  .card { background: var(--card); border: 1px solid var(--line);
-          border-radius: var(--radius); padding: 16px 18px; margin-bottom: 14px; }
-  .card.empty { color: var(--muted); text-align: center; padding: 28px 18px; }
-  .row { display:flex; gap:12px; align-items:center; }
-  .spacer { flex: 1; }
-
-  /* Ozet kutulari: ekranin en ustunde durumu bir bakista gosterir. */
-  .kutular { display:grid; gap:12px; grid-template-columns: repeat(auto-fit, minmax(190px,1fr));
-             margin-bottom: 8px; }
-  .kutu { background: var(--card); border:1px solid var(--line);
-          border-radius: var(--radius); padding: 14px 16px; }
-  .kutu .etiket { color: var(--muted); font-size: 12px; text-transform: uppercase;
-                  letter-spacing:.05em; font-weight:600; }
-  .kutu .deger { font-size: 24px; font-weight: 700; margin-top: 4px;
-                 letter-spacing: -.02em; }
-  .kutu .not { color: var(--muted); font-size: 12px; margin-top: 2px; }
-
-  /* --- Rozetler ----------------------------------------------------- */
-  .badge { display:inline-block; padding: 3px 10px; border-radius: 999px;
-           border: 1px solid var(--line); font-size: 12px; font-weight: 600;
-           white-space: nowrap; }
-  .b-draft { color: var(--muted); }
-  .b-internal_review, .b-client_review { color: var(--warn); border-color: var(--warn); }
-  .b-approved, .b-published { color: var(--ok); border-color: var(--ok); }
-  .b-rejected { color: var(--bad); border-color: var(--bad); }
-  .b-scheduled { color: var(--accent); border-color: var(--accent); }
-  .b-archived { color: var(--muted); }
-  .muted { color: var(--muted); font-size: 13px; }
-
-  /* --- Bildirim kutulari -------------------------------------------- */
-  .warn, .lock, .err, .ok, .bilgi {
-    padding: 11px 14px; border-radius: 8px; margin: 10px 0; border-left: 3px solid;
+  /* ---------- Kartlar ---------------------------------------------- */
+  .card {
+    background:var(--card); border:1px solid var(--line);
+    border-radius:var(--r); padding:16px 18px; margin-bottom:14px;
+    box-shadow:var(--golge);
   }
-  .warn { background: rgba(210,153,34,.12); border-color: var(--warn); }
-  .lock { background: rgba(137,87,229,.12); border-color: var(--lock); }
-  .err  { background: rgba(248,81,73,.12);  border-color: var(--bad); }
-  .ok   { background: rgba(63,185,80,.12);  border-color: var(--ok); }
-  .bilgi{ background: var(--accent-soft);   border-color: var(--accent); }
+  .card.sikisik { padding:0; overflow:hidden; }
+  .card .card-ust {
+    padding:13px 18px; border-bottom:1px solid var(--line);
+    background:var(--card-ust); display:flex; align-items:center;
+    gap:12px; flex-wrap:wrap;
+  }
+  .card .card-ust h2, .card .card-ust h3 { margin:0; }
+  .card .card-ic { padding:16px 18px; }
+  .card.empty, .bos {
+    color:var(--muted); text-align:center; padding:30px 18px;
+    background:var(--card); border:1px dashed var(--line);
+    border-radius:var(--r); margin-bottom:14px;
+  }
+  .row { display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+  .spacer { flex:1; }
+  .ayirac { height:1px; background:var(--line); margin:16px 0; border:0; }
 
-  /* --- Form ogeleri ------------------------------------------------- */
-  label { display:block; margin: 14px 0 6px; font-size: 13px; color: var(--muted);
-          font-weight: 600; }
-  input, textarea, select { font: inherit; width: 100%; padding: 10px 12px;
-    background: var(--bg); color: var(--text); border: 1px solid var(--line);
-    border-radius: 8px; }
-  input:focus, textarea:focus, select:focus {
-    outline: none; border-color: var(--accent);
-    box-shadow: 0 0 0 3px var(--accent-soft); }
-  input:disabled, textarea:disabled { opacity: .6; cursor: not-allowed; }
-  textarea { resize: vertical; }
+  .kutular { display:grid; gap:12px; margin-bottom:8px;
+             grid-template-columns:repeat(auto-fit,minmax(178px,1fr)); }
+  .kutu { background:var(--card); border:1px solid var(--line);
+          border-radius:var(--r); padding:13px 15px; box-shadow:var(--golge); }
+  .kutu .etiket { color:var(--muted); font-size:11px; text-transform:uppercase;
+                  letter-spacing:.06em; font-weight:700; }
+  .kutu .deger { font-size:23px; font-weight:700; margin-top:3px;
+                 letter-spacing:-.025em; }
+  .kutu .not { color:var(--sessiz); font-size:12px; margin-top:1px; }
+  .kutu.vurgu { border-color:var(--accent); }
+  .kutu.uyari { border-color:var(--warn); }
+  .kutu.kotu  { border-color:var(--bad); }
 
-  button, .btn { font: inherit; font-weight: 600; padding: 9px 16px;
-                 border-radius: 8px; border: 1px solid var(--line);
-                 background: var(--card); color: var(--text); cursor: pointer; }
-  button:hover, .btn:hover { border-color: var(--accent); text-decoration: none; }
-  button.birincil { background: var(--accent); border-color: var(--accent); color: #fff; }
-  button.birincil:hover { filter: brightness(1.08); }
-  button.tehlikeli { color: var(--bad); }
-  button.tehlikeli:hover { border-color: var(--bad); }
+  /* ---------- Rozet ve etiketler ----------------------------------- */
+  .badge, .pill {
+    display:inline-flex; align-items:center; gap:5px; padding:2.5px 9px;
+    border-radius:999px; border:1px solid var(--line); font-size:12px;
+    font-weight:600; white-space:nowrap; line-height:1.5;
+  }
+  .b-draft, .b-archived { color:var(--muted); }
+  .b-internal_review, .b-client_review { color:var(--warn); border-color:var(--warn); }
+  .b-approved, .b-published { color:var(--ok); border-color:var(--ok); }
+  .b-rejected { color:var(--bad); border-color:var(--bad); }
+  .b-scheduled { color:var(--accent); border-color:var(--accent); }
+  .p-ok   { color:var(--ok);   border-color:var(--ok);   background:var(--ok-soft); }
+  .p-warn { color:var(--warn); border-color:var(--warn); background:var(--warn-soft); }
+  .p-bad  { color:var(--bad);  border-color:var(--bad);  background:var(--bad-soft); }
+  .p-acc  { color:var(--accent); border-color:var(--accent); background:var(--accent-soft); }
+  .p-notr { color:var(--muted); }
+  .muted { color:var(--muted); font-size:13px; }
+  .sessiz { color:var(--sessiz); font-size:12px; }
 
-  /* --- Tablolar ----------------------------------------------------- */
-  .tablo-sar { overflow-x: auto; }
-  table { width: 100%; border-collapse: collapse; }
-  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line);
-           vertical-align: top; }
-  th { color: var(--muted); font-size: 12px; font-weight: 600;
-       text-transform: uppercase; letter-spacing: .05em; }
-  tr:last-child td { border-bottom: none; }
+  /* ---------- Bildirim kutulari ------------------------------------ */
+  .warn,.lock,.err,.ok,.bilgi {
+    padding:11px 14px; border-radius:var(--r-sm); margin:10px 0;
+    border:1px solid; border-left-width:3px; font-size:14px;
+  }
+  .warn { background:var(--warn-soft); border-color:var(--warn); }
+  .lock { background:var(--lock-soft); border-color:var(--lock); }
+  .err  { background:var(--bad-soft);  border-color:var(--bad); }
+  .ok   { background:var(--ok-soft);   border-color:var(--ok); }
+  .bilgi{ background:var(--accent-soft);border-color:var(--accent); }
+  .warn b,.lock b,.err b,.ok b,.bilgi b { display:block; margin-bottom:2px; }
 
-  code { background: var(--bg); border: 1px solid var(--line); border-radius: 5px;
-         padding: 1px 6px; font-size: 13px; }
+  /* ---------- Form ------------------------------------------------- */
+  label { display:block; margin:13px 0 5px; font-size:12.5px;
+          color:var(--muted); font-weight:600; }
+  label.satirici { display:flex; align-items:center; gap:8px; margin:10px 0;
+                   color:var(--text); font-weight:500; font-size:14px; cursor:pointer; }
+  label.satirici input { width:auto; }
+  input,textarea,select {
+    font:inherit; width:100%; padding:9px 11px; background:var(--bg);
+    color:var(--text); border:1px solid var(--line-koyu); border-radius:var(--r-sm);
+  }
+  input[type=checkbox] { width:16px; height:16px; accent-color:var(--accent); }
+  input:focus,textarea:focus,select:focus {
+    outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-soft);
+  }
+  input:disabled,textarea:disabled,select:disabled { opacity:.55; cursor:not-allowed; }
+  textarea { resize:vertical; min-height:80px; }
+  .ipucu { color:var(--sessiz); font-size:12px; margin-top:4px; }
+  .izgara { display:grid; gap:12px; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); }
+  .izgara label { margin-top:0; }
+
+  button,.btn {
+    font:inherit; font-size:14px; font-weight:600; padding:8px 14px;
+    border-radius:var(--r-sm); border:1px solid var(--line-koyu);
+    background:var(--card-ust); color:var(--text); cursor:pointer;
+    display:inline-flex; align-items:center; gap:7px; white-space:nowrap;
+  }
+  button:hover,.btn:hover { border-color:var(--accent); color:var(--accent);
+                            text-decoration:none; }
+  button.birincil { background:var(--accent); border-color:var(--accent); color:#fff; }
+  button.birincil:hover { background:var(--accent-2); border-color:var(--accent-2);
+                          color:#fff; }
+  button.tehlikeli { color:var(--bad); }
+  button.tehlikeli:hover { border-color:var(--bad); background:var(--bad-soft);
+                           color:var(--bad); }
+  button.kucuk,.btn.kucuk { padding:5px 10px; font-size:13px; }
+  button:disabled { opacity:.5; cursor:not-allowed; }
+  button:disabled:hover { border-color:var(--line-koyu); color:var(--text); }
+  .aksiyonlar { display:flex; gap:7px; flex-wrap:wrap; align-items:center; }
+
+  /* ---------- Tablo ------------------------------------------------ */
+  .tablo-sar { overflow-x:auto; }
+  table { width:100%; border-collapse:collapse; font-size:14px; }
+  th,td { text-align:left; padding:10px 14px; border-bottom:1px solid var(--line);
+          vertical-align:middle; }
+  th { color:var(--sessiz); font-size:11px; font-weight:700;
+       text-transform:uppercase; letter-spacing:.06em; white-space:nowrap;
+       background:var(--card-ust); }
+  tbody tr:hover { background:var(--card-ust); }
+  tbody tr:last-child td { border-bottom:none; }
+  td.sag,th.sag { text-align:right; }
+  td.daralt { width:1%; white-space:nowrap; }
+
+  code,.kod {
+    background:var(--bg); border:1px solid var(--line); border-radius:5px;
+    padding:1.5px 6px; font-size:12.5px;
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  }
+  .kod.blok { display:block; padding:11px 13px; overflow-x:auto;
+              overflow-wrap:anywhere; white-space:pre-wrap; line-height:1.5; }
+  details > summary { cursor:pointer; font-weight:600; font-size:14px;
+                      padding:4px 0; color:var(--muted); }
+  details > summary:hover { color:var(--accent); }
+  details[open] > summary { margin-bottom:8px; }
 </style>
 </head>
 <body>
+{# ---- Tekrar eden simgeler tek yerde tanimlanir ---- #}
+{% macro ikon(ad) -%}
+<svg class="simge" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+     stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+{%- if ad == 'musteriler' %}<path d="M3 21h18M5 21V7l7-4 7 4v14M9 9h2m-2 4h2m-2 4h2m4-8h2m-2 4h2m-2 4h2"/>
+{%- elif ad == 'ozet' %}<rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/>
+{%- elif ad == 'marka' %}<circle cx="13.5" cy="6.5" r="2.5"/><circle cx="19" cy="13" r="2.5"/><circle cx="6" cy="12" r="2.5"/><path d="M12 22a10 10 0 1 1 10-10c0 2-1.5 3-3 3h-2a3 3 0 0 0-1 5.8A2 2 0 0 1 12 22z"/>
+{%- elif ad == 'kampanya' %}<rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>
+{%- elif ad == 'hesaplar' %}<path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/>
+{%- elif ad == 'ekip' %}<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>
+{%- elif ad == 'kullanicilar' %}<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+{%- elif ad == 'otomasyon' %}<path d="M12 2v3m0 14v3M2 12h3m14 0h3M4.9 4.9l2.2 2.2m9.8 9.8 2.2 2.2M4.9 19.1l2.2-2.2m9.8-9.8 2.2-2.2"/><circle cx="12" cy="12" r="3.5"/>
+{%- elif ad == 'sifre' %}<rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+{%- elif ad == 'ayarlar' %}<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6 1.65 1.65 0 0 0 10 3.09V3a2 2 0 1 1 4 0v.09A1.65 1.65 0 0 0 15 4.6a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9c.14.63.67 1.09 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+{%- elif ad == 'cikis' %}<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/>
+{%- else %}<circle cx="12" cy="12" r="9"/>
+{%- endif %}
+</svg>
+{%- endmacro %}
+
 <div class="kabuk">
   {% if user %}
   <nav class="yan">
-    <div class="logo"><span class="nokta"></span> Agency Cortex</div>
+    <div class="logo"><span class="mark">AC</span> Agency Cortex</div>
 
+    <div class="baslik">Genel</div>
     <a class="bag {% if aktif == 'musteriler' %}aktif{% endif %}" href="/panel">
-      <span class="simge">🏠</span> Müşteriler
+      {{ ikon('musteriler') }} Müşteriler
+    </a>
+    <a class="bag {% if aktif == 'otomasyon' %}aktif{% endif %}" href="/panel/otomasyon">
+      {{ ikon('otomasyon') }} Otomasyon
     </a>
 
     {% if workspace %}
-      <div class="baslik">{{ workspace.name }}</div>
+      <div class="baslik musteri" title="{{ workspace.name }}">
+        <span class="pill p-acc">Müşteri</span> {{ workspace.name }}
+      </div>
       <a class="bag {% if aktif == 'ozet' %}aktif{% endif %}"
-         href="/panel/musteri/{{ workspace.id }}">
-        <span class="simge">📋</span> Özet ve onaylar
-      </a>
+         href="/panel/musteri/{{ workspace.id }}">{{ ikon('ozet') }} Özet ve onaylar</a>
       <a class="bag {% if aktif == 'marka' %}aktif{% endif %}"
-         href="/panel/musteri/{{ workspace.id }}/marka">
-        <span class="simge">🎨</span> Marka bilgileri
-      </a>
+         href="/panel/musteri/{{ workspace.id }}/marka">{{ ikon('marka') }} Marka bilgileri</a>
       <a class="bag {% if aktif == 'kampanya' %}aktif{% endif %}"
-         href="/panel/musteri/{{ workspace.id }}/kampanya">
-        <span class="simge">📅</span> Kampanyalar
-      </a>
+         href="/panel/musteri/{{ workspace.id }}/kampanya">{{ ikon('kampanya') }} Kampanyalar</a>
       <a class="bag {% if aktif == 'hesaplar' %}aktif{% endif %}"
-         href="/panel/musteri/{{ workspace.id }}/hesaplar">
-        <span class="simge">🔗</span> Bağlı hesaplar
-      </a>
+         href="/panel/musteri/{{ workspace.id }}/hesaplar">{{ ikon('hesaplar') }} Bağlı hesaplar</a>
       <a class="bag {% if aktif == 'ekip' %}aktif{% endif %}"
-         href="/panel/musteri/{{ workspace.id }}/ekip">
-        <span class="simge">👥</span> Ekip
-      </a>
+         href="/panel/musteri/{{ workspace.id }}/ekip">{{ ikon('ekip') }} Ekip</a>
+    {% endif %}
+
+    {% if user.is_superuser %}
+      <div class="baslik">Yönetim</div>
+      <a class="bag {% if aktif == 'kullanicilar' %}aktif{% endif %}"
+         href="/panel/kullanicilar">{{ ikon('kullanicilar') }} Kullanıcılar</a>
+      <a class="bag {% if aktif == 'ayarlar' %}aktif{% endif %}"
+         href="/panel/ayarlar">{{ ikon('ayarlar') }} Sistem ayarları</a>
     {% endif %}
 
     <div class="baslik">Hesabım</div>
     <a class="bag {% if aktif == 'sifre' %}aktif{% endif %}" href="/panel/sifre">
-      <span class="simge">🔑</span> Şifre değiştir
+      {{ ikon('sifre') }} Şifre değiştir
     </a>
-    {% if user.is_superuser %}
-    <a class="bag {% if aktif == 'ayarlar' %}aktif{% endif %}" href="/panel/ayarlar">
-      <span class="simge">⚙️</span> Sistem ayarları
-    </a>
-    {% endif %}
 
     <div class="alt">
-      <div class="kisi">{{ user.email }}</div>
+      <div class="kisi">
+        <span class="harf">{{ (user.full_name or user.email)[:1] | upper }}</span>
+        <span class="ad"><b>{{ user.full_name or "Kullanıcı" }}</b><span>{{ user.email }}</span></span>
+      </div>
       <form method="post" action="/panel/cikis" style="margin:0">
-        <button type="submit">Çıkış</button>
+        <button type="submit" class="kucuk">{{ ikon('cikis') }} Çıkış</button>
       </form>
     </div>
   </nav>
   {% endif %}
 
   <div class="govde">
+    {% if user %}
+    <div class="ustcubuk">
+      <div class="yol">
+        <a href="/panel">Panel</a>
+        {%- if workspace %} / <a href="/panel/musteri/{{ workspace.id }}">{{ workspace.name }}</a>{% endif %}
+        {%- if yol %} / <b>{{ yol }}</b>{% endif %}
+      </div>
+    </div>
+    {% endif %}
     <main>{% block content %}{% endblock %}</main>
   </div>
 </div>

@@ -119,6 +119,79 @@ services:
         condition: service_completed_successfully
     logging: *log
 
+  # n8n'in kendi veritabanini olusturur, sonra kapanir.
+  # Idempotent: varsa dokunmaz. Postgres'in init betikleri YALNIZCA bos bir
+  # veri dizininde calisir; uretimde veri zaten var, bu yuzden ayri adim sart.
+  n8n_veritabani:
+    image: postgres:16.10-alpine
+    restart: "no"
+    environment:
+      PGHOST: postgres
+      PGUSER: ${POSTGRES_USER}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      PGDATABASE: ${POSTGRES_DB}
+      N8N_DB: ${N8N_DB:-n8n}
+    entrypoint: ["/bin/sh"]
+    command:
+      - -c
+      - |
+        set -e
+        if psql -tAc "SELECT 1 FROM pg_database WHERE datname = '$$N8N_DB'" | grep -q 1; then
+          echo "n8n veritabani zaten var: $$N8N_DB"
+        else
+          createdb "$$N8N_DB"
+          echo "n8n veritabani olusturuldu: $$N8N_DB"
+        fi
+    depends_on:
+      postgres:
+        condition: service_healthy
+    logging: *log
+
+  # OTOMASYON MOTORU. Ikinci bir uygulama DEGILDIR: is akislari veritabanina
+  # dogrudan yazmaz, her zaman Agency Cortex API'sinden gecer.
+  n8n:
+    image: n8nio/n8n:2.39.10
+    restart: unless-stopped
+    environment:
+      DB_TYPE: postgresdb
+      DB_POSTGRESDB_HOST: postgres
+      DB_POSTGRESDB_PORT: 5432
+      DB_POSTGRESDB_DATABASE: ${N8N_DB:-n8n}
+      DB_POSTGRESDB_USER: ${POSTGRES_USER}
+      DB_POSTGRESDB_PASSWORD: ${POSTGRES_PASSWORD}
+      # Kayitli kimlik bilgilerini sifreler. DEGISIRSE n8n'deki tum
+      # kimlik bilgileri OKUNAMAZ HALE GELIR; bu yuzden bir kez uretilir.
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
+      N8N_HOST: ${N8N_DOMAIN}
+      N8N_PORT: 5678
+      N8N_PROTOCOL: https
+      N8N_EDITOR_BASE_URL: https://${N8N_DOMAIN}/
+      WEBHOOK_URL: https://${N8N_DOMAIN}/
+      # Caddy'nin arkasinda tek vekil var; gercek istemci adresi boyle cozulur.
+      N8N_PROXY_HOPS: 1
+      GENERIC_TIMEZONE: ${TZ:-Europe/Istanbul}
+      TZ: ${TZ:-Europe/Istanbul}
+      # Disariya kullanim verisi gonderilmez.
+      N8N_DIAGNOSTICS_ENABLED: "false"
+      N8N_VERSION_NOTIFICATIONS_ENABLED: "false"
+      N8N_TEMPLATES_ENABLED: "false"
+      N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: "true"
+      # Agency Cortex'e IC AGDAN erisir; bu cagri internete cikmaz.
+      AGENCY_CORTEX_API: http://api:8000
+    volumes:
+      - n8n_data:/home/node/.n8n
+    depends_on:
+      postgres:
+        condition: service_healthy
+      n8n_veritabani:
+        condition: service_completed_successfully
+      api:
+        condition: service_healthy
+    # Disariya ACILMAZ. Internetten erisim yalnizca Caddy uzerindendir.
+    expose:
+      - "5678"
+    logging: *log
+
   caddy:
     image: caddy:2.10-alpine
     restart: unless-stopped
@@ -128,6 +201,9 @@ services:
     environment:
       PUBLIC_DOMAIN: ${PUBLIC_DOMAIN}
       ACME_EMAIL: ${ACME_EMAIL}
+      N8N_DOMAIN: ${N8N_DOMAIN}
+      N8N_BASIC_USER: ${N8N_BASIC_USER}
+      N8N_BASIC_HASH: ${N8N_BASIC_HASH}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       # HTTPS sertifikalari burada saklanir. Bu birim SILINIRSE sertifika
@@ -136,6 +212,7 @@ services:
       - caddy_config:/config
     depends_on:
       - api
+      - n8n
     logging: *log
 
 volumes:
@@ -143,3 +220,4 @@ volumes:
   redis_data:
   caddy_data:
   caddy_config:
+  n8n_data:

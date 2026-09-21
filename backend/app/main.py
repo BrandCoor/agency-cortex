@@ -17,6 +17,7 @@ from app.api import (
     approvals,
     auth,
     health,
+    makine,
     oauth,
     platforms,
     reports,
@@ -120,8 +121,13 @@ app.include_router(webhooks.router)
 app.include_router(reports.router)
 app.include_router(ai.router)
 app.include_router(approvals.router)
+app.include_router(makine.router)
 
 # Tarayicidan kullanilan panel
+from app.panel.kullanicilar import router as panel_kullanici_router  # noqa: E402
+from app.panel.otomasyon import router as panel_otomasyon_router  # noqa: E402
 from app.panel.routes import router as panel_router  # noqa: E402
 
 app.include_router(panel_router)
+app.include_router(panel_kullanici_router)
+app.include_router(panel_otomasyon_router)

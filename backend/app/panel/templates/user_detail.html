@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}{{ hedef.full_name }} — Kullanıcı{% endblock %}
+{% block content %}
+<p class="kirinti"><a href="/panel/kullanicilar">&larr; Kullanıcılar</a></p>
+
+<div class="sayfa-ust">
+  <div class="metin">
+    <h1>{{ hedef.full_name }}</h1>
+    <p class="sub">{{ hedef.email }}</p>
+  </div>
+  <div class="aksiyonlar">
+    {% if hedef.is_active %}<span class="pill p-ok">Etkin</span>
+    {% else %}<span class="pill p-bad">Pasif</span>{% endif %}
+    {% if hedef.is_superuser %}<span class="pill p-acc">Sistem yöneticisi</span>{% endif %}
+  </div>
+</div>
+
+<div class="kutular">
+  <div class="kutu">
+    <div class="etiket">Yetkili olduğu müşteri</div>
+    <div class="deger">{{ uyelikler | length }}</div>
+  </div>
+  <div class="kutu">
+    <div class="etiket">Son giriş</div>
+    <div class="deger" style="font-size:17px">
+      {% if hedef.last_login_at %}{{ hedef.last_login_at.strftime("%d.%m.%Y %H:%M") }}
+      {% else %}—{% endif %}
+    </div>
+    <div class="not">{% if not hedef.last_login_at %}Henüz hiç giriş yapmadı{% endif %}</div>
+  </div>
+  <div class="kutu">
+    <div class="etiket">Hesap açılışı</div>
+    <div class="deger" style="font-size:17px">{{ hedef.created_at.strftime("%d.%m.%Y") }}</div>
+  </div>
+</div>
+
+<h2>Müşteri yetkileri</h2>
+{% if uyelikler %}
+<div class="card sikisik"><div class="tablo-sar">
+  <table>
+    <thead><tr><th>Müşteri</th><th>Yetki</th><th class="sag"></th></tr></thead>
+    <tbody>
+    {% for u in uyelikler %}
+      <tr>
+        <td><a href="/panel/musteri/{{ u.workspace_id }}">{{ u.workspace_name }}</a></td>
+        <td><span class="pill p-notr">{{ u.rol }}</span></td>
+        <td class="sag daralt">
+          <a class="btn kucuk" href="/panel/musteri/{{ u.workspace_id }}/ekip">Ekibi yönet</a>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div></div>
+{% else %}
+<div class="bos">
+  Bu kullanıcı hiçbir müşteriye eklenmemiş. Bu haliyle giriş yapabilir ama
+  hiçbir müşteri verisini göremez.<br>
+  Yetki vermek için ilgili müşterinin <strong>Ekip</strong> sayfasını kullanın.
+</div>
+{% endif %}
+{% endblock %}

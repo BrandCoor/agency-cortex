@@ -742,3 +742,74 @@ altında doğru çalışması şart. Mevcut kilit doğru çalışmıyordu.
   kanıtlamıyordu; okuma ile yazma arasına bilerek gecikme konarak yarış
   penceresi ölçülebilir hâle getirildi.
 - `alembic check`: yeni migration modelle örtüşüyor, fark yok.
+
+## [0.10.0] - 2026-09-21 — Kullanıcı yönetimi, panel yenileme ve n8n
+
+### Eklendi — Kullanıcı yönetimi
+- **Kullanıcılar** sayfası (sistem yöneticisine açık): hesap açma, ad
+  düzenleme, etkin/pasif yapma, sistem yöneticiliği verme/alma, silme.
+- **Kullanıcı detay sayfası**: kişinin hangi müşteride hangi yetkiye sahip
+  olduğu tek ekranda.
+- **Şifre belirleme bağı**: yönetici şifre belirlemez. Hesap kimsenin
+  bilmediği bir değerle kilitli açılır; kişi şifresini tek kullanımlık
+  bağdan kendisi belirler. Bağ 24 saat geçerli ve **bir kez** kullanılır.
+- **Ekip sayfasında yetki değiştirme**: daha önce yalnızca ekle/çıkar vardı.
+- Her değişiklik **denetim kaydına** yazılıyor — ne değiştiği yazılıyor,
+  **değerler yazılmıyor**.
+
+### Kilitlenme koruması
+- Son etkin sistem yöneticisi silinemez, pasifleştirilemez, yetkisi alınamaz.
+- Kimse kendi hesabını silemez, kendini pasifleştiremez, kendi yönetici
+  yetkisini alamaz, kendi müşteri yetkisini değiştiremez.
+- Bu kurallar olmadan tek bir yanlış tıklama panele girişi tamamen kapatırdı.
+
+### Panel yenilendi
+- Yeni düzen: yapışkan yan menü, üst yol çubuğu, gerçek SVG simgeler
+  (emoji yerine), özet kutuları, hover'lı tablolar, boş durum ekranları.
+- Açık/koyu tema cihaz ayarına göre.
+- Telefon genişliğinde menü üste taşınıyor.
+
+### Eklendi — n8n otomasyonu
+- **n8n üretim kurulumu**: `n8n.agencycortex.tech`, sürüm `2.39.10`
+  (Docker Hub'da `stable` etiketinin karşılığı; tahmin edilmedi, doğrulandı).
+  Kendi PostgreSQL veritabanında çalışıyor.
+- **DNS**: `n8n` A kaydı eklendi (mevcut kayıtlara dokunulmadı).
+- **Makine kimliği**: n8n insan hesabı kullanmıyor. `X-API-Key` ile çalışan,
+  kapsamı müşteri bazında sınırlı, iptal edilebilir kendi kimliği var.
+  Anahtar veritabanında açık saklanmıyor.
+- **Makine API'si** (`/api/v1/makine/...`): kimlik, müşteri bağlamı,
+  çalıştırma başlat/bitir.
+- **Otomasyon paneli**: 4 iş akışının müşteri bazında açık/kapalı durumu,
+  son çalışma zamanı, başarı/hata ve hata mesajı. **n8n'e girmeye gerek yok.**
+- İş akışları varsayılan **KAPALI**. Panelden açılmadan çalışmıyor.
+
+### Güvenlik
+- **İstekle gelen `workspace_id`ye güvenilmiyor.** Her makine isteğinde
+  anahtarın o müşteride yetkili olup olmadığına ayrıca bakılıyor; değilse
+  **404** dönüyor (403 değil — 403 o müşterinin varlığını ele verirdi).
+- n8n arayüzünün önünde ikinci bir kilit (HTTP basic auth) var. Kurulum
+  adımı dışarıdan **HTTP 401** bekliyor; 200 dönerse kurulum **duruyor**.
+  Gerekçe: ilk açan kişi n8n'in sahibi olur (bkz. DECISIONS.md K-034).
+- Makine API'si n8n'e **hiçbir gizli bilgi vermiyor** — erişim jetonu,
+  şifre veya anahtar dönmüyor. Test ediliyor.
+- n8n kapı şifresi panelde **yalnızca sistem yöneticisine** gösteriliyor.
+
+### Yedekleme
+- n8n veritabanı da yedekleniyor (ayrı dosya olarak, bağımsız geri
+  yüklenebilsin diye). n8n henüz kurulu değilse atlanıyor, hata verilmiyor.
+
+### Doğrulandı
+- 458/458 test geçti (önceki 407 + 51 yeni).
+- Migration ileri **ve geri** çalıştırıldı; enum türleri geri alımda
+  düşürülüyor — aksi halde tekrar ileri alım "tür zaten var" hatası veriyordu
+  (bu hata gerçekten görüldü ve düzeltildi).
+- `alembic check`: model ile migration örtüşüyor.
+- Anahtarın gösterilen öneki gizli kısmından 12 karakter sızdırıyordu;
+  biçim `acx_<açık kimlik>_<gizli>` olarak değiştirildi ve test eklendi.
+
+### Henüz yapılmadı (gizlenmiyor)
+- **İş akışlarının kendisi (WF-01..04) n8n'de henüz kurulu değil.** Altyapı
+  hazır: kimlik, yetki, çalıştırma kaydı ve panel çalışıyor; akışların
+  n8n tarafındaki tasarımı bir sonraki adımda.
+- **Panelden elle çalıştırma düğmesi yok.** Akışlar n8n'de oluşmadan böyle
+  bir düğme hiçbir şey yapmazdı; çalışmayan düğme konulmadı.

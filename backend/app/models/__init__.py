@@ -9,6 +9,8 @@ from app.models.content import ContentCalendar, ContentIdea, ContentScript
 from app.models.enums import (
     AIProviderName,
     AITaskStatus,
+    AutomationStatus,
+    AutomationTrigger,
     ContentStatus,
     MediaType,
     Platform,
@@ -16,7 +18,20 @@ from app.models.enums import (
     WorkspaceRole,
 )
 from app.models.identity import User, Workspace, WorkspaceMember
-from app.models.ops import Approval, AuditLog, Notification, SystemError, WebhookEvent
+from app.models.ops import (
+    Approval,
+    AuditLog,
+    Notification,
+    SystemError,
+    SystemSetting,
+    WebhookEvent,
+)
+from app.models.otomasyon import (
+    ApiClient,
+    ApiClientWorkspace,
+    AutomationRun,
+    AutomationSetting,
+)
 from app.models.reporting import Report, ReportSection
 from app.models.research import CompetitorAccount, CompetitorObservation, TrendObservation
 from app.models.social import (
@@ -30,11 +45,13 @@ from app.models.social import (
 
 __all__ = [
     "AICostEvent", "AIProviderName", "AIRun", "AITask", "AITaskStatus",
-    "AccountMetrics", "Approval", "AuditLog", "Brand", "BrandGuideline",
+    "AccountMetrics", "ApiClient", "ApiClientWorkspace", "Approval",
+    "AuditLog", "AutomationRun", "AutomationSetting", "AutomationStatus",
+    "AutomationTrigger", "Brand", "BrandGuideline",
     "Campaign", "CompetitorAccount", "CompetitorObservation", "ContentCalendar",
     "ContentIdea", "ContentScript", "ContentStatus", "MediaMetricsNormalized",
     "MediaMetricsRaw", "MediaType", "Notification", "OAuthCredential",
     "Platform", "PlatformMedia", "Report", "ReportPeriod", "ReportSection",
-    "SocialAccount", "SystemError", "TrendObservation", "User", "WebhookEvent",
+    "SocialAccount", "SystemError", "SystemSetting", "TrendObservation", "User", "WebhookEvent",
     "Workspace", "WorkspaceMember", "WorkspaceRole",
 ]

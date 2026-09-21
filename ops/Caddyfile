@@ -5,17 +5,20 @@
 	email {$ACME_EMAIL}
 }
 
-{$PUBLIC_DOMAIN} {
-	encode gzip
-
-	# Guvenlik basliklari
+# Tum sitelerde gecerli guvenlik basliklari.
+(guvenlik) {
 	header {
 		Strict-Transport-Security "max-age=31536000; includeSubDomains"
 		X-Content-Type-Options "nosniff"
-		X-Frame-Options "DENY"
 		Referrer-Policy "strict-origin-when-cross-origin"
 		-Server
 	}
+}
+
+{$PUBLIC_DOMAIN} {
+	encode gzip
+	import guvenlik
+	header X-Frame-Options "DENY"
 
 	handle /api/* {
 		reverse_proxy api:8000
@@ -42,4 +45,25 @@
 	handle {
 		reverse_proxy api:8000
 	}
+}
+
+# --- Otomasyon motoru (n8n) -------------------------------------------------
+#
+# NEDEN AYRI BIR SIFRE (basic_auth):
+# n8n kurulduktan sonra ILK ACAN kisi "sahip" hesabini olusturur. Alan adi
+# sertifika kayitlarindan (Certificate Transparency) dakikalar icinde
+# gorunur hale gelir; bu araligi bir yabanci kullanabilir. Bu kapi, n8n
+# kendi hesabini olusturmadan once konulmus ikinci bir kilittir ve sonra
+# da ikinci kilit olarak kalir.
+#
+# Sifrenin ozeti (bcrypt) .env icinde tutulur; duz hali Git'e GIRMEZ.
+{$N8N_DOMAIN} {
+	encode gzip
+	import guvenlik
+
+	basic_auth {
+		{$N8N_BASIC_USER} {$N8N_BASIC_HASH}
+	}
+
+	reverse_proxy n8n:5678
 }

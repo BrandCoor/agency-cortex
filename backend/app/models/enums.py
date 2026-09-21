@@ -91,3 +91,18 @@ class MediaType(str, enum.Enum):
     SHORT = "short"
     TEXT = "text"
     OTHER = "other"
+
+
+class AutomationStatus(str, enum.Enum):
+    """Bir otomasyon calistirmasinin durumu."""
+
+    RUNNING = "running"
+    SUCCEEDED = "succeeded"
+    FAILED = "failed"
+
+
+class AutomationTrigger(str, enum.Enum):
+    """Calistirmayi ne baslatti?"""
+
+    SCHEDULE = "schedule"   # n8n zamanlayicisi
+    MANUAL = "manual"       # panelden elle

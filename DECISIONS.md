@@ -565,3 +565,101 @@ Format: Karar / Seçenekler / Neden / Risk / Geri alma
   bitişidir.
 - **Risk:** Manus kredisi beklenmedik şekilde tükenebilir; panelde bunun
   uyarısı henüz yok.
+
+---
+
+## K-032 — n8n bir otomasyon motorudur, ikinci bir uygulama değildir
+
+- **Karar:** n8n **yalnızca** zamanlama, sıralama, tekrar deneme ve dış
+  servis çağrılarından sorumludur. Kimlik, yetki, müşteri izolasyonu, AI
+  bütçesi, onay sistemi ve iş kuralları **Agency Cortex'te** kalır.
+  n8n veritabanına **doğrudan yazmaz**; her şey Agency Cortex API'sinden geçer.
+- **Seçenekler:**
+  1. n8n'i PostgreSQL'e doğrudan bağlamak (hızlı, az kod).
+  2. n8n'i ayrı bir arayüz olarak kullanıcıya sunmak.
+  3. n8n → Agency Cortex API → veritabanı. **(seçilen)**
+- **Neden:** (1) izolasyonu n8n'in iş akışı tasarımına emanet ederdi; bir
+  node'daki yanlış `workspace_id`, başka bir müşterinin verisine yazardı ve
+  bunu hiçbir kural engellemezdi. (2) kullanıcıyı teknik bir araca mahkûm
+  ederdi. (3) tek bir güvenlik kapısı bırakıyor.
+- **Sonuç:** Panelde **Otomasyon** bölümü var; kullanıcı n8n'e girmeden
+  hangi akışın açık olduğunu, ne zaman çalıştığını ve hata verip
+  vermediğini görüyor.
+- **Risk:** Her yeni iş akışı için Agency Cortex tarafında bir uç yazmak
+  gerekiyor — n8n'den doğrudan yazmaya göre daha yavaş ilerliyor.
+  Kabul edildi: izolasyon pazarlık konusu değil.
+- **Geri alma:** n8n servisi compose'dan çıkarılır, Caddy'deki site bloğu
+  silinir. Agency Cortex etkilenmez.
+
+---
+
+## K-033 — n8n insan hesabı kullanmaz; kendi makine kimliği vardır
+
+- **Karar:** n8n, `X-API-Key` başlığıyla taşınan bir **makine kimliği**
+  kullanır. Anahtar veritabanında **açık saklanmaz** (SHA-256 özeti).
+  Biçim: `acx_<açık kimlik>_<gizli>`. Ekranda ve loglarda yalnızca
+  `acx_<açık kimlik>` görünür; gizli kısımdan tek karakter bile sızmaz.
+- **Neden SHA-256, Argon2 değil:** Anahtar 32 bayt **rastgeledir**; sözlük
+  saldırısı mümkün değil. Argon2 gibi bilerek yavaş bir özet, her API
+  çağrısına gereksiz gecikme eklerdi. (Kullanıcı şifreleri farklı: onlar
+  tahmin edilebilir olduğu için Argon2 ile saklanıyor.)
+- **Kapsam:** `api_client_workspaces` tablosu, anahtarın hangi müşterilerde
+  çalışabileceğini tutar. **İstekle gelen `workspace_id` tek başına hiçbir
+  şey ifade etmez** — her istekte bu tabloya bakılır. Kapsam dışındaki
+  müşteride **404** döner (403 değil; 403, o müşterinin varlığını ele verirdi).
+- **İptal:** Anahtar iptal edilince kayıt **silinmez**; geçmiş
+  çalıştırmaların hangi kimlikle yapıldığı kaybolmasın diye iz kalır.
+- **Risk:** Anahtar bir kez gösterilir. Kaybedilirse yenisi üretilir —
+  eskisi geri getirilemez. Bu bilerek böyledir.
+
+---
+
+## K-034 — n8n arayüzünün önüne ikinci bir kilit kondu
+
+- **Karar:** `n8n.agencycortex.tech` adresinin önünde Caddy tarafında HTTP
+  basic auth var. Şifrenin bcrypt özeti sunucudaki `.env`'de; düz hali
+  **panelde yalnızca sistem yöneticisine** gösteriliyor.
+- **Neden:** n8n kurulduktan sonra **ilk açan kişi** "sahip" hesabını
+  oluşturur. Yeni bir alan adı, sertifika şeffaflık kayıtlarından
+  (Certificate Transparency) dakikalar içinde herkese görünür olur. Kurulum
+  ile kullanıcının ilk girişi arasındaki süre saatler sürebilir; bu aralıkta
+  bir yabancı sahip hesabını alabilirdi.
+- **Seçenekler:** (a) sahip hesabını kurulumda API ile açmak — n8n'in bu
+  akışı elimizdeki doğrulanmış belgede tanımlı değil, uydurmak istemedim;
+  (b) kilitsiz bırakıp kullanıcıdan hemen girmesini istemek — zamanlamaya
+  bel bağlamak; (c) basic auth. **(c) seçildi.**
+- **Kanıt:** Kurulum adımı `https://n8n.<alan adı>/` adresine **dışarıdan**
+  istek atar ve **HTTP 401** bekler. 200 dönerse kurulum **durur**.
+- **Risk:** Kullanıcı iki ayrı giriş görüyor (kapı şifresi + n8n hesabı).
+  Panelde bu ayrım açıkça yazıldı.
+
+---
+
+## K-035 — Kullanıcı şifresini yönetici belirlemez
+
+- **Karar:** Yeni hesap, **kimsenin bilmediği** rastgele bir değerle
+  kilitli açılır. Yönetici tek kullanımlık bir bağ üretir; kişi şifresini
+  o bağdan kendisi belirler.
+- **Neden:** Şifre yöneticiden kullanıcıya giderken (sohbet, e-posta,
+  kâğıt) her durakta kopyalanabilir ve biçim bozulabilir. 21 Eylül'de
+  Türkçe karakterlerin farklı Unicode gösterimi yüzünden tam olarak bu
+  yaşandı. Bu akışta şifre **hiç aktarılmaz**.
+- **Kanıt:** `test_yeni_hesap_bag_kullanilmadan_giris_yapamaz` — yeni hesap
+  boş şifre, boşluk, yaygın şifreler dahil hiçbir değerle giriş yapamıyor.
+- **Risk:** Bağ 24 saat geçerli. Asıl koruma süre değil, **tek kullanımlık**
+  olmasıdır: kullanıldığı anda geçersizleşir.
+
+---
+
+## K-036 — Sistemde her zaman en az bir etkin yönetici kalır
+
+- **Karar:** Son etkin sistem yöneticisi silinemez, pasifleştirilemez ve
+  yetkisi alınamaz. Kimse kendi hesabını silemez, kendini pasifleştiremez
+  veya kendi yönetici yetkisini alamaz.
+- **Neden:** Bu kural olmadan tek bir yanlış tıklama panele girişi tamamen
+  kapatır. Kurtarma yalnızca sunucuya SSH ile bağlanıp komut çalıştırarak
+  mümkün olurdu — kullanıcının kendi başına yapamayacağı bir şey.
+- **Kanıt:** `test_son_yonetici_silinemez`, `test_son_yonetici_pasiflestirilemez`,
+  `test_tek_yoneticinin_yetkisi_alinamaz`, `test_kendini_pasiflestiremez`.
+- **Risk:** Yöneticinin yetkisini almak için ikinci bir yönetici gerekiyor.
+  Bilerek böyle.

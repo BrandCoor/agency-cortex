@@ -1,0 +1,266 @@
+{% extends "base.html" %}
+{% block title %}Otomasyon{% endblock %}
+{% block content %}
+<div class="sayfa-ust">
+  <div class="metin">
+    <h1>Otomasyon</h1>
+    <p class="sub">İş akışları arka planda çalışır. Buradan hangisinin açık
+      olduğunu, en son ne zaman çalıştığını ve hata verip vermediğini görürsünüz.
+      <strong>n8n'e girmenize gerek yoktur.</strong></p>
+  </div>
+</div>
+
+{% if error %}<div class="err"><b>İşlem yapılmadı</b>{{ error }}</div>{% endif %}
+{% if ok %}<div class="ok">{{ ok }}</div>{% endif %}
+
+{% if yeni_anahtar %}
+<div class="bilgi">
+  <b>"{{ yeni_anahtar.ad }}" anahtarı</b>
+  Bu değer <strong>yalnızca bir kez</strong> gösterilir. Kopyalayıp n8n'e girin.
+  Kaybederseniz yenisini üretmeniz gerekir — bu anahtar geri getirilemez.
+  <code class="kod blok" style="margin-top:9px">{{ yeni_anahtar.deger }}</code>
+</div>
+{% endif %}
+
+<div class="warn">
+  <b>v1'de yayın yok</b>
+  İş akışları araştırır, analiz eder, önerir ve panele yazar.
+  Hiçbir akış <strong>paylaşım yapmaz, yoruma cevap vermez, DM göndermez</strong>.
+  Üretilen her şey taslaktır ve insan onayı bekler.
+</div>
+
+{% if not musteriler %}
+  <div class="bos">
+    Henüz bir müşteriniz yok. Otomasyon müşteri bazında çalışır —
+    önce <a href="/panel">bir müşteri ekleyin</a>.
+  </div>
+{% endif %}
+
+{% for m in musteriler %}
+<h2>{{ m.ad }}</h2>
+
+{% if not m.yonetebilir %}
+<div class="muted" style="margin:-4px 0 10px">
+  Görüntüleme modundasınız — açıp kapatmak için yönetici yetkisi gerekir.
+</div>
+{% endif %}
+
+<div class="card sikisik"><div class="tablo-sar">
+  <table>
+    <thead>
+      <tr><th>İş akışı</th><th>Durum</th><th>Beklenen zaman</th>
+          <th>Son çalışma</th><th class="sag">Aç / Kapat</th></tr>
+    </thead>
+    <tbody>
+    {% for a in m.akislar %}
+      <tr>
+        <td>
+          <strong>{{ a.ad }}</strong>
+          <div class="sessiz">{{ a.aciklama }}</div>
+        </td>
+        <td>
+          {% if a.acik %}<span class="pill p-ok">Açık</span>
+          {% else %}<span class="pill p-notr">Kapalı</span>{% endif %}
+        </td>
+        <td class="muted">{{ a.zamanlama }}</td>
+        <td>
+          {% if a.son_durum == 'succeeded' %}
+            <span class="pill p-ok">Başarılı</span>
+          {% elif a.son_durum == 'failed' %}
+            <span class="pill p-bad">Hata</span>
+          {% elif a.son_durum == 'running' %}
+            <span class="pill p-warn">Çalışıyor</span>
+          {% else %}
+            <span class="sessiz">hiç çalışmadı</span>
+          {% endif %}
+          {% if a.son_baslangic %}
+          <div class="sessiz">{{ a.son_baslangic.strftime("%d.%m.%Y %H:%M") }}</div>
+          {% endif %}
+          {% if a.son_hata %}
+          <div class="sessiz" style="color:var(--bad)">{{ a.son_hata[:160] }}</div>
+          {% endif %}
+        </td>
+        <td class="sag daralt">
+          {% if m.yonetebilir %}
+          <form method="post" action="/panel/otomasyon/akis" style="margin:0">
+            <input type="hidden" name="workspace_id" value="{{ m.id }}">
+            <input type="hidden" name="workflow_key" value="{{ a.anahtar }}">
+            {% if a.acik %}
+              <button type="submit" class="kucuk">Kapat</button>
+            {% else %}
+              <input type="hidden" name="acik" value="1">
+              <button type="submit" class="kucuk birincil">Aç</button>
+            {% endif %}
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div></div>
+
+{% if m.son_calistirmalar %}
+<details style="margin:-6px 0 20px">
+  <summary>Son çalışmalar ({{ m.son_calistirmalar | length }})</summary>
+  <div class="card sikisik"><div class="tablo-sar">
+    <table>
+      <thead><tr><th>İş akışı</th><th>Başlangıç</th><th>Süre</th>
+                 <th>Tetik</th><th>Sonuç</th></tr></thead>
+      <tbody>
+      {% for r in m.son_calistirmalar %}
+        <tr>
+          <td class="muted">{{ r.akis }}</td>
+          <td class="muted">{{ r.baslangic.strftime("%d.%m.%Y %H:%M") }}</td>
+          <td class="muted">
+            {% if r.bitis %}{{ ((r.bitis - r.baslangic).total_seconds() | round) | int }} sn
+            {% else %}<span class="sessiz">—</span>{% endif %}
+          </td>
+          <td class="muted">{% if r.tetik == 'manual' %}elle{% else %}zamanlı{% endif %}</td>
+          <td>
+            {% if r.durum == 'succeeded' %}<span class="pill p-ok">Başarılı</span>
+            {% elif r.durum == 'failed' %}<span class="pill p-bad">Hata</span>
+            {% else %}<span class="pill p-warn">Çalışıyor</span>{% endif %}
+            {% if r.hata %}<div class="sessiz" style="color:var(--bad)">{{ r.hata[:200] }}</div>{% endif %}
+            {% if r.ozet %}<div class="sessiz">{{ r.ozet }}</div>{% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div></div>
+</details>
+{% endif %}
+{% endfor %}
+
+{% if user.is_superuser %}
+<hr class="ayirac">
+
+{% if n8n_giris %}
+<h2>n8n arayüzü</h2>
+<div class="card">
+  <p class="muted" style="margin-top:0">
+    Normal kullanımda buraya girmenize gerek yok — her şey yukarıdaki tablodan
+    görünür. İş akışlarını düzenlemek gerekirse adres ve giriş bilgisi burada.
+  </p>
+  <div class="izgara">
+    <div>
+      <label>Adres</label>
+      <code class="kod blok"><a href="{{ n8n_giris.adres }}" target="_blank"
+         rel="noopener">{{ n8n_giris.adres }}</a></code>
+    </div>
+    <div>
+      <label>Kapı kullanıcı adı</label>
+      <code class="kod blok">{{ n8n_giris.kullanici }}</code>
+    </div>
+    <div>
+      <label>Kapı şifresi</label>
+      <code class="kod blok">{{ n8n_giris.sifre or "— sunucuda tanımlı değil —" }}</code>
+    </div>
+  </div>
+  <div class="warn" style="margin-top:14px">
+    <b>İki ayrı giriş var</b>
+    Önce tarayıcı bir <strong>kullanıcı adı/şifre</strong> soracak (yukarıdaki).
+    Bu, n8n'i internetten gelen yabancılara kapatan kapıdır.
+    Geçtikten sonra <strong>n8n'in kendi hesabını</strong> ilk açılışta
+    siz oluşturacaksınız. İkisi farklı şeylerdir.
+  </div>
+</div>
+{% endif %}
+
+<h2>n8n bağlantı anahtarları</h2>
+<p class="muted" style="margin-top:-4px">
+  n8n bir insan hesabı kullanmaz; kendi <strong>makine kimliği</strong> vardır.
+  Bir anahtar yalnızca işaretlediğiniz müşterilerde çalışabilir; n8n başka bir
+  müşterinin verisine <strong>ulaşamaz</strong>. Her anahtar iptal edilebilir.
+</p>
+
+{% if anahtarlar %}
+<div class="card sikisik"><div class="tablo-sar">
+  <table>
+    <thead><tr><th>Ad</th><th>Durum</th><th>Kapsam</th>
+               <th>Son kullanım</th><th class="sag">İşlem</th></tr></thead>
+    <tbody>
+    {% for k in anahtarlar %}
+      <tr>
+        <td><strong>{{ k.ad }}</strong><div class="sessiz">{{ k.onek }}…</div></td>
+        <td>
+          {% if k.etkin %}<span class="pill p-ok">Etkin</span>
+          {% else %}<span class="pill p-bad">İptal</span>{% endif %}
+        </td>
+        <td class="muted">
+          {% if k.musteri_adlari %}{{ k.musteri_adlari | join(", ") }}
+          {% else %}<span class="sessiz">hiçbir müşteri — bu anahtar iş yapamaz</span>{% endif %}
+        </td>
+        <td class="muted">
+          {% if k.son_kullanim %}{{ k.son_kullanim.strftime("%d.%m.%Y %H:%M") }}
+          {% else %}<span class="sessiz">hiç kullanılmadı</span>{% endif %}
+        </td>
+        <td class="sag daralt">
+          {% if k.etkin %}
+          <form method="post" action="/panel/otomasyon/anahtar/iptal" style="margin:0"
+                onsubmit="return confirm('{{ k.ad }} iptal edilecek. n8n bu anahtarla bağlanamayacak. Emin misiniz?')">
+            <input type="hidden" name="api_client_id" value="{{ k.id }}">
+            <button type="submit" class="kucuk tehlikeli">İptal et</button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+      {% if k.etkin %}
+      <tr>
+        <td colspan="5" style="padding-top:0">
+          <details>
+            <summary>Kapsamı değiştir</summary>
+            <form method="post" action="/panel/otomasyon/anahtar/yetki">
+              <input type="hidden" name="api_client_id" value="{{ k.id }}">
+              {% for w in tum_musteriler %}
+              <label class="satirici">
+                <input type="checkbox" name="workspace_ids" value="{{ w.id }}"
+                       {% if w.id in k.musteri_idleri %}checked{% endif %}>
+                {{ w.ad }}
+              </label>
+              {% endfor %}
+              <div style="margin-top:12px"><button type="submit">Kaydet</button></div>
+            </form>
+          </details>
+        </td>
+      </tr>
+      {% endif %}
+    {% endfor %}
+    </tbody>
+  </table>
+</div></div>
+{% else %}
+<div class="bos">Henüz bir anahtar yok. Aşağıdan n8n için bir tane üretin.</div>
+{% endif %}
+
+<h2>Yeni anahtar</h2>
+<div class="card">
+  <form method="post" action="/panel/otomasyon/anahtar/ekle">
+    <label for="anahtar-ad">Anahtarın adı</label>
+    <input id="anahtar-ad" name="ad" type="text" required maxlength="120"
+           placeholder="Örn: n8n üretim">
+    <div class="ipucu">Nerede kullanıldığını sonradan anlayabileceğiniz bir ad verin.</div>
+
+    <label>Hangi müşterilerde çalışabilsin?</label>
+    {% if tum_musteriler %}
+      {% for w in tum_musteriler %}
+      <label class="satirici">
+        <input type="checkbox" name="workspace_ids" value="{{ w.id }}"> {{ w.ad }}
+      </label>
+      {% endfor %}
+      <div class="ipucu">
+        İşaretlemediğiniz müşterilere bu anahtarla <strong>erişilemez</strong>.
+        Sonradan değiştirebilirsiniz.
+      </div>
+    {% else %}
+      <div class="muted">Önce en az bir müşteri ekleyin.</div>
+    {% endif %}
+
+    <div style="margin-top:15px">
+      <button type="submit" class="birincil">Anahtar üret</button>
+    </div>
+  </form>
+</div>
+{% endif %}
+{% endblock %}

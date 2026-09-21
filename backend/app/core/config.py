@@ -59,6 +59,14 @@ class Settings(BaseSettings):
     acme_email: str = "degistir@example.com"
     cors_origins: str = "http://localhost:5173"
 
+    # --- Otomasyon motoru (n8n) ---
+    # n8n'in onunde bir kilit (HTTP basic auth) vardir. Kullanicinin bu
+    # bilgiyi arayacagi tek yer panel olsun diye buraya okunur; panelde
+    # YALNIZCA sistem yoneticisine gosterilir.
+    n8n_domain: str = ""
+    n8n_basic_user: str = ""
+    n8n_basic_password: str = ""
+
     # --- AI ---
     ai_provider_mode: Literal["fake", "live"] = "fake"
     anthropic_api_key: str = ""

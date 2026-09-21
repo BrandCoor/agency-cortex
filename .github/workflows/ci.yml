@@ -91,6 +91,9 @@ jobs:
             -v "$PWD/ops/Caddyfile:/etc/caddy/Caddyfile:ro" \
             -e PUBLIC_DOMAIN=ornek.test \
             -e ACME_EMAIL=ci@ornek.test \
+            -e N8N_DOMAIN=n8n.ornek.test \
+            -e N8N_BASIC_USER=ci \
+            -e N8N_BASIC_HASH='$2a$14$Ci0000000000000000000uCiHashYerTutucuDegeri00000000000' \
             caddy:2-alpine caddy validate --adapter caddyfile --config /etc/caddy/Caddyfile
 
       # Panel yolunun ters vekilde acikta kalmadigini dogrular.
@@ -106,6 +109,20 @@ jobs:
             exit 1
           fi
           echo "TAMAM: genel handle blogu mevcut."
+
+      # n8n alt alan adi acikta kalmasin: onunde bir kilit olmali.
+      - name: n8n alt alan adi korumali mi?
+        run: |
+          if ! grep -q 'N8N_DOMAIN' ops/Caddyfile; then
+            echo "HATA: Caddyfile'da n8n alan adi tanimli degil."
+            exit 1
+          fi
+          if ! grep -q 'basic_auth' ops/Caddyfile; then
+            echo "HATA: n8n alt alan adinin onunde kilit (basic_auth) yok."
+            echo "Kurulumdan sonra ilk acan kisi n8n sahibi olur."
+            exit 1
+          fi
+          echo "TAMAM: n8n korumali."
 
   build:
     name: Docker imajini derle
