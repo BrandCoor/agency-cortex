@@ -14,6 +14,10 @@ on:
         description: 'Uretim sunucusuna kurulum yapilacak. Onaylamak icin KUR yazin.'
         required: true
         default: ''
+      tanilama:
+        description: 'Giris calismiyorsa hesap tanilamasi calistirilsin mi? EVET yazin.'
+        required: false
+        default: ''
 
 env:
   VPS_HOST: 187.124.22.8
@@ -371,6 +375,36 @@ jobs:
             printf '%s\n' "$ILK_SIFRE"
           } | ssh -i ~/.ssh/id_deploy -o BatchMode=yes "$VPS_USER@$VPS_HOST" \
                 'bash /tmp/ilk_yonetici.sh; cikis=$?; rm -f /tmp/ilk_yonetici.sh; exit $cikis'
+
+      # Giris calismiyorsa nedenini bulur. Sifrenin KENDISI hicbir zaman
+      # yazilmaz; yalnizca uzunluk, bosluk ve ASCII disi karakter bilgisi ile
+      # saklanan ozete uyup uymadigi bildirilir.
+      - name: Hesap tanilama
+        if: ${{ inputs.tanilama == 'EVET' }}
+        env:
+          ILK_EMAIL: ${{ secrets.ILK_YONETICI_EMAIL }}
+          ILK_SIFRE: ${{ secrets.ILK_YONETICI_SIFRE }}
+        run: |
+          if [ -z "$ILK_EMAIL" ] || [ -z "$ILK_SIFRE" ]; then
+            echo "ATLANDI: gizli degerler tanimli degil."
+            exit 0
+          fi
+
+          ssh -i ~/.ssh/id_deploy -o BatchMode=yes "$VPS_USER@$VPS_HOST" \
+            "cat > /tmp/tanilama.sh" <<'UZAK'
+          set -eu
+          cd /opt/agency-cortex
+          docker compose exec -T api python -c '
+          from app.cli.hesap import main
+          raise SystemExit(main(["tanilama"]))
+          '
+          UZAK
+
+          {
+            printf '%s\n' "$ILK_EMAIL"
+            printf '%s\n' "$ILK_SIFRE"
+          } | ssh -i ~/.ssh/id_deploy -o BatchMode=yes "$VPS_USER@$VPS_HOST" \
+                'bash /tmp/tanilama.sh; cikis=$?; rm -f /tmp/tanilama.sh; exit $cikis'
 
       - name: Disaridan HTTPS kontrolu
         run: |

@@ -391,3 +391,28 @@ Panel ayrıca "Yayınlandı" seçeneğini hiç göstermez.
   `</dev/null` eklendi.
 - Hata yerelde birebir üretilip doğrulandı: `printf 'echo A\ncat >/dev/null\necho B\n' | bash -s`
   yalnızca `A` yazıyor; `</dev/null` eklenince `B` de yazıyor.
+
+## [0.7.2] - 2026-09-21 — Giriş tanılaması
+
+### Eklendi
+- `python -m app.cli.hesap tanilama` komutu. Giriş çalışmadığında nedenini
+  **şifrenin kendisini hiçbir yere yazmadan** bildirir: şifrenin uzunluğu,
+  başında/sonunda boşluk olup olmadığı, ASCII dışı karakter sayısı, kayıtlı
+  e-posta ve saklanan özetin verilen şifreyle uyuşup uyuşmadığı.
+- Kurulum iş akışına isteğe bağlı "Hesap tanılama" adımı
+  (`tanilama: EVET` girdisiyle çalışır).
+
+### Düzeltildi
+- **Başında/sonunda boşluk olan şifre artık reddediliyor.** Kopyala-yapıştırda
+  kaçan bir boşluk hesabı açıyor ama girişi kalıcı olarak bozuyordu:
+  kullanıcı boşluksuz yazıyor, özet tutmuyordu. Yerelde birebir üretildi.
+- **`sifre-degistir` şifreyi sessizce kırpıyordu.** Ortam değişkeni okuyucusu
+  baştaki/sondaki boşlukları siliyordu; bu, kullanıcının bildiği şifre ile
+  saklanan özetin farklılaşmasına yol açardı. Artık ham okunuyor ve boşluklu
+  şifre açıkça reddediliyor. Bu tutarsızlığı yeni yazılan test yakaladı.
+
+### Doğrulandı
+- 277/277 test geçti (önceki 270 + 7 yeni).
+- Tanılama üç senaryoda gerçek PostgreSQL üzerinde çalıştırıldı: sondaki
+  boşluk, e-posta uyuşmazlığı, her şeyin doğru olduğu durum. Üçünde de doğru
+  sonucu verdi ve şifreyi çıktıya yazmadı.
