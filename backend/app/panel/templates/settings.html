@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}Sistem ayarları{% endblock %}
+{% block content %}
+<h1>Sistem ayarları</h1>
+<p class="sub">API anahtarları ve dış servis adresleri. Tüm müşteriler için ortaktır.</p>
+
+{% if error %}<div class="err">{{ error }}</div>{% endif %}
+{% if ok %}<div class="ok">{{ ok }}</div>{% endif %}
+
+<div class="bilgi">
+  <strong>Girdiğiniz değerler şifrelenerek saklanır</strong> ve size bir daha
+  <strong>gösterilmez</strong> — yalnızca son 4 karakteri görürsünüz. Bu bilerek
+  böyledir: ekranda duran bir anahtar, omzunuzun üzerinden okunabilir.
+  Değeri unuttuysanız yenisini girin.
+</div>
+
+{% for a in ayarlar %}
+<div class="card">
+  <div class="row">
+    <strong style="flex:1">{{ a.etiket }}</strong>
+    {% if a.tanimli %}
+      <span class="badge b-approved">tanımlı</span>
+    {% else %}
+      <span class="badge b-draft">tanımsız</span>
+    {% endif %}
+  </div>
+
+  <div class="muted" style="margin-top:6px">{{ a.aciklama }}</div>
+
+  {% if a.tanimli %}
+  <div class="muted" style="margin-top:6px">
+    Kaynak: {% if a.kaynak == 'panel' %}panelden girildi{% else %}sunucu ayarı{% endif %}
+    {% if a.son_dort %}· son 4 karakter: <code>…{{ a.son_dort }}</code>{% endif %}
+    {% if a.guncellendi %}· {{ a.guncellendi.strftime('%d.%m.%Y %H:%M') }}{% endif %}
+  </div>
+  {% endif %}
+
+  <form method="post" action="/panel/ayarlar" style="margin-top:12px">
+    <input type="hidden" name="anahtar" value="{{ a.anahtar }}">
+    <label for="d-{{ a.anahtar }}">
+      {% if a.tanimli %}Yeni değer{% else %}Değer{% endif %}
+      <span class="muted">(<code>{{ a.anahtar }}</code>)</span>
+    </label>
+    <input id="d-{{ a.anahtar }}" name="deger"
+           type="{% if a.gizli %}password{% else %}text{% endif %}"
+           autocomplete="off" spellcheck="false"
+           placeholder="{% if a.tanimli %}değiştirmek için yeni değeri yazın{% else %}henüz girilmedi{% endif %}">
+    <div class="row" style="margin-top:12px">
+      <button type="submit" class="birincil">Kaydet</button>
+    </div>
+  </form>
+
+  {% if a.kaynak == 'panel' %}
+  <form method="post" action="/panel/ayarlar/sil" style="margin-top:8px">
+    <input type="hidden" name="anahtar" value="{{ a.anahtar }}">
+    <button type="submit" class="tehlikeli">Bu değeri sil</button>
+  </form>
+  {% endif %}
+</div>
+{% endfor %}
+{% endblock %}

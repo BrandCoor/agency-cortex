@@ -5,83 +5,205 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{% block title %}Agency Cortex{% endblock %}</title>
 <style>
+  /* ---------------------------------------------------------------
+     Renkler tek yerde tanimlanir. Koyu tema varsayilan; kullanicinin
+     cihazi acik tema istiyorsa otomatik gecer.
+     --------------------------------------------------------------- */
   :root {
-    --bg: #0f1115; --card: #181b22; --line: #272b35; --text: #e8eaed;
-    --muted: #9aa1ad; --accent: #4f8ef7; --ok: #3fb950; --warn: #d29922;
-    --bad: #f85149; --lock: #8957e5;
+    --bg: #0f1115; --panel: #14171d; --card: #181b22; --line: #272b35;
+    --text: #e8eaed; --muted: #9aa1ad; --accent: #4f8ef7; --accent-soft: rgba(79,142,247,.14);
+    --ok: #3fb950; --warn: #d29922; --bad: #f85149; --lock: #8957e5;
+    --radius: 10px;
   }
   @media (prefers-color-scheme: light) {
-    :root { --bg:#f6f7f9; --card:#fff; --line:#e3e6ea; --text:#1c2024;
-            --muted:#5c6470; --accent:#1f6feb; }
+    :root { --bg:#f4f6f8; --panel:#fff; --card:#fff; --line:#e3e6ea;
+            --text:#1c2024; --muted:#5c6470; --accent:#1f6feb;
+            --accent-soft: rgba(31,111,235,.10); }
   }
   * { box-sizing: border-box; }
   body { margin:0; background:var(--bg); color:var(--text);
          font: 15px/1.6 -apple-system, "Segoe UI", Roboto, Arial, sans-serif; }
   a { color: var(--accent); text-decoration: none; }
   a:hover { text-decoration: underline; }
-  header { background: var(--card); border-bottom: 1px solid var(--line);
-           padding: 14px 20px; display:flex; gap:16px; align-items:center; }
-  header .brand { font-weight: 700; font-size: 17px; }
-  header .spacer { flex: 1; }
-  main { max-width: 960px; margin: 0 auto; padding: 24px 16px 64px; }
-  h1 { font-size: 22px; margin: 0 0 4px; }
-  h2 { font-size: 17px; margin: 28px 0 10px; }
-  .sub { color: var(--muted); margin: 0 0 20px; }
+
+  /* --- Duzen: solda menu, sagda icerik ------------------------------ */
+  .kabuk { display: flex; min-height: 100vh; }
+
+  .yan {
+    width: 250px; flex: 0 0 250px; background: var(--panel);
+    border-right: 1px solid var(--line); padding: 18px 12px;
+    display: flex; flex-direction: column; gap: 4px;
+  }
+  .yan .logo { font-weight: 700; font-size: 17px; padding: 6px 12px 16px;
+               display:flex; align-items:center; gap:9px; }
+  .yan .logo .nokta { width:10px; height:10px; border-radius:50%;
+                      background: var(--accent); flex:0 0 10px; }
+  .yan .baslik { font-size: 11px; text-transform: uppercase; letter-spacing: .07em;
+                 color: var(--muted); padding: 16px 12px 6px; font-weight: 600; }
+  .yan a.bag { display:flex; align-items:center; gap:10px; padding: 9px 12px;
+               border-radius: 8px; color: var(--text); font-size: 14px; }
+  .yan a.bag:hover { background: var(--card); text-decoration: none; }
+  .yan a.bag.aktif { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+  .yan .simge { width:18px; text-align:center; flex:0 0 18px; opacity:.85; }
+  .yan .alt { margin-top: auto; padding-top: 16px; border-top: 1px solid var(--line); }
+  .yan .kisi { padding: 4px 12px 10px; font-size: 13px; color: var(--muted);
+               overflow-wrap: anywhere; }
+
+  .govde { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .ustcubuk { display:none; }
+  main { width:100%; max-width: 1000px; margin: 0 auto; padding: 28px 24px 72px; }
+
+  /* --- Telefon: menu uste tasinir ----------------------------------- */
+  @media (max-width: 860px) {
+    .kabuk { flex-direction: column; }
+    .yan { width: 100%; flex: none; border-right: none;
+           border-bottom: 1px solid var(--line); padding: 12px;
+           flex-direction: row; flex-wrap: wrap; align-items: center; gap: 6px; }
+    .yan .logo { padding: 4px 8px; }
+    .yan .baslik { display: none; }
+    .yan a.bag { padding: 7px 10px; font-size: 13px; }
+    .yan .alt { margin: 0 0 0 auto; padding: 0; border: none; display:flex;
+                align-items:center; gap:8px; }
+    .yan .kisi { display: none; }
+    main { padding: 20px 16px 56px; }
+  }
+
+  /* --- Basliklar ---------------------------------------------------- */
+  h1 { font-size: 24px; margin: 0 0 4px; letter-spacing: -.01em; }
+  h2 { font-size: 16px; margin: 30px 0 12px; letter-spacing: -.005em; }
+  .sub { color: var(--muted); margin: 0 0 22px; }
+  .kirinti { color: var(--muted); font-size: 13px; margin: 0 0 14px; }
+
+  /* --- Kartlar ------------------------------------------------------ */
   .card { background: var(--card); border: 1px solid var(--line);
-          border-radius: 10px; padding: 16px; margin-bottom: 12px; }
-  .row { display:flex; gap:12px; align-items:center; flex-wrap: wrap; }
-  .badge { display:inline-block; padding: 2px 9px; border-radius: 999px;
-           font-size: 12px; font-weight: 600; border: 1px solid var(--line); }
+          border-radius: var(--radius); padding: 16px 18px; margin-bottom: 14px; }
+  .card.empty { color: var(--muted); text-align: center; padding: 28px 18px; }
+  .row { display:flex; gap:12px; align-items:center; }
+  .spacer { flex: 1; }
+
+  /* Ozet kutulari: ekranin en ustunde durumu bir bakista gosterir. */
+  .kutular { display:grid; gap:12px; grid-template-columns: repeat(auto-fit, minmax(190px,1fr));
+             margin-bottom: 8px; }
+  .kutu { background: var(--card); border:1px solid var(--line);
+          border-radius: var(--radius); padding: 14px 16px; }
+  .kutu .etiket { color: var(--muted); font-size: 12px; text-transform: uppercase;
+                  letter-spacing:.05em; font-weight:600; }
+  .kutu .deger { font-size: 24px; font-weight: 700; margin-top: 4px;
+                 letter-spacing: -.02em; }
+  .kutu .not { color: var(--muted); font-size: 12px; margin-top: 2px; }
+
+  /* --- Rozetler ----------------------------------------------------- */
+  .badge { display:inline-block; padding: 3px 10px; border-radius: 999px;
+           border: 1px solid var(--line); font-size: 12px; font-weight: 600;
+           white-space: nowrap; }
   .b-draft { color: var(--muted); }
   .b-internal_review, .b-client_review { color: var(--warn); border-color: var(--warn); }
-  .b-approved { color: var(--ok); border-color: var(--ok); }
+  .b-approved, .b-published { color: var(--ok); border-color: var(--ok); }
   .b-rejected { color: var(--bad); border-color: var(--bad); }
   .b-scheduled { color: var(--accent); border-color: var(--accent); }
-  .b-published { color: var(--ok); border-color: var(--ok); }
   .b-archived { color: var(--muted); }
   .muted { color: var(--muted); font-size: 13px; }
-  .warn { background: rgba(210,153,34,.12); border-left: 3px solid var(--warn);
-          padding: 10px 12px; border-radius: 6px; margin: 10px 0; }
-  .lock { background: rgba(137,87,229,.12); border-left: 3px solid var(--lock);
-          padding: 10px 12px; border-radius: 6px; margin: 10px 0; }
-  .err { background: rgba(248,81,73,.12); border-left: 3px solid var(--bad);
-         padding: 10px 12px; border-radius: 6px; margin: 10px 0; }
-  .ok { background: rgba(63,185,80,.12); border-left: 3px solid var(--ok);
-        padding: 10px 12px; border-radius: 6px; margin: 10px 0; }
-  button, .btn { font: inherit; padding: 8px 14px; border-radius: 7px;
-                 border: 1px solid var(--line); background: var(--card);
-                 color: var(--text); cursor: pointer; }
-  button:hover { border-color: var(--accent); }
-  .btn-ok { border-color: var(--ok); color: var(--ok); }
-  .btn-bad { border-color: var(--bad); color: var(--bad); }
-  input, textarea, select { font: inherit; width: 100%; padding: 9px 11px;
-    border-radius: 7px; border: 1px solid var(--line);
-    background: var(--bg); color: var(--text); }
-  label { display:block; margin: 12px 0 5px; font-size: 13px; color: var(--muted); }
+
+  /* --- Bildirim kutulari -------------------------------------------- */
+  .warn, .lock, .err, .ok, .bilgi {
+    padding: 11px 14px; border-radius: 8px; margin: 10px 0; border-left: 3px solid;
+  }
+  .warn { background: rgba(210,153,34,.12); border-color: var(--warn); }
+  .lock { background: rgba(137,87,229,.12); border-color: var(--lock); }
+  .err  { background: rgba(248,81,73,.12);  border-color: var(--bad); }
+  .ok   { background: rgba(63,185,80,.12);  border-color: var(--ok); }
+  .bilgi{ background: var(--accent-soft);   border-color: var(--accent); }
+
+  /* --- Form ogeleri ------------------------------------------------- */
+  label { display:block; margin: 14px 0 6px; font-size: 13px; color: var(--muted);
+          font-weight: 600; }
+  input, textarea, select { font: inherit; width: 100%; padding: 10px 12px;
+    background: var(--bg); color: var(--text); border: 1px solid var(--line);
+    border-radius: 8px; }
+  input:focus, textarea:focus, select:focus {
+    outline: none; border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft); }
+  input:disabled, textarea:disabled { opacity: .6; cursor: not-allowed; }
+  textarea { resize: vertical; }
+
+  button, .btn { font: inherit; font-weight: 600; padding: 9px 16px;
+                 border-radius: 8px; border: 1px solid var(--line);
+                 background: var(--card); color: var(--text); cursor: pointer; }
+  button:hover, .btn:hover { border-color: var(--accent); text-decoration: none; }
+  button.birincil { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.birincil:hover { filter: brightness(1.08); }
+  button.tehlikeli { color: var(--bad); }
+  button.tehlikeli:hover { border-color: var(--bad); }
+
+  /* --- Tablolar ----------------------------------------------------- */
+  .tablo-sar { overflow-x: auto; }
   table { width: 100%; border-collapse: collapse; }
-  th, td { text-align: left; padding: 9px 8px; border-bottom: 1px solid var(--line); }
-  th { color: var(--muted); font-size: 13px; font-weight: 600; }
-  pre { white-space: pre-wrap; word-break: break-word; background: var(--bg);
-        padding: 12px; border-radius: 7px; border: 1px solid var(--line);
-        margin: 6px 0; font-size: 13px; }
-  .empty { color: var(--muted); padding: 24px; text-align: center; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line);
+           vertical-align: top; }
+  th { color: var(--muted); font-size: 12px; font-weight: 600;
+       text-transform: uppercase; letter-spacing: .05em; }
+  tr:last-child td { border-bottom: none; }
+
+  code { background: var(--bg); border: 1px solid var(--line); border-radius: 5px;
+         padding: 1px 6px; font-size: 13px; }
 </style>
 </head>
 <body>
-{% if user %}
-<header>
-  <span class="brand">Agency Cortex</span>
-  <a href="/panel">Müşteriler</a>
-  <span class="spacer"></span>
-  <span class="muted">{{ user.email }}</span>
-  <a href="/panel/sifre">Şifre değiştir</a>
-  <form method="post" action="/panel/cikis" style="margin:0">
-    <button type="submit">Çıkış</button>
-  </form>
-</header>
-{% endif %}
-<main>
-{% block content %}{% endblock %}
-</main>
+<div class="kabuk">
+  {% if user %}
+  <nav class="yan">
+    <div class="logo"><span class="nokta"></span> Agency Cortex</div>
+
+    <a class="bag {% if aktif == 'musteriler' %}aktif{% endif %}" href="/panel">
+      <span class="simge">🏠</span> Müşteriler
+    </a>
+
+    {% if workspace %}
+      <div class="baslik">{{ workspace.name }}</div>
+      <a class="bag {% if aktif == 'ozet' %}aktif{% endif %}"
+         href="/panel/musteri/{{ workspace.id }}">
+        <span class="simge">📋</span> Özet ve onaylar
+      </a>
+      <a class="bag {% if aktif == 'marka' %}aktif{% endif %}"
+         href="/panel/musteri/{{ workspace.id }}/marka">
+        <span class="simge">🎨</span> Marka bilgileri
+      </a>
+      <a class="bag {% if aktif == 'kampanya' %}aktif{% endif %}"
+         href="/panel/musteri/{{ workspace.id }}/kampanya">
+        <span class="simge">📅</span> Kampanyalar
+      </a>
+      <a class="bag {% if aktif == 'hesaplar' %}aktif{% endif %}"
+         href="/panel/musteri/{{ workspace.id }}/hesaplar">
+        <span class="simge">🔗</span> Bağlı hesaplar
+      </a>
+      <a class="bag {% if aktif == 'ekip' %}aktif{% endif %}"
+         href="/panel/musteri/{{ workspace.id }}/ekip">
+        <span class="simge">👥</span> Ekip
+      </a>
+    {% endif %}
+
+    <div class="baslik">Hesabım</div>
+    <a class="bag {% if aktif == 'sifre' %}aktif{% endif %}" href="/panel/sifre">
+      <span class="simge">🔑</span> Şifre değiştir
+    </a>
+    {% if user.is_superuser %}
+    <a class="bag {% if aktif == 'ayarlar' %}aktif{% endif %}" href="/panel/ayarlar">
+      <span class="simge">⚙️</span> Sistem ayarları
+    </a>
+    {% endif %}
+
+    <div class="alt">
+      <div class="kisi">{{ user.email }}</div>
+      <form method="post" action="/panel/cikis" style="margin:0">
+        <button type="submit">Çıkış</button>
+      </form>
+    </div>
+  </nav>
+  {% endif %}
+
+  <div class="govde">
+    <main>{% block content %}{% endblock %}</main>
+  </div>
+</div>
 </body>
 </html>

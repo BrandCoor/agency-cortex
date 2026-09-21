@@ -604,3 +604,31 @@ ekibine kişi eklemek için bana bağımlıydı. Kendi ekibini kendi yönetmeli.
 
 ### Doğrulandı
 - 338/338 test geçti (önceki 325 + 13 yeni).
+
+## [0.12.0] - 2026-09-21 — Panel arayüzü ve API anahtarları
+
+### Değişti
+- **Panel arayüzü yeniden düzenlendi.** Solda kalıcı kenar menü; seçili
+  müşterinin sayfaları grup halinde listeleniyor ve bulunduğunuz sayfa
+  vurgulanıyor. Telefonda menü üste taşınıyor.
+- Müşteri ekranına **özet kutuları** eklendi: onay bekleyen sayısı, bağlı
+  hesap sayısı, bu ayki AI harcaması, marka bilgisi girilmiş mi.
+- Form ve düğme görünümü elden geçirildi (odak halkası, birincil düğme,
+  tehlikeli işlem rengi).
+
+### Eklendi
+- **Sistem ayarları sayfası** (`/panel/ayarlar`) — API anahtarları panelden
+  giriliyor. Gerekçe: DECISIONS.md K-024.
+  - Değer **Fernet ile şifrelenerek** saklanıyor.
+  - Değer **ekrana geri yazılmıyor**; yalnızca son 4 karakter gösteriliyor.
+  - Değer **loglanmıyor**; yalnızca hangi ayarın kim tarafından değiştiği.
+  - Sayfa yalnızca sistem yöneticisine açık; yetkisiz kişi **404** alıyor.
+  - Panelden girilen değer, sunucudaki ortam değişkenini geçiyor.
+  - Şifre çözülemezse (ör. `ENCRYPTION_KEY` değiştiyse) uydurma değer
+    döndürmek yerine "tanımsız" deniyor.
+- `system_settings` tablosu ve migration.
+
+### Doğrulandı
+- 351/351 test geçti (önceki 338 + 13 yeni).
+- Anahtarın veritabanında düz metin olmadığı, yanıtlarda geçmediği ve
+  loglara düşmediği ayrı ayrı test edildi.

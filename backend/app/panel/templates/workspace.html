@@ -2,13 +2,32 @@
 {% block title %}{{ workspace.name }}{% endblock %}
 {% block content %}
 <h1>{{ workspace.name }}</h1>
-<p class="sub">
-  Yetkiniz: {{ role_label }}
-  &nbsp;·&nbsp; <a href="/panel/musteri/{{ workspace.id }}/marka">Marka bilgileri</a>
-  &nbsp;·&nbsp; <a href="/panel/musteri/{{ workspace.id }}/ekip">Ekip</a>
-  &nbsp;·&nbsp; <a href="/panel/musteri/{{ workspace.id }}/kampanya">Kampanyalar</a>
-  &nbsp;·&nbsp; <a href="/panel/musteri/{{ workspace.id }}/hesaplar">Bağlı hesaplar</a>
-</p>
+<p class="sub">Yetkiniz: {{ role_label }}</p>
+
+<div class="kutular">
+  <div class="kutu">
+    <div class="etiket">Onay bekleyen</div>
+    <div class="deger">{{ pending_scripts|length + pending_reports|length }}</div>
+    <div class="not">senaryo ve rapor</div>
+  </div>
+  <div class="kutu">
+    <div class="etiket">Bağlı hesap</div>
+    <div class="deger">{{ hesap_sayisi }}</div>
+    <div class="not">{% if hesap_sayisi == 0 %}henüz bağlanmadı{% else %}sosyal medya{% endif %}</div>
+  </div>
+  <div class="kutu">
+    <div class="etiket">Bu ayki AI harcaması</div>
+    <div class="deger">${{ '%.2f'|format(ai_spent) }}</div>
+    <div class="not">${{ '%.2f'|format(ai_budget) }} bütçeden</div>
+  </div>
+  <div class="kutu">
+    <div class="etiket">Marka bilgileri</div>
+    <div class="deger">{% if marka_var %}✓{% else %}—{% endif %}</div>
+    <div class="not">
+      {% if marka_var %}girildi{% else %}<a href="/panel/musteri/{{ workspace.id }}/marka">girilmedi</a>{% endif %}
+    </div>
+  </div>
+</div>
 
 <div class="lock">
   🔒 <strong>Yayınlama kapalı.</strong> Sistem hiçbir içeriği kendiliğinden

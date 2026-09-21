@@ -18,7 +18,7 @@ from typing import Annotated
 from fastapi import APIRouter, Form, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 
 from app.api.deps import DbSession
@@ -42,6 +42,12 @@ from app.services.approvals import (
     transition,
 )
 from app.services.sifre_sifirlama import JetonHatasi, jeton_gecerli_mi, jetonu_tuket
+from app.services.sistem_ayarlari import (
+    AYAR_ANAHTARLARI,
+    deger_sil,
+    deger_yaz,
+    durum_listesi,
+)
 
 router = APIRouter(prefix="/panel", tags=["panel"])
 templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
@@ -208,7 +214,8 @@ def set_password_submit(
 def _sifre_sayfasi(request, user, *, error=None, ok=None, kod=200):
     return templates.TemplateResponse(
         request, "password.html",
-        {"user": user, "error": error, "ok": ok, "min_uzunluk": MIN_SIFRE_UZUNLUGU},
+        {"user": user, "aktif": "sifre", "error": error, "ok": ok,
+         "min_uzunluk": MIN_SIFRE_UZUNLUGU},
         status_code=kod,
     )
 
@@ -281,6 +288,7 @@ def _musteri_listesi(request, db, user, *, error=None, kod=200):
         request, "workspaces.html",
         {
             "user": user,
+            "aktif": "musteriler",
             "error": error,
             "memberships": [
                 {"workspace": ws, "role_label": ROLE_LABELS.get(rol.value, rol.value)}
@@ -367,6 +375,7 @@ def workspace_page(workspace_id: uuid.UUID, request: Request, db: DbSession):
         request, "workspace.html",
         {
             "user": user,
+            "aktif": "ozet",
             "workspace": ws,
             "role_label": ROLE_LABELS.get(uyelik.role.value, uyelik.role.value),
             "status_labels": STATUS_LABELS,
@@ -392,6 +401,15 @@ def workspace_page(workspace_id: uuid.UUID, request: Request, db: DbSession):
             ).scalars().all(),
             "ai_spent": float(month_spend(db, workspace_id)),
             "ai_budget": float(ws.ai_monthly_budget_usd),
+            # Ozet kutulari icin: bir bakista eksigi gormek kolay olsun.
+            "hesap_sayisi": db.execute(
+                select(func.count()).select_from(SocialAccount)
+                .where(SocialAccount.workspace_id == workspace_id)
+            ).scalar_one(),
+            "marka_var": db.execute(
+                select(func.count()).select_from(Brand)
+                .where(Brand.workspace_id == workspace_id)
+            ).scalar_one() > 0,
             "ai_exceeded": float(month_spend(db, workspace_id)) >= float(ws.ai_monthly_budget_usd),
             "using_fake": get_fake_mode(),
         },
@@ -430,6 +448,7 @@ def _marka_sayfasi(request, db, user, uyelik, workspace, *, error=None, ok=None,
         request, "brand.html",
         {
             "user": user,
+            "aktif": "marka",
             "workspace": workspace,
             "marka": marka,
             "kilavuz": kilavuz,
@@ -539,6 +558,7 @@ def _ekip_sayfasi(request, db, user, uyelik, workspace, *, error=None, ok=None, 
         request, "members.html",
         {
             "user": user,
+            "aktif": "ekip",
             "workspace": workspace,
             "uyeler": [
                 {
@@ -685,6 +705,98 @@ def member_remove(
     return _ekip_sayfasi(request, db, user, uyelik, workspace, ok="Kişi ekipten çıkarıldı.")
 
 
+# --- Sistem ayarlari ---------------------------------------------------------
+#
+# API anahtarlari buradan girilir. Uc kural:
+# 1. Deger sifrelenerek saklanir (Fernet).
+# 2. Deger EKRANA GERI YAZILMAZ; yalnizca son dort karakter gosterilir.
+# 3. Deger loglanmaz; yalnizca HANGI ayarin degistigi kaydedilir.
+#
+# Sayfa yalnizca sistem yoneticisine (superuser) aciktir: bu anahtarlar tum
+# musterileri ilgilendirir, tek bir musterinin yoneticisine ait degildir.
+
+def _ayarlar_sayfasi(request, db, user, *, error=None, ok=None, kod=200):
+    return templates.TemplateResponse(
+        request, "settings.html",
+        {
+            "user": user,
+            "aktif": "ayarlar",
+            "ayarlar": durum_listesi(db),
+            "error": error,
+            "ok": ok,
+        },
+        status_code=kod,
+    )
+
+
+@router.get("/ayarlar", response_class=HTMLResponse)
+def settings_page(request: Request, db: DbSession):
+    user = current_user_from_cookie(request, db)
+    if user is None:
+        return _giris_yonlendir()
+    if not user.is_superuser:
+        # 404: bu sayfanin varligini yetkisiz kisiye bildirmeye gerek yok.
+        return HTMLResponse("Bulunamadı.", status_code=404)
+    return _ayarlar_sayfasi(request, db, user)
+
+
+@router.post("/ayarlar")
+def settings_save(
+    request: Request,
+    db: DbSession,
+    anahtar: Annotated[str, Form()],
+    deger: Annotated[str, Form()] = "",
+):
+    user = current_user_from_cookie(request, db)
+    if user is None:
+        return _giris_yonlendir()
+    if not user.is_superuser:
+        return HTMLResponse("Bulunamadı.", status_code=404)
+
+    if anahtar not in AYAR_ANAHTARLARI:
+        return _ayarlar_sayfasi(
+            request, db, user, error="Bilinmeyen ayar.",
+            kod=status.HTTP_400_BAD_REQUEST,
+        )
+    if not deger.strip():
+        return _ayarlar_sayfasi(
+            request, db, user,
+            error="Değer boş bırakılamaz. Silmek istiyorsanız 'Bu değeri sil' düğmesini kullanın.",
+            kod=status.HTTP_400_BAD_REQUEST,
+        )
+
+    deger_yaz(db, anahtar, deger, user_id=user.id)
+    db.commit()
+    # Kaydedilen degerin KENDISI yanitta yer almaz.
+    return _ayarlar_sayfasi(request, db, user, ok=f"{anahtar} kaydedildi.")
+
+
+@router.post("/ayarlar/sil")
+def settings_delete(
+    request: Request,
+    db: DbSession,
+    anahtar: Annotated[str, Form()],
+):
+    user = current_user_from_cookie(request, db)
+    if user is None:
+        return _giris_yonlendir()
+    if not user.is_superuser:
+        return HTMLResponse("Bulunamadı.", status_code=404)
+
+    if anahtar not in AYAR_ANAHTARLARI:
+        return _ayarlar_sayfasi(
+            request, db, user, error="Bilinmeyen ayar.",
+            kod=status.HTTP_400_BAD_REQUEST,
+        )
+
+    silindi = deger_sil(db, anahtar)
+    db.commit()
+    return _ayarlar_sayfasi(
+        request, db, user,
+        ok=f"{anahtar} silindi." if silindi else f"{anahtar} zaten tanımlı değildi.",
+    )
+
+
 # --- Kampanyalar -------------------------------------------------------------
 
 def _tarih_coz(metin: str) -> dt.date | None:
@@ -715,6 +827,7 @@ def _kampanya_sayfasi(request, db, user, uyelik, workspace, *, error=None, ok=No
         request, "campaigns.html",
         {
             "user": user,
+            "aktif": "kampanya",
             "workspace": workspace,
             "marka": marka,
             "kampanyalar": kampanyalar,
@@ -898,6 +1011,7 @@ def _hesaplar_sayfasi(request, db, user, uyelik, workspace, *, error=None, kod=2
         request, "accounts.html",
         {
             "user": user,
+            "aktif": "hesaplar",
             "workspace": workspace,
             "hesaplar": db.execute(
                 select(SocialAccount)

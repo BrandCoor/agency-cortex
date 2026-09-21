@@ -417,3 +417,34 @@ Format: Karar / Seçenekler / Neden / Risk / Geri alma
   kendisi değil yalnızca SHA-256 özeti saklanıyor.
 - **Geri alma:** E-posta altyapısı kurulunca bağlantı sohbet/kurulum kaydı
   yerine e-postayla gönderilir; akışın geri kalanı aynı kalır.
+
+---
+
+## K-024 — API anahtarları panelden giriliyor, şifreli saklanıyor
+
+- **Karar:** API anahtarları (Claude, Gemini, Manus, Meta) panelden girilir,
+  Fernet ile şifrelenerek veritabanında saklanır ve **ekrana bir daha
+  yazılmaz** — yalnızca son 4 karakter gösterilir.
+- **Seçenekler:** (a) panelden girilip şifreli saklamak, (b) sunucudaki `.env`
+  dosyasına yazmak, (c) GitHub Secrets üzerinden geçirmek.
+- **Neden (a):** Bu anahtarlar kuruluma değil, ajansın hesaplarına ait ve
+  zamanla değişiyor. (b) her değişiklikte sunucuya girmeyi gerektirir;
+  ajans sahibi bunu yapamaz. (c) ilk yönetici şifresinde denendi ve o
+  yolculuğun kaç adımda bozulabildiğini gördük.
+- **Risk:** Değer artık veritabanında. Bu yüzden şifreli saklanıyor:
+  veritabanı yedeği ele geçse bile sunucudaki `ENCRYPTION_KEY` olmadan
+  çözülemez. Sayfa yalnızca sistem yöneticisine açık ve yetkisiz kişiye
+  **404** dönüyor (403 sayfanın varlığını bildirirdi).
+- **Geri alma:** Panelden silinince sunucudaki ortam değişkenine geri düşer.
+
+---
+
+## K-025 — Panel kenar menüye taşındı
+
+- **Karar:** Panel, üstte tek satır bağlantı yerine solda kalıcı bir menüyle
+  çalışıyor. Menü, seçili müşterinin sayfalarını grup halinde gösteriyor.
+- **Neden:** Sayfa sayısı arttıkça üstteki "·" ile ayrılmış bağlantılar
+  okunmaz hale geldi ve kullanıcı nerede olduğunu göremiyordu. Kenar
+  menüde bulunduğunuz sayfa vurgulanıyor.
+- **Risk:** Yok. Telefonda menü üste taşınıyor.
+- **Geri alma:** Yalnızca `base.html` değişir; sayfa içerikleri aynı kalır.

@@ -117,3 +117,34 @@ class SystemError(UUIDPrimaryKey, Timestamps, Base):
     context: Mapped[dict] = mapped_column(JSONB, default=dict, nullable=False)
     request_id: Mapped[str | None] = mapped_column(String(64))
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class SystemSetting(UUIDPrimaryKey, Timestamps, Base):
+    """Panelden girilen sistem ayarlari (API anahtarlari dahil).
+
+    NEDEN VERITABANINDA?
+    Bu degerler kuruluma degil, ajansin hesaplarina aittir ve zamanla
+    degisir. Her degisiklik icin sunucuya girmek gerekmemeli.
+
+    NEDEN SIFRELI?
+    Deger, Fernet ile sifrelenmis olarak saklanir. Veritabani yedegi ele
+    gecse bile anahtarlar dogrudan okunamaz; cozmek icin sunucudaki
+    ENCRYPTION_KEY de gerekir.
+
+    HICBIR ZAMAN GERI GOSTERILMEZ.
+    Panel yalnizca "tanimli / tanimsiz" bilgisini ve son dort karakteri
+    gosterir. Tam deger ekrana da loga da basilmaz.
+    """
+
+    __tablename__ = "system_settings"
+    __table_args__ = (UniqueConstraint("anahtar", name="uq_system_setting_anahtar"),)
+
+    anahtar: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    # Fernet ile sifrelenmis deger.
+    sifreli_deger: Mapped[str] = mapped_column(Text, nullable=False)
+    # Kullaniciya "hangi anahtari girmistim?" dedirtmemek icin son 4 karakter.
+    son_dort: Mapped[str | None] = mapped_column(String(8))
+    # Kim, ne zaman degistirdi (denetim icin).
+    degistiren_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL")
+    )
