@@ -95,6 +95,26 @@ hiçbir şeyi değiştiremezler.
 
 ---
 
+### API anahtarlarını girmek
+Sol menüde **Sistem ayarları** (yalnızca size görünür).
+
+**Anahtarı asla sohbete yazmayın.** Sohbete yazılan bir anahtar geçmişte
+kalıcı olarak durur ve yanmış sayılır — yenisini üretmeniz gerekir.
+Doğru yer burasıdır: değer şifrelenerek saklanır, size bir daha gösterilmez.
+
+**Girdikten sonra "Bağlantıyı sına" düğmesine basın.** Sistem anahtarı
+gerçekten deneyip sonucu söyler:
+
+| Sağlayıcı | Sınama ne yapar |
+|---|---|
+| Manus | Gerçek bir API çağrısı yapar, kredi durumunuzu gösterir. **Kredi harcamaz.** |
+| Meta | Yalnızca **biçim** denetler. Canlı sınama değildir — bunu ekranda da yazar. |
+| Claude | Yalnızca kayıtlı mı diye bakar. Canlı sınama ücret doğurur; haberiniz olmadan harcama yapmıyoruz. |
+
+Sınama sonucu anahtarınızı **hiçbir zaman** ekrana yazmaz.
+
+---
+
 ### Kampanyalar
 Müşteri ekranında **"Kampanyalar"** bağlantısı. Belirli bir döneme ve hedefe
 yönelik çalışmalar burada tutulur (örn: *Ramazan 2026 — iftar menüsü

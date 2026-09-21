@@ -41,6 +41,7 @@ from app.services.approvals import (
     can_publish,
     transition,
 )
+from app.services.baglanti_sinama import SINAYICILAR, sina
 from app.services.sifre_sifirlama import JetonHatasi, jeton_gecerli_mi, jetonu_tuket
 from app.services.sistem_ayarlari import (
     AYAR_ANAHTARLARI,
@@ -715,13 +716,18 @@ def member_remove(
 # Sayfa yalnizca sistem yoneticisine (superuser) aciktir: bu anahtarlar tum
 # musterileri ilgilendirir, tek bir musterinin yoneticisine ait degildir.
 
-def _ayarlar_sayfasi(request, db, user, *, error=None, ok=None, kod=200):
+def _ayarlar_sayfasi(
+    request, db, user, *, error=None, ok=None, kod=200, sinama=None
+):
+    """`sinama`: (anahtar, basarili, mesaj) — sinama sonucunu gosterir."""
     return templates.TemplateResponse(
         request, "settings.html",
         {
             "user": user,
             "aktif": "ayarlar",
             "ayarlar": durum_listesi(db),
+            "sinanabilir": set(SINAYICILAR),
+            "sinama": sinama,
             "error": error,
             "ok": ok,
         },
@@ -769,6 +775,32 @@ def settings_save(
     db.commit()
     # Kaydedilen degerin KENDISI yanitta yer almaz.
     return _ayarlar_sayfasi(request, db, user, ok=f"{anahtar} kaydedildi.")
+
+
+@router.post("/ayarlar/sina")
+def settings_test(
+    request: Request,
+    db: DbSession,
+    anahtar: Annotated[str, Form()],
+):
+    """Kayitli ayarin gercekten calistigini sunucudan dogrular.
+
+    Sonuc mesaji anahtarin kendisini ICERMEZ.
+    """
+    user = current_user_from_cookie(request, db)
+    if user is None:
+        return _giris_yonlendir()
+    if not user.is_superuser:
+        return HTMLResponse("Bulunamadı.", status_code=404)
+
+    if anahtar not in SINAYICILAR:
+        return _ayarlar_sayfasi(
+            request, db, user, error="Bu ayar için sınama tanımlı değil.",
+            kod=status.HTTP_400_BAD_REQUEST,
+        )
+
+    basarili, mesaj = sina(db, anahtar)
+    return _ayarlar_sayfasi(request, db, user, sinama=(anahtar, basarili, mesaj))
 
 
 @router.post("/ayarlar/sil")

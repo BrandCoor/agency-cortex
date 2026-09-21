@@ -35,6 +35,20 @@
   </div>
   {% endif %}
 
+  {% if sinama and sinama[0] == a.anahtar %}
+    <div class="{% if sinama[1] %}ok{% else %}err{% endif %}" style="margin-top:10px">
+      <strong>{% if sinama[1] %}✓ Sınama başarılı.{% else %}✗ Sınama başarısız.{% endif %}</strong>
+      {{ sinama[2] }}
+    </div>
+  {% endif %}
+
+  {% if a.tanimli and a.anahtar in sinanabilir %}
+  <form method="post" action="/panel/ayarlar/sina" style="margin-top:12px">
+    <input type="hidden" name="anahtar" value="{{ a.anahtar }}">
+    <button type="submit">Bağlantıyı sına</button>
+  </form>
+  {% endif %}
+
   <form method="post" action="/panel/ayarlar" style="margin-top:12px">
     <input type="hidden" name="anahtar" value="{{ a.anahtar }}">
     <label for="d-{{ a.anahtar }}">

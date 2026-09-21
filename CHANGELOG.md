@@ -667,3 +667,32 @@ belgede "DOKÜMANDA BULUNAMADI" diyen hiçbir değer uydurulmadı.
   geçerli imza kabul, gövde değiştirilince ret, URL değiştirilince ret,
   başka anahtarla imzalanınca ret, 5 dakikadan eski istek ret.
 - v1 başlığının (`API_KEY`) kullanılmadığı ayrıca test edildi.
+
+## [0.13.1] - 2026-09-21 — Bağlantı sınaması
+
+### Eklendi
+- **"Bağlantıyı sına" düğmesi** (Sistem ayarları). Kaydedilen anahtarın
+  gerçekten çalıştığı sunucudan doğrulanıyor.
+  - **Manus:** `usage.availableCredits` ile gerçek API çağrısı. Bu uç salt
+    okumadır ve **kredi harcamaz**; sınama için görev oluşturulmuyor.
+    Kredi durumu ekranda gösteriliyor.
+  - **Meta:** yalnızca **biçim** denetimi. Meta'nın kimlik bilgilerini tek
+    başına doğrulayan salt okuma bir ucu elimizdeki resmî referansta
+    tanımlı değil; tahminle uç çağırmak yerine bunun canlı sınama
+    **olmadığı** ekranda açıkça yazılıyor.
+  - **Claude:** yalnızca kayıtlı mı diye bakılıyor. En ucuz canlı sınama
+    bile ücret doğurur; kullanıcının haberi olmadan harcama yapılmıyor.
+- Geçersiz anahtarda mesaj **ne yapılacağını** söylüyor ("yeni bir anahtar
+  üretip tekrar girin"), yalnızca "hata" demiyor.
+
+### Güvenlik (test edildi)
+- Sınama sonucu **hiçbir yolda** anahtarı içermiyor — başarı, kimlik
+  doğrulama hatası ve hız sınırı yollarının üçü de ayrı test edildi.
+  (Manus hata mesajının içine anahtar konsa bile sızmıyor.)
+- Sınama yalnızca sistem yöneticisine açık; başkası **404** alıyor.
+
+### Doğrulandı
+- 399/399 test geçti (önceki 385 + 14 yeni).
+- Bir testim kendi kendini vurdu ve düzeltildi: `httpx` yaması
+  TestClient'ın panele yaptığı isteği de yakalıyordu. Yama yalnızca
+  `api.manus.ai` çağrılarını kapsayacak şekilde daraltıldı.

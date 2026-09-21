@@ -53,6 +53,9 @@ UC_GOREV_OLUSTUR = "/v2/task.create"
 UC_GOREV_DETAY = "/v2/task.detail"
 UC_MESAJ_LISTESI = "/v2/task.listMessages"
 UC_GOREV_DURDUR = "/v2/task.stop"
+# Salt okuma; kredi harcamaz. Baglanti sinamasi icin kullanilir.
+# Kaynak: open.manus.ai/docs/v2/usage.availableCredits
+UC_KREDI_DURUMU = "/v2/usage.availableCredits"
 
 # v2 durum kumesi. Kaynak: open.manus.ai/docs/v2/task.detail
 DURUM_CALISIYOR = "running"
@@ -330,6 +333,42 @@ class ManusProvider(AIProvider):
         if not self.is_configured:
             return False, f"Eksik ayar: {', '.join(self.missing_config)}"
         return True, f"Manus v2 hazir ({self._base_url})"
+
+    def baglantiyi_sina(self) -> tuple[bool, str]:
+        """Anahtarin GERCEKTEN calistigini sunucudan dogrular.
+
+        usage.availableCredits salt okuma bir uctur ve kredi harcamaz;
+        bu yuzden sinama icin secildi. Gorev olusturmak sinama amaciyla
+        yapilmaz: kredi harcar.
+        Kaynak: open.manus.ai/docs/v2/usage.availableCredits
+
+        Anahtarin KENDISI hicbir mesajda yer almaz.
+        """
+        if not self.is_configured:
+            return False, "Manus API anahtarı girilmemiş."
+
+        try:
+            govde = self._istek("GET", UC_KREDI_DURUMU)
+        except ManusError as hata:
+            if hata.kod == "unauthenticated":
+                return False, (
+                    "Anahtar kabul edilmedi. Manus hesabınızdan yeni bir "
+                    "anahtar üretip tekrar girin."
+                )
+            if hata.kod == "rate_limited":
+                return False, "Manus şu an çok fazla istek aldı; biraz sonra tekrar deneyin."
+            if hata.kod == "network":
+                return False, f"Manus'a bağlanılamadı: {hata.mesaj}"
+            return False, f"Manus hatası [{hata.kod}]: {hata.mesaj}"
+
+        toplam = govde.get("total_credits")
+        ucretsiz = govde.get("free_credits")
+        parcalar = ["Bağlantı çalışıyor."]
+        if toplam is not None:
+            parcalar.append(f"Toplam kredi: {toplam}")
+        if ucretsiz is not None:
+            parcalar.append(f"Ücretsiz kredi: {ucretsiz}")
+        return True, " ".join(parcalar)
 
 
 def kredi_maliyeti(yanit: dict) -> Decimal | None:
