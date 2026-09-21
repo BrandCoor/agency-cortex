@@ -813,3 +813,53 @@ altında doğru çalışması şart. Mevcut kilit doğru çalışmıyordu.
   n8n tarafındaki tasarımı bir sonraki adımda.
 - **Panelden elle çalıştırma düğmesi yok.** Akışlar n8n'de oluşmadan böyle
   bir düğme hiçbir şey yapmazdı; çalışmayan düğme konulmadı.
+
+## [0.10.1] - 2026-09-21 — Kurulum sırasında yakalanan iki hata
+
+Sistem canlıya alındı. Kurulum ilk denemede durdu, ikincisinde yeşil
+göründü ama **gizli bir arıza taşıyordu**. İkisi de düzeltildi.
+
+### Düzeltildi — 1: kurulum "Error: EOF" ile durdu
+`caddy hash-password`, terminal değilse şifreyi stdin'den
+`ReadBytes('\n')` ile okuyor. `printf '%s'` satır sonu göndermediği için
+okuma EOF ile bitiyordu. `printf '%s\n'` yapıldı.
+(Caddy v2.10 kaynağından doğrulandı, tahmin edilmedi.)
+
+### Düzeltildi — 2: n8n kapısı hiçbir şifreyle açılmayacaktı
+**Kurulum yeşil görünüyordu.** Dışarıdan HTTP 401 dönüyordu, yani kilit
+duruyordu — ama doğru şifre de kabul edilmiyordu.
+
+Kök neden: bcrypt özeti `$2a$14$...` biçiminde. Docker Compose, `.env`
+içindeki `$` işaretini **değişken başı** sayıyor ve `$14`'ten sonrasını
+tanımsız değişken sanıp siliyor. Kurulum logundaki
+`"... variable is not set"` uyarısı tam buydu.
+
+Ölçüldü (yerel `docker compose` ile, iki hal yan yana):
+
+| `.env` içindeki hâli | Konteynere giden değer |
+|---|---|
+| kaçışsız | `$2a$14` — **özet yok** |
+| `$$` kaçışlı | tam özet |
+
+Düzeltmeler:
+- Özet `.env`'e `$$` kaçışıyla yazılıyor.
+- Sunucuda duran kaçışsız özet tespit edilip yenileniyor.
+- Compose'un değeri bütün geçirdiği **uzunlukla** doğrulanıyor (özet
+  basılmadan).
+
+### Eklendi — bu hatayı bir daha gizlenemez kılan adım
+Kurulum artık kapının **açıldığını da** kanıtlıyor:
+
+- şifresiz istek → **HTTP 401** beklenir (kilit duruyor)
+- doğru şifreyle istek → **HTTP 200** beklenir (kapı açılıyor)
+
+İkincisi olmasaydı bozuk özet fark edilmezdi: 401 dönen bir kapı
+"çalışıyor" gibi görünür. Şifre sunucuda kalıyor — GitHub'a taşınmıyor,
+loga basılmıyor, `curl` komut satırına yazılmıyor (`--netrc-file`).
+
+### Canlı durum (kurulum çıktısından)
+```
+BASARILI: n8n ic agdan yanit veriyor.
+BASARILI: https://n8n.agencycortex.tech sifresiz ACILMIYOR (HTTP 401).
+BASARILI: dogru sifreyle aciliyor (HTTP 200).
+```

@@ -663,3 +663,21 @@ Format: Karar / Seçenekler / Neden / Risk / Geri alma
   `test_tek_yoneticinin_yetkisi_alinamaz`, `test_kendini_pasiflestiremez`.
 - **Risk:** Yöneticinin yetkisini almak için ikinci bir yönetici gerekiyor.
   Bilerek böyle.
+
+---
+
+## K-037 — "Servis ayakta" ile "servis çalışıyor" aynı şey değil
+
+- **Karar:** Bir kilit kurulduğunda, kurulum hem **kapalı olduğunu** hem
+  **doğru anahtarla açıldığını** ayrı ayrı kanıtlar.
+- **Neden:** n8n kurulumu bir kez yeşil göründü, dışarıdan HTTP 401
+  dönüyordu ve her şey doğru sanıldı. Oysa bcrypt özeti Docker Compose
+  tarafından kırpılmıştı; kapı **hiçbir şifreyle** açılmıyordu.
+  401 dönen bozuk bir kapı, çalışan bir kapıdan ayırt edilemez.
+- **Genel kural:** Bir koruma eklendiğinde "engelliyor mu" testi tek
+  başına yetmez; "izin vermesi gerekeni veriyor mu" da sınanmalıdır.
+  Aynı hata sınıfı bu projede daha önce üç kez çıktı (Caddy yolları,
+  Caddy yeniden yükleme, yedek doğrulama).
+- **Risk:** Kurulum adımı sunucudaki düz şifreyi okuyor. Şifre GitHub'a
+  taşınmıyor, loga basılmıyor ve `ps` çıktısında görünmüyor
+  (`--netrc-file`, geçici dosya 600 izniyle ve hemen siliniyor).
