@@ -75,11 +75,30 @@ yaz "Anahtar uretildi (deger loglanmaz)."
 #
 # ("docker compose cp" dosyayi root'a ait birakiyordu; n8n "node"
 #  kullanicisi olarak calistigi icin okuyamayip EACCES veriyordu.)
+# Dosya n8n'in KENDI EV DIZININE yazilir. /tmp kullanilmiyor: orasi
+# yapiskan (sticky) bir dizin ve baska bir kullanicinin biraktigi dosyayi
+# ne silebiliyoruz ne uzerine yazabiliyoruz. Ev dizini n8n'in kendisine
+# ait oldugu icin bu sorun yok.
+KIMLIK_YOLU="/home/node/.agency-cortex-kimlik.json"
+
 temizle() {
-  docker compose exec -T n8n rm -f /tmp/ac-kimlik.json </dev/null 2>/dev/null || true
+  docker compose exec -T n8n rm -f "$KIMLIK_YOLU" </dev/null 2>/dev/null || true
   rm -f /tmp/ac-kimlik-uret.py /tmp/n8n_kimlik.log
 }
 trap temizle EXIT
+
+# Onceki surumlerin /tmp'de biraktigi root'a ait dosyayi temizle.
+docker compose exec -T -u 0 n8n rm -f /tmp/ac-kimlik.json </dev/null 2>/dev/null || true
+
+# ON KONTROL: dosyayi yazabiliyor muyuz? Yazamiyorsak SEBEBINI olcup
+# yaziyoruz - "izin yok" deyip birakmak, bir sonraki denemede yine
+# karanlikta kalmak demek olurdu.
+if ! docker compose exec -T n8n sh -c "touch '$KIMLIK_YOLU.deneme' && rm -f '$KIMLIK_YOLU.deneme'" </dev/null 2>/dev/null; then
+  yaz "HATA: n8n konteynerinde su yola yazilamiyor: $KIMLIK_YOLU"
+  yaz "n8n konteynerindeki durum:"
+  docker compose exec -T n8n sh -c 'id; ls -ld /home/node' </dev/null 2>&1 | sed 's/^/    /' || true
+  exit 1
+fi
 
 cat > /tmp/ac-kimlik-uret.py <<'BETIK'
 import json, sys
@@ -93,14 +112,14 @@ BETIK
 
 yaz "Kimlik bilgisi n8n'e aktariliyor..."
 if ! python3 /tmp/ac-kimlik-uret.py "$ANAHTAR" \
-     | docker compose exec -T n8n sh -c 'umask 077; cat > /tmp/ac-kimlik.json'; then
+     | docker compose exec -T n8n sh -c "umask 077; cat > '$KIMLIK_YOLU'"; then
   yaz "HATA: kimlik bilgisi dosyasi konteynere yazilamadi."
   exit 1
 fi
 rm -f /tmp/ac-kimlik-uret.py
 unset ANAHTAR
 
-if ! docker compose exec -T n8n n8n import:credentials --input=/tmp/ac-kimlik.json \
+if ! docker compose exec -T n8n n8n import:credentials --input="$KIMLIK_YOLU" \
      </dev/null >/tmp/n8n_kimlik.log 2>&1; then
   yaz "HATA: kimlik bilgisi aktarilamadi. n8n'in soyledigi:"
   # Anahtar loga sizmasin diye maskelenir.
@@ -111,7 +130,7 @@ if ! docker compose exec -T n8n n8n import:credentials --input=/tmp/ac-kimlik.js
   exit 1
 fi
 sed -e 's/acx_[A-Za-z0-9_-]*/acx_***/g' /tmp/n8n_kimlik.log | sed 's/^/    /'
-docker compose exec -T n8n rm -f /tmp/ac-kimlik.json </dev/null || true
+docker compose exec -T n8n rm -f "$KIMLIK_YOLU" </dev/null || true
 
 # --- 3) Is akislarini yukle -------------------------------------------------
 yaz "Is akislari yukleniyor..."
