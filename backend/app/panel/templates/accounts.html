@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}Bağlı hesaplar — {{ workspace.name }}{% endblock %}
+{% block content %}
+<p class="muted"><a href="/panel/musteri/{{ workspace.id }}">← {{ workspace.name }}</a></p>
+<h1>Bağlı hesaplar</h1>
+<p class="sub">Bu müşterinin verisi hangi sosyal medya hesaplarından geliyor.</p>
+
+{% if error %}<div class="err">{{ error }}</div>{% endif %}
+
+<h2>Bağlı olanlar</h2>
+{% if not hesaplar %}
+  <div class="card empty">Henüz bağlı hesap yok.</div>
+{% endif %}
+{% for h in hesaplar %}
+<div class="card">
+  <div class="row">
+    <strong style="flex:1">{{ h.username or h.external_id }}</strong>
+    <span class="muted">{{ h.platform.value }}</span>
+  </div>
+  <div class="muted" style="margin-top:6px">
+    {{ h.display_name or '' }}
+    {% if h.is_professional %}· profesyonel hesap{% else %}· kişisel hesap{% endif %}
+    {% if h.is_active %}· aktif{% else %}· pasif{% endif %}
+  </div>
+  {% if h.last_synced_at %}
+    <div class="muted">Son veri çekimi: {{ h.last_synced_at.strftime('%d.%m.%Y %H:%M') }}</div>
+  {% else %}
+    <div class="warn">Bu hesaptan henüz hiç veri çekilmedi.</div>
+  {% endif %}
+  {% if h.sync_error %}<div class="err">Son hata: {{ h.sync_error }}</div>{% endif %}
+</div>
+{% endfor %}
+
+<h2>Yeni hesap bağlama</h2>
+{% if sahte_mod %}
+<div class="warn">
+  ⚠️ <strong>Sistem sahte sağlayıcı ile çalışıyor.</strong> Bu modda gerçek bir
+  Instagram/Facebook hesabı bağlanamaz. Gerçek bağlantı için Meta ayarlarının
+  tamamlanması ve sistemin canlı moda alınması gerekiyor.
+</div>
+{% endif %}
+{% for p in platformlar %}
+<div class="card">
+  <div class="row">
+    <strong style="flex:1">{{ p.etiket }}</strong>
+    {% if p.available %}
+      <span class="badge b-approved">hazır</span>
+    {% else %}
+      <span class="badge b-rejected">henüz bağlanamıyor</span>
+    {% endif %}
+  </div>
+
+  {% if p.available %}
+    {% if baglayabilir and not sahte_mod %}
+    <form method="post" action="/panel/musteri/{{ workspace.id }}/hesaplar/baglan" style="margin-top:12px">
+      <input type="hidden" name="platform" value="{{ p.platform }}">
+      <button type="submit">{{ p.etiket }} hesabı bağla</button>
+    </form>
+    <div class="muted" style="margin-top:8px">
+      İzin ekranına yönlendirileceksiniz. Hesaba giriş yapıp izin vermeyi
+      <strong>siz</strong> yapacaksınız; sizin adınıza giriş yapılmaz.
+    </div>
+    {% elif not baglayabilir %}
+    <div class="warn">Hesap bağlamak için en az <strong>yönetici</strong> yetkisi gerekir.</div>
+    {% endif %}
+  {% else %}
+    <div class="warn" style="margin-top:10px">
+      <strong>Neden bağlanamıyor:</strong> {{ p.detail }}
+    </div>
+    {% if p.eksik_ayarlar %}
+    <div style="margin-top:10px">
+      <div class="muted">Eksik olan ayarlar:</div>
+      <ul style="margin:6px 0 0 18px">
+        {% for ad in p.eksik_ayarlar %}<li><code>{{ ad }}</code></li>{% endfor %}
+      </ul>
+      <div class="muted" style="margin-top:8px">
+        Bu değerler Meta'nın resmî dokümanından doğrulanmadan doldurulmayacak.
+        Tahminle doldurulursa hesabınız yanlış izinlerle bağlanabilir.
+      </div>
+    </div>
+    {% endif %}
+  {% endif %}
+</div>
+{% endfor %}
+{% endblock %}

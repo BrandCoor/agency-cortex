@@ -25,10 +25,12 @@ from app.cli.hesap import MIN_SIFRE_UZUNLUGU
 from app.core.security import create_token, hash_password, verify_password
 from app.models.brand import Brand, BrandGuideline
 from app.models.content import ContentScript
-from app.models.enums import ContentStatus, WorkspaceRole
+from app.models.enums import ContentStatus, Platform, WorkspaceRole
 from app.models.identity import User, Workspace, WorkspaceMember
 from app.models.reporting import Report, ReportSection
+from app.models.social import SocialAccount
 from app.panel.auth import clear_session_cookie, current_user_from_cookie, set_session_cookie
+from app.platforms.registry import platform_status
 from app.services.ai_runner import month_spend
 from app.services.approvals import (
     ALLOWED_TRANSITIONS,
@@ -680,6 +682,156 @@ def member_remove(
     db.delete(hedef_uyelik)
     db.commit()
     return _ekip_sayfasi(request, db, user, uyelik, workspace, ok="Kişi ekipten çıkarıldı.")
+
+
+# --- Bagli hesaplar ----------------------------------------------------------
+#
+# DURUSTLUK KURALI: "Bagla" dugmesi YALNIZCA platform gercekten hazirsa
+# gosterilir. Hazir olmayan platformda dugme yerine NEDEN hazir olmadigi ve
+# hangi ayarlarin eksik oldugu yazilir. Calismayan bir dugme gostermek,
+# kullaniciya olmayan bir yetenek varmis gibi sunmaktir.
+
+PLATFORM_ETIKETLERI = {
+    "instagram": "Instagram",
+    "facebook": "Facebook",
+    "tiktok": "TikTok",
+    "youtube": "YouTube",
+    "linkedin": "LinkedIn",
+    "x": "X",
+    "pinterest": "Pinterest",
+}
+
+# Ilk surumde yalnizca Meta platformlari hedefleniyor; digerleri listede
+# gereksiz gurultu yapmasin.
+PANELDE_GOSTERILEN_PLATFORMLAR = ("instagram", "facebook")
+
+
+def _eksik_meta_ayarlari() -> list[str]:
+    from app.core.config import get_settings
+
+    return get_settings().meta_live_config_errors()
+
+
+def _sahte_platform_modu() -> bool:
+    from app.core.config import get_settings
+
+    return get_settings().platform_mode == "fake"
+
+
+def _hesaplar_sayfasi(request, db, user, uyelik, workspace, *, error=None, kod=200):
+    durumlar = {d["platform"]: d for d in platform_status()}
+    meta_eksikler = _eksik_meta_ayarlari()
+
+    platformlar = []
+    for ad in PANELDE_GOSTERILEN_PLATFORMLAR:
+        durum = durumlar.get(ad, {})
+        platformlar.append(
+            {
+                "platform": ad,
+                "etiket": PLATFORM_ETIKETLERI.get(ad, ad),
+                "available": bool(durum.get("available")),
+                "detail": durum.get("detail") or "Ayrıntı bildirilmedi.",
+                "eksik_ayarlar": meta_eksikler if not durum.get("available") else [],
+            }
+        )
+
+    return templates.TemplateResponse(
+        request, "accounts.html",
+        {
+            "user": user,
+            "workspace": workspace,
+            "hesaplar": db.execute(
+                select(SocialAccount)
+                .where(SocialAccount.workspace_id == workspace.id)
+                .order_by(SocialAccount.created_at)
+            ).scalars().all(),
+            "platformlar": platformlar,
+            "baglayabilir": uyelik.role.covers(WorkspaceRole.ADMIN),
+            # Sahte modda "Bagla" dugmesi GOSTERILMEZ: basilsa gercek bir
+            # hesap baglanmaz, yalnizca ornek veri uretilir. Calisiyormus
+            # gibi gostermek yaniltici olur.
+            "sahte_mod": _sahte_platform_modu(),
+            "error": error,
+        },
+        status_code=kod,
+    )
+
+
+@router.get("/musteri/{workspace_id}/hesaplar", response_class=HTMLResponse)
+def accounts_page(workspace_id: uuid.UUID, request: Request, db: DbSession):
+    user = current_user_from_cookie(request, db)
+    if user is None:
+        return _giris_yonlendir()
+    uyelik = _uyelik(db, user, workspace_id)
+    if uyelik is None:
+        return HTMLResponse("Bulunamadı.", status_code=404)
+    return _hesaplar_sayfasi(request, db, user, uyelik, db.get(Workspace, workspace_id))
+
+
+@router.post("/musteri/{workspace_id}/hesaplar/baglan")
+def account_connect(
+    workspace_id: uuid.UUID,
+    request: Request,
+    db: DbSession,
+    platform: Annotated[str, Form()],
+):
+    """Izin akisini baslatir.
+
+    Platform hazir DEGILSE hicbir sey yapmaz ve nedenini gosterir. Boylece
+    yapilandirilmamis bir platforma yonlendirme uretilmez.
+    """
+    user = current_user_from_cookie(request, db)
+    if user is None:
+        return _giris_yonlendir()
+    uyelik = _uyelik(db, user, workspace_id)
+    if uyelik is None:
+        return HTMLResponse("Bulunamadı.", status_code=404)
+
+    workspace = db.get(Workspace, workspace_id)
+    if not uyelik.role.covers(WorkspaceRole.ADMIN):
+        return _hesaplar_sayfasi(
+            request, db, user, uyelik, workspace,
+            error="Hesap bağlamak için en az yönetici yetkisi gerekir.",
+            kod=status.HTTP_403_FORBIDDEN,
+        )
+
+    try:
+        secilen = Platform(platform)
+    except ValueError:
+        return _hesaplar_sayfasi(
+            request, db, user, uyelik, workspace,
+            error="Geçersiz platform.", kod=status.HTTP_400_BAD_REQUEST,
+        )
+
+    if _sahte_platform_modu():
+        return _hesaplar_sayfasi(
+            request, db, user, uyelik, workspace,
+            error=(
+                "Sistem şu an sahte sağlayıcı ile çalışıyor. Bu modda gerçek "
+                "bir hesap bağlanamaz; bağlanmış gibi göstermeyeceğiz."
+            ),
+            kod=status.HTTP_409_CONFLICT,
+        )
+
+    durum = next(
+        (d for d in platform_status() if d["platform"] == secilen.value), None
+    )
+    if durum is None or not durum["available"]:
+        return _hesaplar_sayfasi(
+            request, db, user, uyelik, workspace,
+            error=(
+                "Bu platform henüz bağlanamıyor. Eksik ayarlar aşağıda yazıyor; "
+                "bunlar resmî dokümandan doğrulanmadan doldurulmayacak."
+            ),
+            kod=status.HTTP_409_CONFLICT,
+        )
+
+    # Buraya ancak platform gercekten hazirsa gelinir. Izin akisi API
+    # ucundan yurutulur; panel yalnizca baslangici tetikler.
+    return RedirectResponse(
+        f"/api/v1/oauth/{secilen.value}/authorize?workspace_id={workspace_id}",
+        status_code=status.HTTP_303_SEE_OTHER,
+    )
 
 
 def get_fake_mode() -> bool:

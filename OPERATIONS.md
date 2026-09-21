@@ -47,7 +47,8 @@ Sonraki adımlar:
 1. ~~Çalışma alanı oluşturulur~~ ✅ panelden yapılabiliyor
 2. ~~Ekibinizden kişiler yetkiyle eklenir~~ ✅ panelden yapılabiliyor
 3. ~~Marka bilgileri girilir~~ ✅ panelden yapılabiliyor
-4. Müşterinin Instagram hesabı bağlanır — **Meta onayı bekliyor (Aşama 6)**
+4. Müşterinin Instagram hesabı bağlanır — **henüz bağlanamıyor**, nedeni
+   panelde yazıyor (aşağıya bakın)
 
 ### Marka bilgileri
 Müşteri ekranında **"Marka bilgileri"** bağlantısı. Buraya girdikleriniz
@@ -91,6 +92,20 @@ Müşteri ekranında **"Ekip"** bağlantısı. Kişi eklemek için en az
 hiçbir şeyi değiştiremezler.
 
 > Son sahip çalışma alanından çıkarılamaz — yönetilemez hale gelmesin diye.
+
+---
+
+### Bağlı hesaplar
+Müşteri ekranında **"Bağlı hesaplar"** bağlantısı. Hangi hesapların bağlı
+olduğunu, en son ne zaman veri çekildiğini ve varsa hatayı gösterir.
+
+**Şu an hesap bağlanamıyor** ve sayfa bunu açıkça yazıyor: hangi ayarların
+eksik olduğu tek tek listeleniyor. Çalışmayan bir "Bağla" düğmesi bilerek
+gösterilmiyor — basıldığında hiçbir şey olmayacak bir düğme, olmayan bir
+yeteneği varmış gibi göstermek olurdu.
+
+Sistem şu an **sahte sağlayıcı** ile çalışıyor; bu da sayfada yazıyor.
+Gerçek veri değil, örnek veri üretiliyor.
 
 ---
 

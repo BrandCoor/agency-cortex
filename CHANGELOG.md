@@ -564,3 +564,24 @@ ekibine kişi eklemek için bana bağımlıydı. Kendi ekibini kendi yönetmeli.
 ### Doğrulandı
 - 312/312 test geçti (önceki 297 + 15 yeni).
 - `ruff check` temiz, `alembic check` bekleyen değişiklik yok.
+
+## [0.11.1] - 2026-09-21 — Panel: bağlı hesaplar sayfası
+
+### Eklendi
+- **Bağlı hesaplar sayfası** (`/panel/musteri/<id>/hesaplar`). Bağlı hesapları,
+  son veri çekim zamanını, profesyonel/kişisel ayrımını ve varsa senkronizasyon
+  hatasını gösterir.
+
+### Dürüstlük kuralı (test edildi)
+- **"Bağla" düğmesi yalnızca platform gerçekten hazırsa gösterilir.**
+  - Sistem sahte sağlayıcı ile çalışıyorsa düğme yok; bunun yerine "gerçek
+    hesap bağlanamaz" uyarısı var.
+  - Canlı modda Meta ayarları eksikse düğme yok; bunun yerine **neden**
+    bağlanamadığı ve **hangi ayarların eksik olduğu** tek tek yazılıyor.
+  - Düğme görünmese bile istek elle gönderilebilir; sunucu bu isteği
+    **409** ile reddediyor. Her iki durum da ayrı test edildi.
+- Hesap bağlamak için en az **yönetici** yetkisi gerekiyor (403 ile test edildi).
+- Başka müşterinin hesapları bu sayfada görünmüyor (izolasyon testi).
+
+### Doğrulandı
+- 325/325 test geçti (önceki 312 + 13 yeni).
