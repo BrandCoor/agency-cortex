@@ -37,6 +37,7 @@ from app.services.approvals import (
     can_publish,
     transition,
 )
+from app.services.sifre_sifirlama import JetonHatasi, jeton_gecerli_mi, jetonu_tuket
 
 router = APIRouter(prefix="/panel", tags=["panel"])
 templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
@@ -125,6 +126,76 @@ def login_submit(
 def logout():
     yanit = RedirectResponse("/panel/giris", status_code=status.HTTP_303_SEE_OTHER)
     clear_session_cookie(yanit)
+    return yanit
+
+
+# --- Tek kullanimlik sifre belirleme -----------------------------------------
+#
+# Sifrenin kullanicidan sisteme ulasirken bicim degistirmesi (kacan bosluk,
+# Turkce harflerin farkli Unicode gosterimleri, klavye farklari) "sifre dogru
+# ama giris olmuyor" arizasina yol acar. Bu akista sifre hic aktarilmaz:
+# kullanici sifresini dogrudan burada, sistemin kendi formunda belirler.
+
+def _belirle_sayfasi(request, *, jeton="", gecersiz=False, error=None, kod=200):
+    return templates.TemplateResponse(
+        request, "set_password.html",
+        {
+            "user": None, "jeton": jeton, "gecersiz": gecersiz,
+            "error": error, "min_uzunluk": MIN_SIFRE_UZUNLUGU,
+        },
+        status_code=kod,
+    )
+
+
+@router.get("/sifre-belirle", response_class=HTMLResponse)
+def set_password_page(request: Request, jeton: str = ""):
+    # Jeton burada TUKETILMEZ; yalnizca gecerli mi diye bakilir. Boylece
+    # sayfayi yenilemek bagi harcamaz.
+    if not jeton_gecerli_mi(jeton):
+        return _belirle_sayfasi(request, gecersiz=True, kod=status.HTTP_404_NOT_FOUND)
+    return _belirle_sayfasi(request, jeton=jeton)
+
+
+@router.post("/sifre-belirle")
+def set_password_submit(
+    request: Request,
+    db: DbSession,
+    jeton: Annotated[str, Form()],
+    yeni: Annotated[str, Form()],
+    yeni_tekrar: Annotated[str, Form()],
+):
+    if not jeton_gecerli_mi(jeton):
+        return _belirle_sayfasi(request, gecersiz=True, kod=status.HTTP_404_NOT_FOUND)
+
+    # Once bicim kontrolleri: hatali girdide bag harcanmasin.
+    if yeni != yeni_tekrar:
+        return _belirle_sayfasi(
+            request, jeton=jeton, error="Şifreler birbirini tutmuyor.",
+            kod=status.HTTP_400_BAD_REQUEST,
+        )
+    if len(yeni) < MIN_SIFRE_UZUNLUGU:
+        return _belirle_sayfasi(
+            request, jeton=jeton,
+            error=f"Şifre en az {MIN_SIFRE_UZUNLUGU} karakter olmalı.",
+            kod=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # Girdi gecerli; simdi bag tek kullanimlik olarak tuketilir.
+    try:
+        user_id = jetonu_tuket(jeton)
+    except JetonHatasi:
+        return _belirle_sayfasi(request, gecersiz=True, kod=status.HTTP_404_NOT_FOUND)
+
+    user = db.get(User, user_id)
+    if user is None or not user.is_active:
+        return _belirle_sayfasi(request, gecersiz=True, kod=status.HTTP_404_NOT_FOUND)
+
+    user.password_hash = hash_password(yeni)
+    db.commit()
+
+    # Kullanici dogrudan iceri alinir; bir kez daha sifre yazmasi gerekmez.
+    yanit = RedirectResponse("/panel", status_code=status.HTTP_303_SEE_OTHER)
+    set_session_cookie(yanit, create_token(user.id, "access"))
     return yanit
 
 

@@ -28,9 +28,11 @@ import sys
 
 from sqlalchemy import func, select
 
+from app.core.config import get_settings
 from app.core.db import SessionLocal
 from app.core.security import hash_password, verify_password
 from app.models.identity import User
+from app.services.sifre_sifirlama import jeton_uret
 
 # Argon2 ozeti kullanilsa bile kisa sifre kirilabilir. Alt sinir koyuyoruz.
 MIN_SIFRE_UZUNLUGU = 12
@@ -178,10 +180,64 @@ def tanilama() -> int:
     return 0
 
 
+def kurtarma_bagi() -> int:
+    """Kullanicinin sifresini TARAYICIDA belirlemesi icin tek kullanimlik bag uretir.
+
+    Bu, "sifre dogru ama giris olmuyor" arizalarinin kokunu kurutur: sifre
+    hicbir aktarim yolundan gecmez, kullanici dogrudan sistemin formunda
+    belirler.
+    """
+    email = _ortam("HESAP_EMAIL").lower()
+    alan_adi = os.environ.get("PUBLIC_DOMAIN") or get_settings().public_domain
+
+    with SessionLocal() as db:
+        kullanici = db.execute(select(User).where(User.email == email)).scalar_one_or_none()
+        if kullanici is None:
+            raise KurulumHatasi(f"Kullanici bulunamadi: {email}")
+        jeton = jeton_uret(kullanici.id)
+
+    print("Tek kullanimlik sifre belirleme bagi (30 dakika gecerli):")
+    print()
+    print(f"https://{alan_adi}/panel/sifre-belirle?jeton={jeton}")
+    print()
+    print("Bu bag YALNIZCA BIR KEZ calisir ve 30 dakika sonra gecersiz olur.")
+    print("Sifrenizi acilan sayfada kendiniz belirleyeceksiniz.")
+    return 0
+
+
+def giris_denemesi() -> int:
+    """Uretimdeki panel girisini SUNUCUNUN ICINDEN dener.
+
+    Sorunun uygulamada mi yoksa tarayici/klavye tarafinda mi oldugunu kesin
+    olarak ayirir. Sifre yalnizca yerel baglantida kullanilir, yazilmaz.
+    """
+    email = sys.stdin.readline().rstrip("\n")
+    sifre = sys.stdin.readline().rstrip("\n")
+
+    import httpx
+
+    yanit = httpx.post(
+        "http://localhost:8000/panel/giris",
+        data={"email": email, "password": sifre},
+        follow_redirects=False,
+        timeout=15,
+    )
+    print(f"panel girisi HTTP {yanit.status_code}")
+    if yanit.status_code == 303:
+        print("SONUC: Uygulama bu e-posta/sifre ile GIRISE IZIN VERIYOR.")
+        print("Yani uygulama dogru calisiyor.")
+    else:
+        print("SONUC: Uygulama bu e-posta/sifre ile GIRISE IZIN VERMIYOR.")
+        print("Yani sorun uygulamanin kendisinde.")
+    return 0
+
+
 KOMUTLAR = {
     "ilk-yonetici": ilk_yonetici,
     "sifre-degistir": sifre_degistir,
     "tanilama": tanilama,
+    "kurtarma-bagi": kurtarma_bagi,
+    "giris-denemesi": giris_denemesi,
 }
 
 

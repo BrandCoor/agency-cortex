@@ -448,3 +448,27 @@ Panel ayrıca "Yayınlandı" seçeneğini hiç göstermez.
   olmadığı ayrıca ölçülüyor ve iki durum ayrı ayrı bildiriliyor.
   (21 Eylül'de gerçek bir geçici kesintide bu mesaj yanlış yöne sevk etti;
   bağlantı ikinci denemede sorunsuz kuruldu.)
+
+## [0.7.4] - 2026-09-21 — Şifre belirleme bağlantısı
+
+### Eklendi
+- **Tek kullanımlık şifre belirleme bağlantısı** (`/panel/sifre-belirle`).
+  Kullanıcı şifresini kendi tarayıcısında belirliyor; şifre hiçbir aktarım
+  yolundan geçmiyor. Gerekçe: DECISIONS.md K-023.
+  - Jeton 32 bayt rastgele, 30 dakika geçerli, **tek kullanımlık**.
+  - Jetonun kendisi değil, yalnızca SHA-256 özeti saklanıyor.
+  - Sayfayı açmak veya hatalı şifre girmek bağlantıyı harcamıyor; yalnızca
+    başarılı kayıt harcıyor.
+  - Şifre belirlenince kullanıcı doğrudan içeri alınıyor.
+- `kurtarma-bagi` komutu: bu bağlantıyı sunucuda üretir.
+- `giris-denemesi` komutu: üretimdeki girişi sunucunun içinden bir kez
+  dener. Sorunun uygulamada mı yoksa tarayıcı tarafında mı olduğunu kesin
+  olarak ayırır.
+- Kuruluma isteğe bağlı "Şifre belirleme bağı" adımı (`kurtarma: EVET`).
+
+### Doğrulandı
+- 294/294 test geçti (önceki 281 + 13 yeni).
+- Türkçe harfli şifre (`Çiğdemİş4103+`) bu akışla belirlenip uçtan uca
+  giriş yapılabiliyor.
+- Bağlantının ikinci kez çalışmadığı, pasif kullanıcıda çalışmadığı,
+  jetonun Redis'te düz metin saklanmadığı ayrı ayrı test edildi.

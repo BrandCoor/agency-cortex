@@ -393,3 +393,27 @@ Format: Karar / Seçenekler / Neden / Risk / Geri alma
   şifrelerin birbirinin yerine geçmesine yol açmaz — bu ayrıca test edildi.
 - **Geri alma:** Gerekmez. Mevcut özetler çalışmaya devam eder: eski özet
   NFKC biçiminde üretilmişti, aynı biçimle doğrulanıyor.
+
+---
+
+## K-023 — Şifre, kullanıcının kendi tarayıcısında belirleniyor
+
+- **Karar:** Panele girilemediğinde, kullanıcıya tek kullanımlık bir bağlantı
+  üretiliyor. Kullanıcı şifresini o sayfada, kendi tarayıcısında belirliyor.
+- **Sorun:** Şifre, kullanıcıdan sisteme ulaşana kadar birkaç durak geçiyordu
+  (gizli değer kutusu → kurulum → sunucu → veritabanı). Her durak şifrenin
+  biçimini değiştirebiliyor: kopyala-yapıştırda kaçan boşluk, Türkçe
+  harflerin farklı Unicode gösterimleri, klavye düzeni farkları. Sonuç her
+  seferinde aynı: "şifre doğru ama giriş olmuyor".
+- **Seçenekler:** (a) tek kullanımlık bağlantı, (b) her aktarım durağını tek
+  tek sağlamlaştırmak, (c) e-posta ile şifre sıfırlama.
+- **Neden (a):** (b) denendi — boşluk kontrolü ve Unicode tekilleştirme
+  eklendi, ikisi de gerçek kusurdu ve kaldı. Ama yeni bir durak her zaman
+  eklenebilir. (a) durakları tamamen ortadan kaldırıyor: şifre hiç
+  aktarılmıyor. (c) daha iyi bir son çözüm ama e-posta altyapısı yok;
+  olmayan bir şeyi varmış gibi göstermemek için (a) seçildi.
+- **Risk:** Bağlantıyı ele geçiren biri şifreyi değiştirebilir. Bu yüzden:
+  jeton 32 bayt rastgele, 30 dakika geçerli, tek kullanımlık, ve jetonun
+  kendisi değil yalnızca SHA-256 özeti saklanıyor.
+- **Geri alma:** E-posta altyapısı kurulunca bağlantı sohbet/kurulum kaydı
+  yerine e-postayla gönderilir; akışın geri kalanı aynı kalır.

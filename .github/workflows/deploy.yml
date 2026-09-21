@@ -18,6 +18,10 @@ on:
         description: 'Giris calismiyorsa hesap tanilamasi calistirilsin mi? EVET yazin.'
         required: false
         default: ''
+      kurtarma:
+        description: 'Panele giremiyorsaniz sifre belirleme bagi uretilsin mi? EVET yazin.'
+        required: false
+        default: ''
 
 env:
   VPS_HOST: 187.124.22.8
@@ -432,6 +436,52 @@ jobs:
             printf '%s\n' "$ILK_SIFRE"
           } | ssh -i ~/.ssh/id_deploy -o BatchMode=yes "$VPS_USER@$VPS_HOST" \
                 'bash /tmp/tanilama.sh; cikis=$?; rm -f /tmp/tanilama.sh; exit $cikis'
+
+      # Panele girilemiyorsa: kullanicinin sifresini KENDI TARAYICISINDA
+      # belirleyecegi tek kullanimlik bir bag uretir. Sifre hicbir aktarim
+      # yolundan gecmedigi icin bosluk/Unicode/klavye farklari devre disi kalir.
+      #
+      # Ayrica uretimdeki girisi sunucunun icinden bir kez dener; boylece
+      # sorunun uygulamada mi yoksa tarayici tarafinda mi oldugu kesinlesir.
+      - name: Sifre belirleme bagi
+        if: ${{ inputs.kurtarma == 'EVET' }}
+        env:
+          ILK_EMAIL: ${{ secrets.ILK_YONETICI_EMAIL }}
+          ILK_SIFRE: ${{ secrets.ILK_YONETICI_SIFRE }}
+        run: |
+          if [ -z "$ILK_EMAIL" ]; then
+            echo "ATLANDI: ILK_YONETICI_EMAIL tanimli degil."
+            exit 0
+          fi
+
+          echo "=== 1) Uretimdeki giris sunucunun icinden deneniyor ==="
+          ssh -i ~/.ssh/id_deploy -o BatchMode=yes "$VPS_USER@$VPS_HOST" \
+            "cat > /tmp/giris_denemesi.sh" <<'UZAK'
+          set -eu
+          cd /opt/agency-cortex
+          docker compose exec -T api python -c '
+          from app.cli.hesap import main
+          raise SystemExit(main(["giris-denemesi"]))
+          '
+          UZAK
+
+          {
+            printf '%s\n' "$ILK_EMAIL"
+            printf '%s\n' "$ILK_SIFRE"
+          } | ssh -i ~/.ssh/id_deploy -o BatchMode=yes "$VPS_USER@$VPS_HOST" \
+                'bash /tmp/giris_denemesi.sh; cikis=$?; rm -f /tmp/giris_denemesi.sh; exit $cikis'
+
+          echo ""
+          echo "=== 2) Sifre belirleme bagi uretiliyor ==="
+          ssh -i ~/.ssh/id_deploy -o BatchMode=yes "$VPS_USER@$VPS_HOST" \
+            "HESAP_EMAIL='$ILK_EMAIL' DOMAIN='$PUBLIC_DOMAIN' bash -s" <<'UZAK'
+          set -eu
+          cd /opt/agency-cortex
+          docker compose exec -T \
+            -e HESAP_EMAIL="$HESAP_EMAIL" \
+            -e PUBLIC_DOMAIN="$DOMAIN" \
+            api python -m app.cli.hesap kurtarma-bagi </dev/null
+          UZAK
 
       - name: Disaridan HTTPS kontrolu
         run: |
