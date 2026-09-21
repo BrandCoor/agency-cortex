@@ -20,6 +20,8 @@ from dataclasses import dataclass, field
 from decimal import Decimal
 from typing import Any
 
+from app.ai.pricing import UnknownModelPricing, estimate_cost
+
 
 class AIProviderError(Exception):
     """AI katmanindaki tum hatalarin atasi."""
@@ -157,3 +159,38 @@ class AIProvider(ABC):
     @abstractmethod
     def health_check(self) -> tuple[bool, str | None]:
         """(calisir_mi, aciklama)"""
+
+    def tahmini_ust_maliyet(self, request: AIRequest) -> Decimal | None:
+        """Cagri YAPILMADAN once en kotu durumdaki maliyet tahmini (USD).
+
+        Butce rezervasyonu bu tutar uzerinden yapilir; cagri bitince yerine
+        gercek maliyet yazilir. Tahmin oldugu icin CIKTI en buyuk degerden
+        (max_tokens) hesaplanir - az tahmin etmek butcenin asilmasina yol
+        acardi.
+
+        Fiyati bilinmeyen modelde None doner. None, "bedava" demek DEGILDIR;
+        "USD olarak olculemiyor" demektir (ornegin kredi ile calisan Manus).
+        Boyle bir saglayicinin sinirini USD butcesi koruyamaz; kendi kredi
+        siniri gecerlidir.
+        """
+        girdi = (
+            _tahmini_token(request.system)
+            + _tahmini_token(request.user_content)
+            + _tahmini_token(json.dumps(request.json_schema or {}, ensure_ascii=False))
+        )
+        try:
+            return estimate_cost(
+                self.model, input_tokens=girdi, output_tokens=request.max_tokens
+            )
+        except UnknownModelPricing:
+            return None
+
+
+#: Turkce metinde bir jeton kabaca 3 karakterdir. Az tahmin etmemek icin
+#: yukari yuvarlanir; bu deger yalnizca REZERVASYON icindir, muhasebede
+#: saglayicinin bildirdigi gercek jeton sayisi kullanilir.
+_KARAKTER_BASINA_JETON = 3
+
+
+def _tahmini_token(metin: str) -> int:
+    return len(metin) // _KARAKTER_BASINA_JETON + 1

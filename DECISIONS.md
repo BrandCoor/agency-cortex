@@ -517,3 +517,51 @@ Format: Karar / Seçenekler / Neden / Risk / Geri alma
   göre iki farklı fiyat uyguluyor (≤200k / >200k). Tek fiyatla temsil
   edilemedikleri için **bilerek** tabloya eklenmediler; unutulmuş
   sanılmasın diye ayrı bir listede adları yazıldı.
+
+---
+
+## K-030 — AI bütçe kilidi "rezerve et, sonra kesinleştir" yöntemine geçti
+
+- **Karar:** Aylık AI bütçesi artık **atomik** (bölünemez) kontrol ediliyor.
+  Çağrı yapılmadan **önce** tahmini üst maliyet "açık rezervasyon" olarak
+  veritabanına yazılıyor; çağrı bitince satır gerçek maliyete çekiliyor.
+  Kontrol, müşteri satırı `SELECT ... FOR UPDATE` ile kilitlenerek yapılıyor.
+- **Seçenekler:**
+  1. Eski yöntem: topla, karşılaştır, çağır, sonra maliyeti yaz.
+  2. Kilidi AI çağrısı boyunca tutmak.
+  3. Rezervasyon: kısa kilit + ön kayıt + kesinleştirme. **(seçilen)**
+- **Neden:** (1) yanlış. İki iş aynı anda başlarsa ikisi de aynı toplamı
+  okur, ikisi de "bütçe var" der ve bütçe aşılır. Tek kullanıcı tek iş
+  yaparken görünmüyordu; n8n iş akışları aynı anda çalışacağı için
+  görünür hale gelecekti. (2) doğru ama 15 dakika süren bir araştırma
+  çağrısı, aynı müşterinin panelden yaptığı işi de 15 dakika bekletirdi.
+  (3) kilidi milisaniyelere indiriyor.
+- **Kanıt:** `test_ayni_anda_calisan_iki_is_butceyi_asamaz` — iki **ayrı**
+  veritabanı bağlantısı, aynı anda, 10 USD bütçe ve 6+6 USD tahmin.
+  Kilit varken tek iş geçiyor. Kilit kaldırıldığında test **düşüyor**
+  ("Iki is de gecti; butce asildi"). Yani test gerçekten kilidi ölçüyor.
+- **Risk:** Rezervasyon bir tahmindir ve çıktı en büyük değerden
+  (`max_tokens`) hesaplanır; yani gerçekten harcanacaktan yüksektir.
+  Bütçenin son kuruşlarında, aslında sığacak bir iş reddedilebilir.
+  Az tahmin edip bütçeyi aşmaktansa bu tercih edildi.
+- **Çöken süreç:** Rezervasyonun bir ömrü var (45 dakika). Süresi geçmiş
+  rezervasyon toplama katılmaz; çöken bir süreç bütçeyi sonsuza kadar
+  kilitleyemez.
+- **Geri alma:** `4c1d6a2f9b30` migration'ı geri alınır ve `ai_butce.py`
+  içindeki `rezerve_et` çağrıları kaldırılır. Veri kaybı olmaz.
+
+---
+
+## K-031 — Manus'un maliyeti USD bütçesine giremiyor (bilinen sınır)
+
+- **Karar:** Manus çağrıları için USD rezervasyonu **yapılmıyor**.
+- **Neden:** Manus v2 kredi ile çalışıyor; resmî dokümanda kredinin USD
+  karşılığı yok. Bir fiyat uydurmak, bütçe kilidini sessizce yanlış
+  hesaplatırdı.
+- **Bu ne demek:** Aylık USD bütçesi Manus harcamasını **kapsamıyor**.
+  Manus'un kendi kredi sınırı geçerli.
+- **Açık iş:** Manus çağrısından önce `usage.availableCredits` ile kredi
+  kontrolü eklenecek. Bu yapılana kadar sınır, Manus tarafındaki kredi
+  bitişidir.
+- **Risk:** Manus kredisi beklenmedik şekilde tükenebilir; panelde bunun
+  uyarısı henüz yok.

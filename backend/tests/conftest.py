@@ -50,6 +50,7 @@ from app.core.security import create_token, hash_password  # noqa: E402
 from app.main import app as fastapi_app  # noqa: E402
 from app.models.enums import WorkspaceRole  # noqa: E402
 from app.models.identity import User, Workspace, WorkspaceMember  # noqa: E402
+from app.services import ai_butce  # noqa: E402
 
 _engine = create_engine(get_settings().database_url, future=True)
 
@@ -90,14 +91,23 @@ def db() -> Iterator[Session]:
     # join_transaction_mode="create_savepoint": uctaki db.commit() veya
     # db.rollback() cagrilari dis islemi bozmaz; SAVEPOINT uzerinden calisir.
     # Bu olmadan, hata yolunu deneyen bir test veritabaninda kalinti birakir.
-    session = sessionmaker(
+    oturum_uretici = sessionmaker(
         bind=connection,
         expire_on_commit=False,
         join_transaction_mode="create_savepoint",
-    )()
+    )
+    session = oturum_uretici()
+
+    # Butce rezervasyonu normalde AYRI bir baglantida, kisa bir islemde
+    # yapilir. Testte veri henuz islenmedigi (commit edilmedigi) icin ayri
+    # bir baglanti onu goremez; bu yuzden ayni baglantiya baglanir.
+    # Esszamanlilik testi bunu KULLANMAZ, gercek ayri baglantilar acar.
+    onceki_uretici = ai_butce.oturum_ureticiyi_ayarla(oturum_uretici)
+
     try:
         yield session
     finally:
+        ai_butce.oturum_ureticiyi_ayarla(onceki_uretici)
         session.close()
         transaction.rollback()   # Testin yazdigi her sey silinir
         connection.close()

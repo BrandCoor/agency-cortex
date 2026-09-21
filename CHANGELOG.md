@@ -696,3 +696,49 @@ belgede "DOKÜMANDA BULUNAMADI" diyen hiçbir değer uydurulmadı.
 - Bir testim kendi kendini vurdu ve düzeltildi: `httpx` yaması
   TestClient'ın panele yaptığı isteği de yakalıyordu. Yama yalnızca
   `api.manus.ai` çağrılarını kapsayacak şekilde daraltıldı.
+
+## [0.9.0] - 2026-09-21 — AI bütçesi atomik hale getirildi
+
+n8n iş akışları aynı anda çalışacağı için, bütçe kilidinin eşzamanlılık
+altında doğru çalışması şart. Mevcut kilit doğru çalışmıyordu.
+
+### Düzeltildi
+- **AI bütçe kilidi atomik değildi (kritik).** Eski akış: topla →
+  karşılaştır → AI'yi çağır → maliyeti yaz. Aynı anda başlayan iki iş aynı
+  toplamı okuyor, ikisi de "bütçe var" diyor ve bütçe aşılıyordu. Maliyet
+  ancak çağrı **bittikten sonra** yazıldığı için ikinci iş birincisini hiç
+  göremiyordu.
+- Yeni akış (`backend/app/services/ai_butce.py`): müşteri satırı
+  `SELECT ... FOR UPDATE` ile kilitlenir → toplam kilit altında okunur →
+  tahmini tutar **açık rezervasyon** olarak yazılır → kilit bırakılır →
+  AI çağrılır → rezervasyon gerçek maliyete çekilir.
+- Kilit yalnızca milisaniyeler tutuluyor; 15 dakika süren bir Manus
+  araştırması aynı müşterinin diğer işlerini bekletmiyor.
+
+### Eklendi
+- `ai_cost_events.reserved_until` sütunu (migration `4c1d6a2f9b30`).
+  NULL ise kayıt kesinleşmiştir; dolu ise çağrı hâlâ sürüyordur.
+- Rezervasyonun 45 dakikalık ömrü var. Süreç çökerse rezervasyon bütçeyi
+  sonsuza kadar tutmuyor; süresi geçmiş rezervasyon toplama katılmıyor.
+- `AIProvider.tahmini_ust_maliyet()`: çağrıdan önce en kötü durum maliyet
+  tahmini. Çıktı `max_tokens` üzerinden hesaplanıyor — az tahmin etmek
+  bütçenin aşılması demek olurdu.
+- Sağlayıcı maliyet bildirmezse rezervasyon **silinmiyor**, tahminle
+  kesinleşiyor. Bilinmeyen maliyeti sıfır saymak bütçeyi sessizce bozardı.
+
+### Bilinen sınır (gizlenmiyor)
+- **Manus harcaması USD bütçesine girmiyor.** Manus kredi ile çalışıyor,
+  resmî dokümanda kredinin USD karşılığı yok. Uydurma fiyat yazmak yerine
+  bu sınır açıkça bırakıldı; Manus'un kendi kredi sınırı geçerli.
+  (Bkz. DECISIONS.md K-031.)
+
+### Doğrulandı
+- 407/407 test geçti (önceki 399 + 8 yeni).
+- Eşzamanlılık testi **iki ayrı veritabanı bağlantısı** açıyor: 10 USD
+  bütçe, her iş 6 USD tahmin ediyor. Tek iş geçiyor, ikincisi reddediliyor.
+- **Testin gerçekten bir şey ölçtüğü kanıtlandı:** `with_for_update()`
+  kaldırılınca test düşüyor ("Iki is de gecti; butce asildi: [UUID, UUID]").
+  İlk yazdığım hâli kilit olmadan da geçiyordu — yani hiçbir şey
+  kanıtlamıyordu; okuma ile yazma arasına bilerek gecikme konarak yarış
+  penceresi ölçülebilir hâle getirildi.
+- `alembic check`: yeni migration modelle örtüşüyor, fark yok.

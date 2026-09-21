@@ -83,3 +83,16 @@ class AICostEvent(UUIDPrimaryKey, WorkspaceScoped, Timestamps, Base):
     occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
     amount_usd: Mapped[float] = mapped_column(Numeric(12, 6), nullable=False)
     description: Mapped[str | None] = mapped_column(String(500))
+
+    # Acik rezervasyon: AI cagrisi HENUZ BITMEDI, tutar tahminidir.
+    # NULL ise kayit kesinlesmistir (gercek maliyet).
+    #
+    # Bu alan olmadan butce ancak cagri BITTIKTEN sonra artardi; ayni anda
+    # baslayan iki is ayni bos butceyi gorup ikisi de gecerdi. Rezervasyon
+    # satiri cagriDAN ONCE yazilir, bittiginde gercek tutara cekilir.
+    #
+    # Sureli olmasinin sebebi: sureci cokerse rezervasyon sonsuza kadar
+    # butceyi tutmasin. Suresi gecen rezervasyon toplama katilmaz.
+    reserved_until: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), index=True
+    )
