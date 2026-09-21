@@ -316,26 +316,56 @@ jobs:
           chmod 600 .env
 
           # Caddy duz sifreyi kabul etmez; bcrypt ozeti gerekir.
-          # Ozet, sifre degistiyse yeniden uretilir.
           duz_sifre=$(grep -E '^[[:space:]]*N8N_BASIC_PASSWORD=' .env | tail -1 | cut -d= -f2-)
-          if ! grep -qE '^[[:space:]]*N8N_BASIC_HASH=' .env; then
+
+          # KACIS ZORUNLU: bcrypt ozeti "$2a$14$..." bicimindedir ve Docker
+          # Compose, .env icindeki "$" isaretini degisken basi sayar. Kacissiz
+          # yazilirsa deger "$2a$14" olarak KIRPILIR ve kapi hicbir sifreyle
+          # acilmaz. Olculdu: kacissiz -> '$2a$14', kacisli -> tam ozet.
+          # Dogru sakli hal "$$" ile baslar.
+          mevcut_ozet=$(grep -E '^[[:space:]]*N8N_BASIC_HASH=' .env | tail -1 | cut -d= -f2- || true)
+          ozet_gecerli="hayir"
+          case "$mevcut_ozet" in
+            '$$2'*) ozet_gecerli="evet" ;;
+          esac
+
+          if [ "$ozet_gecerli" != "evet" ]; then
             # Sifre komut satirina YAZILMAZ: sunucudaki "ps" ciktisinda
             # gorunurdu. Caddy, --plaintext verilmezse stdin'den okur.
             # "docker run -i" burada guvenli: standart girdisi bu boru
             # hatti, betigin kendisi degil.
             #
             # SATIR SONU SART: Caddy stdin'i ReadBytes('\n') ile okuyor.
-            # Satir sonu gelmezse EOF hatasi verip cikiyor - ilk denemede
-            # kurulum tam bu yuzden durdu.
+            # Satir sonu gelmezse EOF hatasi verip cikiyor.
             ozet=$(printf '%s\n' "$duz_sifre" | docker run --rm -i caddy:2.10-alpine caddy hash-password)
             if [ -z "$ozet" ]; then
               echo "HATA: n8n kapi sifresinin ozeti uretilemedi." >&2
               exit 1
             fi
-            printf 'N8N_BASIC_HASH=%s\n' "$ozet" >> .env
+            kacisli=$(printf '%s' "$ozet" | sed 's/[$]/$$/g')
+            grep -v '^N8N_BASIC_HASH=' .env > .env.tmp || true
+            mv .env.tmp .env
+            printf 'N8N_BASIC_HASH=%s\n' "$kacisli" >> .env
             chmod 600 .env
-            echo "  + N8N_BASIC_HASH uretildi"
+            if [ -n "$mevcut_ozet" ]; then
+              echo "  ! N8N_BASIC_HASH kacissizdi, yenilendi"
+            else
+              echo "  + N8N_BASIC_HASH uretildi"
+            fi
           fi
+
+          # Compose degeri gercekten butun halde gecirebiliyor mu?
+          # Ozetin KENDISI basilmaz; yalnizca uzunlugu kontrol edilir.
+          # Gecerli bir bcrypt ozeti 60 karakterdir.
+          gorunen=$(docker compose config --format json 2>/dev/null \
+            | python3 -c "import json,sys; print(json.load(sys.stdin)['services']['caddy']['environment'].get('N8N_BASIC_HASH',''))" \
+            | sed 's/[$][$]/$/g')
+          if [ "${#gorunen}" -lt 55 ]; then
+            echo "HATA: n8n kapi ozeti Compose tarafindan bozuluyor." >&2
+            echo "Beklenen uzunluk 60, gorulen ${#gorunen}." >&2
+            exit 1
+          fi
+          echo "Ozet butun halde geciyor (${#gorunen} karakter)."
 
           echo "Ayar dosyasi hazir."
           UZAK
@@ -670,17 +700,19 @@ jobs:
           echo "BASARILI: n8n ic agdan yanit veriyor."
           UZAK
 
-          echo "--- disaridan ---"
+          echo "--- disaridan: kilit kapali mi ---"
           n8n_alan="n8n.$PUBLIC_DOMAIN"
           kod="000"
+          kilitli="hayir"
           for i in $(seq 1 20); do
             kod=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 15 \
               "https://$n8n_alan/" 2>/dev/null || echo "000")
             echo "deneme $i: HTTP $kod"
             # 401 BEKLENEN sonuctur: kilit devrede demektir.
             if [ "$kod" = "401" ]; then
-              echo "BASARILI: https://$n8n_alan kilitli (HTTP 401)."
-              exit 0
+              echo "BASARILI: https://$n8n_alan sifresiz ACILMIYOR (HTTP 401)."
+              kilitli="evet"
+              break
             fi
             if [ "$kod" = "200" ]; then
               echo "HATA: n8n sifresiz aciliyor. Ilk acan kisi sahip hesabini alir."
@@ -689,6 +721,51 @@ jobs:
             sleep 15
           done
 
-          echo "UYARI: https://$n8n_alan disaridan henuz yanit vermiyor (son kod: $kod)."
-          echo "Olasi neden: DNS yayilmasi veya sertifika hazirligi suruyor."
-          echo "Sistem sunucu icinde saglikli; bu adim kurulumu durdurmuyor."
+          if [ "$kilitli" != "evet" ]; then
+            echo "UYARI: https://$n8n_alan disaridan henuz yanit vermiyor (son kod: $kod)."
+            echo "Olasi neden: DNS yayilmasi veya sertifika hazirligi suruyor."
+            echo "Sistem sunucu icinde saglikli; bu adim kurulumu durdurmuyor."
+            exit 0
+          fi
+
+          # ASIL KANIT: kilidin kapanmasi yetmez, DOGRU SIFREYLE ACILMASI da
+          # gerekir. Ilk kurulumda ozet Compose tarafindan kirpilmisti; kapi
+          # 401 doneyor ama hicbir sifre calismiyordu. O durum bu adim
+          # olmadan fark edilmezdi.
+          #
+          # Sifre sunucuda kaliyor: GitHub'a tasinmiyor, loga basilmiyor.
+          echo "--- dogru sifreyle aciliyor mu ---"
+          ssh -i ~/.ssh/id_deploy -o BatchMode=yes "$VPS_USER@$VPS_HOST" \
+            "ALAN='$n8n_alan' bash -s" <<'UZAK'
+          set -eu
+          cd /opt/agency-cortex
+
+          env_oku() {
+            satir=$(grep -E "^[[:space:]]*$1=" .env | tail -1 || true)
+            [ -n "$satir" ] || return 1
+            printf '%s' "${satir#*=}"
+          }
+
+          kullanici=$(env_oku N8N_BASIC_USER) || { echo "HATA: N8N_BASIC_USER yok." >&2; exit 1; }
+          sifre=$(env_oku N8N_BASIC_PASSWORD) || { echo "HATA: N8N_BASIC_PASSWORD yok." >&2; exit 1; }
+
+          # -u ile verilen deger "ps" ciktisinda gorunmesin diye dosyadan okunur.
+          netrc=$(mktemp)
+          chmod 600 "$netrc"
+          printf 'machine %s login %s password %s\n' "$ALAN" "$kullanici" "$sifre" > "$netrc"
+
+          kod=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 20 \
+                 --netrc-file "$netrc" "https://$ALAN/" </dev/null 2>/dev/null || echo "000")
+          rm -f "$netrc"
+
+          if [ "$kod" = "401" ]; then
+            echo "HATA: dogru sifre kabul edilmedi (HTTP 401)."
+            echo "Neden: kapi ozeti bozuk. Kullanici n8n'e HIC giremez."
+            exit 1
+          fi
+          if [ "$kod" != "200" ]; then
+            echo "HATA: beklenmeyen yanit (HTTP $kod)."
+            exit 1
+          fi
+          echo "BASARILI: dogru sifreyle aciliyor (HTTP 200)."
+          UZAK
