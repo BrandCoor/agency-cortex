@@ -440,3 +440,11 @@ Panel ayrıca "Yayınlandı" seçeneğini hiç göstermez.
 - Aynı şifrenin iki gösterimiyle de panel girişi yapılabiliyor (uçtan uca
   test). Farklı şifrelerin birbirinin yerine geçmediği ayrıca test edildi.
 - Mevcut hesap bozulmuyor: kayıtlı özet zaten NFKC biçiminde üretilmişti.
+
+### Düzeltildi (ek)
+- **Kurulumdaki SSH hata mesajı yanıltıcıydı.** Sunucuya hiç ulaşılamadığı
+  durumda (bağlantı zaman aşımı) "anahtar kabul edilmedi" yazıyordu. Bunlar
+  farklı sorunlardır ve çözümleri de farklıdır. Artık 22. kapının açık olup
+  olmadığı ayrıca ölçülüyor ve iki durum ayrı ayrı bildiriliyor.
+  (21 Eylül'de gerçek bir geçici kesintide bu mesaj yanlış yöne sevk etti;
+  bağlantı ikinci denemede sorunsuz kuruldu.)

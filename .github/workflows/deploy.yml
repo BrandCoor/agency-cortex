@@ -152,13 +152,40 @@ jobs:
           ssh-keyscan -H "$VPS_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
 
           echo ""
+          echo "Once sunucunun 22. kapisi aciliyor mu diye bakiyoruz."
+          # NEDEN AYRI KONTROL? Baglanti kurulamamasi ile anahtarin
+          # reddedilmesi TAMAMEN FARKLI iki sorundur ve cozumleri de farklidir.
+          # Ikisini tek mesajla bildirmek yanlis yone sevk eder.
+          if timeout 20 bash -c "cat < /dev/null > /dev/tcp/$VPS_HOST/22" 2>/dev/null; then
+            echo "TAMAM: sunucu 22. kapidan yanit veriyor."
+            kapi="acik"
+          else
+            echo "Sunucu 22. kapidan yanit VERMIYOR."
+            kapi="kapali"
+          fi
+
+          echo ""
           echo "Sunucuya baglanti deneniyor..."
           if ssh -i ~/.ssh/id_deploy -o BatchMode=yes -o ConnectTimeout=15 \
                "$VPS_USER@$VPS_HOST" 'echo "BAGLANTI BASARILI: $(hostname)"'; then
             echo "SSH erisimi calisiyor."
+          elif [ "$kapi" = "kapali" ]; then
+            echo ""
+            echo "HATA: Sunucuya hic ULASILAMIYOR (baglanti zaman asimi)."
+            echo "Bu bir anahtar sorunu DEGILDIR; anahtar yukarida gecerli cikti."
+            echo ""
+            echo "Olasi nedenler:"
+            echo "  - Sunucu kapali veya yeniden baslatiliyor"
+            echo "  - Hostinger guvenlik duvari 22. kapiyi engelliyor"
+            echo "  - Gecici ag kesintisi"
+            echo ""
+            echo "COZUM: Hostinger panelinden sunucunun calistigini ve"
+            echo "guvenlik duvarinda 22. kapinin acik oldugunu dogrulayin,"
+            echo "sonra bu is akisini tekrar calistirin."
+            exit 1
           else
             echo ""
-            echo "HATA: Anahtar gecerli ama sunucu kabul etmedi."
+            echo "HATA: Sunucuya ulasiliyor ama anahtar KABUL EDILMEDI."
             echo ""
             echo "Acik anahtar sunucudaki /root/.ssh/authorized_keys dosyasina"
             echo "islenmemis. Hostinger API anahtari hesaba kaydediyor ancak"
