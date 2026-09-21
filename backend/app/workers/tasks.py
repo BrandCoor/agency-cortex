@@ -156,3 +156,83 @@ def generate_weekly_report(self, workspace_id: str | None = None) -> dict:
 )
 def generate_monthly_report(self, workspace_id: str | None = None) -> dict:
     return _rapor_uret("monthly", workspace_id)
+
+
+@celery_app.task(
+    name="app.workers.tasks.otomasyon_akisi_calistir",
+    bind=True,
+    # Tekrar deneme YOK: her deneme AI parasi harcayabilir ve ayni
+    # calistirma kaydi iki kez kapatilamaz. Hata kaydedilir, kullanici
+    # gorur ve isterse yeniden baslatir.
+    max_retries=0,
+)
+def otomasyon_akisi_calistir(self, workspace_id: str, workflow_key: str, run_id: str) -> dict:
+    """Panelden elle baslatilan is akisini calistirir.
+
+    Neden kuyruk: bir arastirma akisi dakikalarca surebilir. Panelde
+    beklemek tarayiciyi kilitler ve zaman asimina ugrar. Kullanici
+    sonucu Otomasyon sayfasindan takip eder.
+    """
+    import uuid as _uuid
+
+    from app.core.db import SessionLocal
+    from app.models.identity import Workspace
+    from app.models.otomasyon import AutomationRun
+    from app.services.is_akislari import AKISLAR, IsAkisiHatasi
+    from app.services.otomasyon import calistirma_bitir
+
+    db = SessionLocal()
+    try:
+        kayit = db.get(AutomationRun, _uuid.UUID(run_id))
+        workspace = db.get(Workspace, _uuid.UUID(workspace_id))
+        if kayit is None or workspace is None:
+            log.error("otomasyon_kayit_bulunamadi", run_id=run_id)
+            return {"durum": "kayit_yok"}
+
+        calistirici = AKISLAR.get(workflow_key)
+        if calistirici is None:
+            calistirma_bitir(
+                db, kayit, basarili=False,
+                hata_mesaji=f"Tanimsiz is akisi: {workflow_key}",
+            )
+            db.commit()
+            return {"durum": "tanimsiz"}
+
+        try:
+            sonuc = calistirici(db, workspace)
+        except IsAkisiHatasi as hata:
+            db.rollback()
+            kayit = db.get(AutomationRun, _uuid.UUID(run_id))
+            calistirma_bitir(db, kayit, basarili=False, hata_mesaji=str(hata))
+            db.commit()
+            log.warning(
+                "otomasyon_elle_basarisiz",
+                workspace_id=workspace_id, workflow_key=workflow_key,
+            )
+            return {"durum": "hata", "mesaj": str(hata)}
+        except Exception as hata:  # noqa: BLE001 - beklenmeyen hata da KAYDEDILIR
+            db.rollback()
+            kayit = db.get(AutomationRun, _uuid.UUID(run_id))
+            calistirma_bitir(
+                db, kayit, basarili=False,
+                hata_mesaji=f"Beklenmeyen hata: {type(hata).__name__}: {hata}",
+            )
+            db.commit()
+            log.exception(
+                "otomasyon_elle_beklenmeyen_hata",
+                workspace_id=workspace_id, workflow_key=workflow_key,
+            )
+            raise
+
+        ozet = dict(sonuc.ozet)
+        if sonuc.notlar:
+            ozet["notlar"] = sonuc.notlar[:10]
+        if sonuc.yapilacak_is_yoktu:
+            ozet["yapilacak_is_yoktu"] = True
+
+        kayit = db.get(AutomationRun, _uuid.UUID(run_id))
+        calistirma_bitir(db, kayit, basarili=True, ozet=ozet)
+        db.commit()
+        return {"durum": "tamam", "ozet": ozet}
+    finally:
+        db.close()

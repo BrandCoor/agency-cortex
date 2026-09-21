@@ -47,6 +47,10 @@ class ApiClient(UUIDPrimaryKey, Timestamps, Base):
     key_prefix: Mapped[str] = mapped_column(String(16), unique=True, nullable=False, index=True)
     key_hash: Mapped[str] = mapped_column(String(64), nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    # TUM musterilerde calisabilir mi? True ise SONRADAN eklenen musteriler
+    # de kapsama girer. Otomasyonun her yeni musteri icin elle yetki
+    # beklememesi icin var; panelde acikca "Tum musteriler" yazar.
+    all_workspaces: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     created_by_user_id: Mapped[uuid.UUID | None] = mapped_column(
         PGUUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL")
     )

@@ -387,3 +387,92 @@ def test_task_created_olayi_sonuc_degil():
     cozum = olayi_coz({"event": "task_created", "task_id": "t1"})
     assert cozum["sonuc_hazir"] is False
     assert cozum["girdi_bekliyor"] is False
+
+
+# --- Kredi korumasi ---------------------------------------------------------
+
+def test_kredi_bitmisse_gorev_baslatilmiyor(monkeypatch):
+    """USD butcesi krediyi olcemez; sinir burada uygulanir."""
+    from app.ai.base import AIRequest
+    from app.ai.manus import ManusKrediYetersiz, ManusProvider
+
+    saglayici = ManusProvider(api_key="sk-test-anahtar")
+    cagrilan: list[str] = []
+
+    def sahte_istek(self, yontem, uc, **kw):
+        cagrilan.append(uc)
+        if uc == "/v2/usage.availableCredits":
+            return {"total_credits": 0, "free_credits": 0}
+        raise AssertionError(f"Kredi bitmisken cagrilmamaliydi: {uc}")
+
+    monkeypatch.setattr(ManusProvider, "_istek", sahte_istek)
+
+    with pytest.raises(ManusKrediYetersiz) as hata:
+        saglayici.complete(AIRequest(
+            task_type="trend_research", prompt_version="v1",
+            system="sistem", user_content="icerik",
+        ))
+
+    assert "krediniz bitmiş" in str(hata.value)
+    # Gorev olusturma ucu HIC cagrilmamali.
+    assert cagrilan == ["/v2/usage.availableCredits"]
+
+
+def test_kredi_okunamazsa_cagri_engellenmiyor(monkeypatch):
+    """Okunamayan bir degere bakip calisacak isi iptal etmek yanlis olur."""
+    from app.ai.base import AIRequest
+    from app.ai.manus import ManusError, ManusProvider
+
+    saglayici = ManusProvider(api_key="sk-test-anahtar")
+    cagrilan: list[str] = []
+
+    def sahte_istek(self, yontem, uc, **kw):
+        cagrilan.append(uc)
+        if uc == "/v2/usage.availableCredits":
+            raise ManusError("network", "baglanti yok")
+        if uc == "/v2/task.create":
+            return {"task_id": "t1"}
+        if uc == "/v2/task.detail":
+            return {"task": {"status": "stopped", "stop_reason": "finish"}}
+        if uc == "/v2/task.listMessages":
+            return {"messages": [
+                {"type": "assistant_message", "content": "sonuc"}
+            ]}
+        raise AssertionError(uc)
+
+    monkeypatch.setattr(ManusProvider, "_istek", sahte_istek)
+
+    yanit = saglayici.complete(AIRequest(
+        task_type="trend_research", prompt_version="v1",
+        system="sistem", user_content="icerik",
+    ))
+    assert yanit.status.value == "succeeded"
+    assert "/v2/task.create" in cagrilan
+
+
+def test_kredi_varsa_cagri_yapiliyor(monkeypatch):
+    from app.ai.base import AIRequest
+    from app.ai.manus import ManusProvider
+
+    saglayici = ManusProvider(api_key="sk-test-anahtar")
+
+    def sahte_istek(self, yontem, uc, **kw):
+        if uc == "/v2/usage.availableCredits":
+            return {"total_credits": 500}
+        if uc == "/v2/task.create":
+            return {"task_id": "t2"}
+        if uc == "/v2/task.detail":
+            return {"task": {"status": "stopped", "stop_reason": "finish"}}
+        if uc == "/v2/task.listMessages":
+            return {"messages": [
+                {"type": "assistant_message", "content": "arastirma sonucu"}
+            ]}
+        raise AssertionError(uc)
+
+    monkeypatch.setattr(ManusProvider, "_istek", sahte_istek)
+
+    yanit = saglayici.complete(AIRequest(
+        task_type="trend_research", prompt_version="v1",
+        system="sistem", user_content="icerik",
+    ))
+    assert "arastirma sonucu" in yanit.text

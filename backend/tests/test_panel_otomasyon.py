@@ -13,10 +13,10 @@ import re
 
 from sqlalchemy import select
 
-from app.models.enums import WorkspaceRole
-from app.models.otomasyon import ApiClient, AutomationSetting
+from app.models.enums import AutomationStatus, AutomationTrigger, WorkspaceRole
+from app.models.otomasyon import ApiClient, AutomationRun, AutomationSetting
 from app.panel.auth import COOKIE_NAME
-from app.services.otomasyon import acik_mi
+from app.services.otomasyon import acik_mi, ayar_yaz
 
 SIFRE = "GucluSifre123!"
 
@@ -285,3 +285,167 @@ def test_n8n_sifresi_yalnizca_sistem_yoneticisine_gosteriliyor(
     yonetici_yanit = client.get("/panel/otomasyon")
     assert "CokGizliKapiSifresi99" in yonetici_yanit.text
     assert "n8n.ornek.test" in yonetici_yanit.text
+
+
+# --- Elle calistirma ---------------------------------------------------------
+
+def test_elle_calistirma_kuyruga_atiyor(
+    client, db, make_user, make_workspace, add_member, monkeypatch
+):
+    """Uzun suren akis paneli kilitlemesin diye is kuyruga alinir."""
+    from app.workers import tasks
+
+    kullanici = make_user(password=SIFRE)
+    ws = make_workspace(name="Musteri")
+    add_member(ws, kullanici, WorkspaceRole.STRATEGIST)
+    ayar_yaz(db, ws.id, "wf04_haftalik_rapor", acik=True)
+    db.commit()
+    _giris(client, kullanici)
+
+    kuyruk: list[dict] = []
+    monkeypatch.setattr(
+        tasks.otomasyon_akisi_calistir, "delay",
+        lambda **kw: kuyruk.append(kw),
+    )
+
+    yanit = client.post(
+        "/panel/otomasyon/calistir",
+        data={"workspace_id": str(ws.id), "workflow_key": "wf04_haftalik_rapor"},
+    )
+    assert yanit.status_code == 200
+    assert "başlatıldı" in yanit.text
+
+    kayit = db.execute(select(AutomationRun)).scalar_one()
+    assert kayit.trigger is AutomationTrigger.MANUAL
+    assert kayit.status is AutomationStatus.RUNNING
+
+    assert len(kuyruk) == 1
+    assert kuyruk[0]["run_id"] == str(kayit.id)
+    assert kuyruk[0]["workflow_key"] == "wf04_haftalik_rapor"
+
+
+def test_kuyruga_atilamazsa_hata_gizlenmiyor(
+    client, db, make_user, make_workspace, add_member, monkeypatch
+):
+    """Kuyruk calismiyorsa kullanici 'basladi' sanmamali."""
+    from app.workers import tasks
+
+    kullanici = make_user(password=SIFRE)
+    ws = make_workspace(name="Musteri")
+    add_member(ws, kullanici, WorkspaceRole.OWNER)
+    ayar_yaz(db, ws.id, "wf04_haftalik_rapor", acik=True)
+    db.commit()
+    _giris(client, kullanici)
+
+    def patla(**kw):
+        raise OSError("redis yok")
+
+    monkeypatch.setattr(tasks.otomasyon_akisi_calistir, "delay", patla)
+
+    yanit = client.post(
+        "/panel/otomasyon/calistir",
+        data={"workspace_id": str(ws.id), "workflow_key": "wf04_haftalik_rapor"},
+    )
+    assert yanit.status_code == 503
+    assert "kuyruğa alınamadı" in yanit.text
+
+    kayit = db.execute(select(AutomationRun)).scalar_one()
+    db.refresh(kayit)
+    assert kayit.status is AutomationStatus.FAILED
+    assert "kuyruğa alınamadı" in kayit.error_message
+
+
+def test_editor_elle_calistiramiyor(
+    client, db, make_user, make_workspace, add_member
+):
+    kullanici = make_user(password=SIFRE)
+    ws = make_workspace(name="Musteri")
+    add_member(ws, kullanici, WorkspaceRole.EDITOR)
+    ayar_yaz(db, ws.id, "wf04_haftalik_rapor", acik=True)
+    db.commit()
+    _giris(client, kullanici)
+
+    yanit = client.post(
+        "/panel/otomasyon/calistir",
+        data={"workspace_id": str(ws.id), "workflow_key": "wf04_haftalik_rapor"},
+    )
+    assert yanit.status_code == 403
+    assert db.execute(select(AutomationRun)).scalars().all() == []
+
+
+def test_uye_olunmayan_musteride_elle_calistirilamiyor(
+    client, db, make_user, make_workspace
+):
+    kullanici = make_user(password=SIFRE)
+    baskasi = make_workspace(name="Baskasinin")
+    ayar_yaz(db, baskasi.id, "wf04_haftalik_rapor", acik=True)
+    db.commit()
+    _giris(client, kullanici)
+
+    yanit = client.post(
+        "/panel/otomasyon/calistir",
+        data={"workspace_id": str(baskasi.id), "workflow_key": "wf04_haftalik_rapor"},
+    )
+    assert yanit.status_code == 404
+    assert db.execute(select(AutomationRun)).scalars().all() == []
+
+
+def test_kapali_akis_elle_de_calistirilamiyor(
+    client, db, make_user, make_workspace, add_member
+):
+    kullanici = make_user(password=SIFRE)
+    ws = make_workspace(name="Musteri")
+    add_member(ws, kullanici, WorkspaceRole.OWNER)
+    db.commit()
+    _giris(client, kullanici)
+
+    yanit = client.post(
+        "/panel/otomasyon/calistir",
+        data={"workspace_id": str(ws.id), "workflow_key": "wf04_haftalik_rapor"},
+    )
+    assert yanit.status_code == 409
+    assert db.execute(select(AutomationRun)).scalars().all() == []
+
+
+# --- "Tum musteriler" anahtari ----------------------------------------------
+
+def test_tum_musteriler_anahtari_panelde_boyle_gorunuyor(
+    client, db, make_user, make_workspace
+):
+    yonetici = _yonetici(db, make_user)
+    make_workspace(name="Bir Musteri")
+    db.commit()
+    _giris(client, yonetici)
+
+    client.post(
+        "/panel/otomasyon/anahtar/ekle",
+        data={"ad": "n8n", "tum_musteriler": "1"},
+    )
+    kayit = db.execute(select(ApiClient)).scalar_one()
+    assert kayit.all_workspaces is True
+
+    sayfa = client.get("/panel/otomasyon")
+    assert "Tüm müşteriler" in sayfa.text
+
+
+def test_tum_musteriler_anahtarinin_kapsami_daraltilamiyor(
+    client, db, make_user, make_workspace
+):
+    yonetici = _yonetici(db, make_user)
+    ws = make_workspace(name="Bir")
+    db.commit()
+    _giris(client, yonetici)
+
+    client.post(
+        "/panel/otomasyon/anahtar/ekle",
+        data={"ad": "n8n", "tum_musteriler": "1"},
+    )
+    kayit = db.execute(select(ApiClient)).scalar_one()
+
+    yanit = client.post(
+        "/panel/otomasyon/anahtar/yetki",
+        data={"api_client_id": str(kayit.id), "workspace_ids": [str(ws.id)]},
+    )
+    assert yanit.status_code == 400
+    db.refresh(kayit)
+    assert kayit.all_workspaces is True

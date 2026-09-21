@@ -22,6 +22,20 @@
 </div>
 {% endif %}
 
+{% if n8n_durum %}
+<div class="{% if n8n_durum.asama == 'calisiyor' %}ok{% elif n8n_durum.asama == 'kuruldu' %}bilgi{% else %}warn{% endif %}">
+  <b>{{ n8n_durum.baslik }}</b>
+  {{ n8n_durum.aciklama }}
+  {% if n8n_durum.asama == 'bekliyor' and n8n_giris %}
+  <div style="margin-top:8px">
+    <a class="btn kucuk" href="{{ n8n_giris.adres }}" target="_blank" rel="noopener">
+      n8n'i aç ve hesabımı oluştur
+    </a>
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+
 <div class="warn">
   <b>v1'de yayın yok</b>
   İş akışları araştırır, analiz eder, önerir ve panele yazar.
@@ -76,23 +90,38 @@
           {% if a.son_baslangic %}
           <div class="sessiz">{{ a.son_baslangic.strftime("%d.%m.%Y %H:%M") }}</div>
           {% endif %}
-          {% if a.son_hata %}
+          {% if a.takildi %}
+          <div class="sessiz" style="color:var(--bad)">
+            Kapanmadan kaldı — süreç beklenmedik şekilde sonlanmış olabilir.
+          </div>
+          {% elif a.son_hata %}
           <div class="sessiz" style="color:var(--bad)">{{ a.son_hata[:160] }}</div>
           {% endif %}
         </td>
         <td class="sag daralt">
-          {% if m.yonetebilir %}
-          <form method="post" action="/panel/otomasyon/akis" style="margin:0">
-            <input type="hidden" name="workspace_id" value="{{ m.id }}">
-            <input type="hidden" name="workflow_key" value="{{ a.anahtar }}">
-            {% if a.acik %}
-              <button type="submit" class="kucuk">Kapat</button>
-            {% else %}
-              <input type="hidden" name="acik" value="1">
-              <button type="submit" class="kucuk birincil">Aç</button>
+          <div class="aksiyonlar" style="justify-content:flex-end">
+            {% if a.acik and m.calistirabilir %}
+            <form method="post" action="/panel/otomasyon/calistir" style="margin:0">
+              <input type="hidden" name="workspace_id" value="{{ m.id }}">
+              <input type="hidden" name="workflow_key" value="{{ a.anahtar }}">
+              <button type="submit" class="kucuk"
+                      {% if a.son_durum == 'running' and not a.takildi %}disabled
+                      title="Şu anda çalışıyor"{% endif %}>Şimdi çalıştır</button>
+            </form>
             {% endif %}
-          </form>
-          {% endif %}
+            {% if m.yonetebilir %}
+            <form method="post" action="/panel/otomasyon/akis" style="margin:0">
+              <input type="hidden" name="workspace_id" value="{{ m.id }}">
+              <input type="hidden" name="workflow_key" value="{{ a.anahtar }}">
+              {% if a.acik %}
+                <button type="submit" class="kucuk">Kapat</button>
+              {% else %}
+                <input type="hidden" name="acik" value="1">
+                <button type="submit" class="kucuk birincil">Aç</button>
+              {% endif %}
+            </form>
+            {% endif %}
+          </div>
         </td>
       </tr>
     {% endfor %}
@@ -189,7 +218,8 @@
           {% else %}<span class="pill p-bad">İptal</span>{% endif %}
         </td>
         <td class="muted">
-          {% if k.musteri_adlari %}{{ k.musteri_adlari | join(", ") }}
+          {% if k.tum_musteriler %}<span class="pill p-acc">Tüm müşteriler</span>
+          {% elif k.musteri_adlari %}{{ k.musteri_adlari | join(", ") }}
           {% else %}<span class="sessiz">hiçbir müşteri — bu anahtar iş yapamaz</span>{% endif %}
         </td>
         <td class="muted">
@@ -211,6 +241,13 @@
         <td colspan="5" style="padding-top:0">
           <details>
             <summary>Kapsamı değiştir</summary>
+            {% if k.tum_musteriler %}
+            <div class="muted">
+              Bu anahtar <strong>tüm müşteriler</strong> kapsamında; sonradan
+              eklenen müşteriler de otomatik dâhil olur. Daraltmak için iptal
+              edip yeni bir anahtar üretin.
+            </div>
+            {% else %}
             <form method="post" action="/panel/otomasyon/anahtar/yetki">
               <input type="hidden" name="api_client_id" value="{{ k.id }}">
               {% for w in tum_musteriler %}
@@ -222,6 +259,7 @@
               {% endfor %}
               <div style="margin-top:12px"><button type="submit">Kaydet</button></div>
             </form>
+            {% endif %}
           </details>
         </td>
       </tr>
@@ -243,6 +281,14 @@
     <div class="ipucu">Nerede kullanıldığını sonradan anlayabileceğiniz bir ad verin.</div>
 
     <label>Hangi müşterilerde çalışabilsin?</label>
+    <label class="satirici">
+      <input type="checkbox" name="tum_musteriler" value="1">
+      <strong>Tüm müşteriler</strong> — sonradan eklenenler dâhil
+    </label>
+    <div class="ipucu">
+      İşaretlerseniz aşağıdaki liste dikkate alınmaz. Otomasyonun her yeni
+      müşteri için elle yetki beklememesi isteniyorsa bunu seçin.
+    </div>
     {% if tum_musteriler %}
       {% for w in tum_musteriler %}
       <label class="satirici">

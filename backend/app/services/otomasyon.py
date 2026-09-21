@@ -12,13 +12,21 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.logging_config import get_logger
 from app.models.enums import AutomationStatus, AutomationTrigger
 from app.models.otomasyon import AutomationRun, AutomationSetting
+
+log = get_logger("otomasyon")
+
+#: Bir calistirma bu sureden uzun "calisiyor" kalamaz. Kalmissa surec
+#: kapanmadan olmustur (konteyner yeniden basladi, aglantı koptu).
+#: Boyle bir kayit sonsuza kadar "calisiyor" gorunmemelidir.
+CALISMA_ZAMAN_ASIMI_SAATI = 2
 
 
 @dataclass(frozen=True)
@@ -120,6 +128,42 @@ def ayar_yaz(
 
 # --- Calistirmalar ----------------------------------------------------------
 
+def takilan_calistirmalari_kapat(db: Session, *, now: datetime | None = None) -> int:
+    """Kapanmadan kalmis calistirmalari "hata" olarak isaretler.
+
+    Bir surec cokerse kaydi kimse kapatmaz. Boyle bir kayit panelde
+    sonsuza kadar "calisiyor" gorunur ve yeni calistirma da baslatamaz.
+    Gercekte olan sey gizlenmez: hata olarak, nedeniyle kapatilir.
+    """
+    simdi = now or datetime.now(UTC)
+    sinir = simdi - timedelta(hours=CALISMA_ZAMAN_ASIMI_SAATI)
+
+    takilanlar = db.execute(
+        select(AutomationRun).where(
+            AutomationRun.status == AutomationStatus.RUNNING,
+            AutomationRun.started_at < sinir,
+        )
+    ).scalars().all()
+
+    for kayit in takilanlar:
+        kayit.status = AutomationStatus.FAILED
+        kayit.finished_at = simdi
+        kayit.error_message = (
+            f"Zaman asimi: calistirma {CALISMA_ZAMAN_ASIMI_SAATI} saatten uzun "
+            "surdu ve kapanmadi. Surec beklenmedik sekilde sonlanmis olabilir."
+        )
+        log.warning(
+            "otomasyon_takildi",
+            workspace_id=str(kayit.workspace_id),
+            workflow_key=kayit.workflow_key,
+            run_id=str(kayit.id),
+        )
+
+    if takilanlar:
+        db.flush()
+    return len(takilanlar)
+
+
 def calistirma_baslat(
     db: Session,
     *,
@@ -131,6 +175,7 @@ def calistirma_baslat(
 ) -> AutomationRun:
     """Yeni bir calistirma kaydi acar (durum: calisiyor)."""
     akis_dogrula(workflow_key)
+    takilan_calistirmalari_kapat(db)
     if not acik_mi(db, workspace_id, workflow_key):
         raise OtomasyonHatasi(
             "Bu iş akışı bu müşteri için kapalı. Panelden açılmadan çalıştırılamaz."
@@ -205,13 +250,21 @@ def akis_durumlari(db: Session, workspace_id: uuid.UUID) -> list[dict]:
             .limit(1)
         ).scalar_one_or_none()
 
+        takildi = bool(
+            son
+            and son.status is AutomationStatus.RUNNING
+            and son.started_at
+            < datetime.now(UTC) - timedelta(hours=CALISMA_ZAMAN_ASIMI_SAATI)
+        )
+
         sonuc.append({
             "anahtar": akis.anahtar,
             "ad": akis.ad,
             "aciklama": akis.aciklama,
             "zamanlama": akis.zamanlama,
             "acik": acik_mi(db, workspace_id, akis.anahtar),
-            "son_durum": son.status.value if son else None,
+            "son_durum": ("failed" if takildi else son.status.value) if son else None,
+            "takildi": takildi,
             "son_baslangic": son.started_at if son else None,
             "son_bitis": son.finished_at if son else None,
             "son_hata": son.error_message if son else None,

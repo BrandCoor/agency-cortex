@@ -863,3 +863,90 @@ BASARILI: n8n ic agdan yanit veriyor.
 BASARILI: https://n8n.agencycortex.tech sifresiz ACILMIYOR (HTTP 401).
 BASARILI: dogru sifreyle aciliyor (HTTP 200).
 ```
+
+## [0.11.0] - 2026-09-21 — Dört iş akışı ve otomatik n8n kurulumu
+
+### Eklendi — İş akışları çalışır durumda
+Dört akışın mantığı Agency Cortex'te (`services/is_akislari.py`):
+
+| Akış | Ne yapar | Ne zaman |
+|---|---|---|
+| **WF-01** Günlük sosyal zekâ | Bağlı hesapların içerik ve metriklerini çeker | Her gün 07:00 |
+| **WF-02** Trend araştırması | Sektör trendlerini araştırır, bulguları kaydeder | Her gün 09:00 |
+| **WF-03** İçerik zekâsı | Son bulgulardan içerik senaryosu önerir | Pzt/Çar/Cum 10:00 |
+| **WF-04** Haftalık rapor | Haftalık raporu üretir | Her pazartesi 08:00 |
+
+**Sessiz başarı yok.** Veri yoksa akış "yapılacak iş yoktu" der ve nedenini
+yazar; sahte sonuç üretmez:
+- Bağlı hesap yoksa WF-01 veri uydurmaz.
+- Marka girilmemişse WF-02 araştırma yapmaz.
+- Trend bulgusu yoksa WF-03 içerik üretmez — bulgusuz içerik tahmin olurdu.
+- Hiçbir hesaptan veri çekilemezse WF-01 **hata verir**, "başarılı" demez.
+
+**Üretilen her şey taslaktır** ve insan onayı bekler.
+
+### Eklendi — n8n kurulumu kendi kendine tamamlanıyor
+- Dört iş akışı dosyası depoda (`ops/n8n/akislar/`).
+- Sunucuda 5 dakikada bir çalışan bir görev, n8n'e iş akışlarını yüklüyor
+  ve yayınlıyor. Kurulduğunda kendini durduruyor.
+- **Gerekçesi:** n8n'e iş akışı yüklemek için n8n'de sahip hesabı olması
+  şart; o hesabı kullanıcı ilk girişinde oluşturuyor. Tek seferlik bir
+  kurulum adımı o anda başarısız olur ve bir daha denenmezdi.
+- Kullanıcı n8n hesabını oluşturuyor; birkaç dakika sonra akışlar
+  kendiliğinden kuruluyor. **Başka bir şey yapması gerekmiyor.**
+- Agency Cortex anahtarı n8n'e **şifreli kimlik bilgisi** olarak gidiyor.
+  `$env` erişimi açılmadı — açılsaydı iş akışı düzenleyen herkes
+  veritabanı şifresi dâhil tüm ortam değişkenlerini okuyabilirdi.
+
+### Eklendi — Panelden elle çalıştırma
+- Her akışın yanında **"Şimdi çalıştır"** düğmesi (en az stratejist yetkisi).
+- İş **kuyruğa alınıyor**, panelde beklenmiyor: bir araştırma akışı
+  dakikalarca sürebilir ve tarayıcı zaman aşımına uğrardı.
+- Kuyruk çalışmıyorsa bu **gizlenmiyor**; çalıştırma "hata" olarak
+  kapanıyor ve kullanıcı "başladı" sanmıyor.
+
+### Eklendi — n8n bağlantı durumu panelde
+Üç aşama gösteriliyor ve **ölçülen** bir şeye dayanıyor (n8n'in Agency
+Cortex'e gerçekten ulaşıp ulaşmadığı):
+1. "n8n hesabınız henüz oluşturulmadı" + n8n'i açan düğme
+2. "İş akışları kuruldu, ilk çalışma bekleniyor"
+3. "n8n bağlı ve çalışıyor — son bağlantı: …"
+
+### Eklendi — "Tüm müşteriler" kapsamlı anahtar
+- Bir makine anahtarı artık "tüm müşteriler" kapsamında olabilir;
+  **sonradan eklenen müşteriler otomatik dâhil** olur.
+- Otomasyonun her yeni müşteri için elle yetki beklememesi için.
+- Kapsamı daraltmak için anahtarı iptal edip yenisini üretmek gerekiyor —
+  sessizce daralan bir kapsam yanlış güven verirdi.
+
+### Eklendi — Manus kredi koruması
+- Manus çağrısından önce kredi durumu okunuyor; kredi sıfırsa görev
+  başlatılmıyor ve nedeni söyleniyor. Bu uç **kredi harcamıyor**.
+- Kredi **okunamazsa** çağrı engellenmiyor: okunamayan bir değere bakıp
+  çalışabilecek işi iptal etmek daha kötü olurdu.
+- DECISIONS.md K-031'deki açık iş kapandı.
+
+### Eklendi — Takılan çalıştırmalar kendiliğinden kapanıyor
+- Bir süreç çökerse çalıştırma kaydı sonsuza kadar "çalışıyor" görünürdü.
+- 2 saatten uzun süren kayıtlar **hata** olarak, nedeniyle kapatılıyor.
+
+### Doğrulandı
+- 507/507 test geçti (önceki 458 + 49 yeni).
+- **n8n düğüm tipleri ve parametre adları tahmin edilmedi:** n8n 2.39
+  paketi indirilip kendi kaynağından okundu (`scheduleTrigger` sürümleri,
+  `rule.interval[].field='cronExpression'`, `httpRequest` 4.5,
+  `httpHeaderAuth` alanları, `import:workflow`/`publish:workflow` bayrakları).
+- Bir test, iş akışı dosyalarının çağırdığı anahtarların Cortex'te
+  gerçekten tanımlı olduğunu ve kurulum betiğiyle aynı kimlikleri
+  kullandığını doğruluyor.
+- **Üretimde patlayacak bir migration yakalandı:** `all_workspaces` sütunu
+  varsayılansız NOT NULL olarak üretilmişti; test veritabanı boş olduğu
+  için görünmüyordu. Tabloya satır eklenip sınandı ve düzeltildi.
+
+### Henüz yapılmadı (gizlenmiyor)
+- **Gerçek veri yok.** Instagram hesabı bağlı değil (Meta App Secret
+  yenilenmeli), Claude anahtarı girilmedi, Manus anahtarı yenilenmeli.
+  Akışlar bu yüzden şu an "yapılacak iş yoktu" diyecek — çalışmadıkları
+  için değil, **veri olmadığı için**.
+- **Yedeklerin sunucu dışına kopyalanması** yapılmadı; depolama seçimi
+  sizin kararınız.

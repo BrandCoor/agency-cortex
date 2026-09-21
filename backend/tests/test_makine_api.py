@@ -273,3 +273,121 @@ def test_baskasinin_calistirmasi_kapatilamiyor(client, db, kimlik, make_workspac
         headers=_bas(yabanci_anahtar), json={"basarili": True},
     )
     assert yanit.status_code == 404
+
+
+# --- "Tum musteriler" kapsami ------------------------------------------------
+
+def test_tum_musteriler_kapsami_sonradan_eklenen_musteriyi_de_kapsiyor(
+    client, db, make_workspace
+):
+    """Otomasyon her yeni musteri icin elle yetki beklememeli."""
+    ilk = make_workspace(name="Ilk Musteri")
+    db.flush()
+    _, anahtar = olustur(
+        db, ad="n8n (otomatik)", olusturan_user_id=None,
+        workspace_ids=[], tum_musteriler=True,
+    )
+    db.commit()
+
+    veri = client.get("/api/v1/makine/kendim", headers=_bas(anahtar)).json()
+    assert {m["workspace_id"] for m in veri["musteriler"]} == {str(ilk.id)}
+
+    # ANAHTAR DEGISMEDEN yeni musteri eklendi.
+    sonraki = make_workspace(name="Sonradan Eklenen")
+    db.commit()
+
+    veri = client.get("/api/v1/makine/kendim", headers=_bas(anahtar)).json()
+    assert {m["workspace_id"] for m in veri["musteriler"]} == {
+        str(ilk.id), str(sonraki.id),
+    }
+
+
+def test_pasif_musteri_tum_musteriler_kapsaminda_bile_gorunmuyor(
+    client, db, make_workspace
+):
+    ws = make_workspace(name="Pasif Musteri")
+    ws.is_active = False
+    db.flush()
+    _, anahtar = olustur(
+        db, ad="n8n", olusturan_user_id=None, workspace_ids=[], tum_musteriler=True,
+    )
+    db.commit()
+
+    veri = client.get("/api/v1/makine/kendim", headers=_bas(anahtar)).json()
+    assert veri["musteriler"] == []
+
+    yanit = client.get(
+        f"/api/v1/makine/workspaces/{ws.id}/baglam", headers=_bas(anahtar)
+    )
+    assert yanit.status_code == 404
+
+
+# --- Toplu calistirma --------------------------------------------------------
+
+def test_toplu_calistirma_kapali_musterileri_atliyor(client, db, kimlik):
+    from app.services.otomasyon import ayar_yaz
+
+    _, anahtar, musteriler = kimlik(musteri_sayisi=2)
+    ayar_yaz(db, musteriler[0].id, "wf04_haftalik_rapor", acik=True)
+    db.commit()
+
+    yanit = client.post(
+        "/api/v1/makine/akis/wf04_haftalik_rapor/calistir-hepsi",
+        headers=_bas(anahtar), json={},
+    )
+    assert yanit.status_code == 200
+    veri = yanit.json()
+    assert veri["musteri_sayisi"] == 2
+    assert veri["basarili"] == 1
+    assert veri["atlanan"] == 1
+    assert veri["hatali"] == 0
+
+    calistirmalar = db.execute(select(AutomationRun)).scalars().all()
+    assert len(calistirmalar) == 1
+    assert calistirmalar[0].workspace_id == musteriler[0].id
+
+
+def test_toplu_calistirmada_bir_musterinin_hatasi_digerlerini_durdurmuyor(
+    client, db, kimlik
+):
+    from app.models.enums import Platform
+    from app.models.social import SocialAccount
+    from app.services.otomasyon import ayar_yaz
+
+    _, anahtar, musteriler = kimlik(musteri_sayisi=2)
+    bozuk, saglam = musteriler
+
+    # Ilk musteride anahtarsiz hesap var -> WF-01 hata verir.
+    db.add(SocialAccount(
+        workspace_id=bozuk.id, platform=Platform.INSTAGRAM,
+        external_id="yok", username="yok", is_active=True,
+    ))
+    ayar_yaz(db, bozuk.id, "wf01_gunluk_zeka", acik=True)
+    ayar_yaz(db, saglam.id, "wf01_gunluk_zeka", acik=True)
+    db.commit()
+
+    yanit = client.post(
+        "/api/v1/makine/akis/wf01_gunluk_zeka/calistir-hepsi",
+        headers=_bas(anahtar), json={},
+    )
+    assert yanit.status_code == 200
+    veri = yanit.json()
+    assert veri["hatali"] == 1
+    assert veri["basarili"] == 1
+
+    hatali = next(s for s in veri["sonuclar"] if s["durum"] == "hata")
+    assert "veri çekilemedi" in hatali["aciklama"]
+
+    # Iki calistirma da KAYDEDILDI; biri hata, biri basarili.
+    kayitlar = db.execute(select(AutomationRun)).scalars().all()
+    assert len(kayitlar) == 2
+    assert {k.status.value for k in kayitlar} == {"failed", "succeeded"}
+
+
+def test_toplu_calistirma_tanimsiz_akisi_reddediyor(client, db, kimlik):
+    _, anahtar, _ = kimlik()
+    yanit = client.post(
+        "/api/v1/makine/akis/uydurma_akis/calistir-hepsi",
+        headers=_bas(anahtar), json={},
+    )
+    assert yanit.status_code == 409

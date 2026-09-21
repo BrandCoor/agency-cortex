@@ -180,6 +180,8 @@ services:
       AGENCY_CORTEX_API: http://api:8000
     volumes:
       - n8n_data:/home/node/.n8n
+      # Is akisi dosyalari SALT OKUNUR baglanir; n8n bunlari degistiremez.
+      - ./n8n/akislar:/akislar:ro
     depends_on:
       postgres:
         condition: service_healthy

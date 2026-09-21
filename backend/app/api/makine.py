@@ -25,10 +25,12 @@ from app.models.enums import AutomationTrigger
 from app.models.identity import Workspace
 from app.models.otomasyon import ApiClient, AutomationRun
 from app.services.denetim import kaydet
+from app.services.is_akislari import AKISLAR, IsAkisiHatasi
 from app.services.makine_kimligi import dogrula, yetkili_workspace_idleri
 from app.services.otomasyon import (
     IS_AKISLARI,
     OtomasyonHatasi,
+    acik_mi,
     akis_durumlari,
     calistirma_baslat,
     calistirma_bitir,
@@ -254,4 +256,229 @@ def baglam(workspace_id: uuid.UUID, kimlik: MakineKimligi, db: DbSession) -> dic
             for h in hesaplar
         ],
         "akislar": akis_durumlari(db, workspace.id),
+    }
+
+
+# --- Is akisini bastan sona calistir ----------------------------------------
+#
+# n8n'in asil kullandigi uc budur: TEK CAGRI ile is akisi calisir ve
+# calistirma kaydi acilip kapanir. Boylece n8n'in yarida kalmasi kayitlari
+# yarim birakmaz.
+#
+# Isin KENDISI burada yapilir, n8n'de degil. n8n yalnizca zamanlar, sirayi
+# tutar ve hata olursa tekrar dener.
+
+class AkisCalistir(BaseModel):
+    # n8n'in kendi calistirma kimligi: bir sorunda n8n kayitlarina bakilabilsin.
+    external_execution_id: str | None = Field(default=None, max_length=100)
+
+
+@router.post(
+    "/workspaces/{workspace_id}/akis/{workflow_key}/calistir",
+    summary="Is akisini bastan sona calistir",
+)
+def akis_calistir(
+    workspace_id: uuid.UUID,
+    workflow_key: str,
+    govde: AkisCalistir,
+    kimlik: MakineKimligi,
+    db: DbSession,
+) -> dict:
+    """Akisi calistirir ve sonucu kaydeder.
+
+    Yanit kodlari n8n icin anlamlidir:
+    - 200: calisti (ozette ne yapildigi yazar)
+    - 409: akis kapali veya tanimsiz -> n8n atlar, hata saymaz
+    - 422: is yapilamadi (butce, eksik ayar, veri yok) -> nedeni yazar
+    """
+    workspace = yetkili_workspace(db, kimlik, workspace_id)
+
+    calistirici = AKISLAR.get(workflow_key)
+    if calistirici is None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Tanimsiz is akisi: {workflow_key}",
+        )
+
+    try:
+        kayit = calistirma_baslat(
+            db,
+            workspace_id=workspace.id,
+            workflow_key=workflow_key,
+            trigger=AutomationTrigger.SCHEDULE,
+            api_client_id=kimlik.id,
+            external_execution_id=govde.external_execution_id,
+        )
+    except OtomasyonHatasi as hata:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail=str(hata)
+        ) from hata
+
+    db.commit()
+    run_id = kayit.id
+
+    try:
+        sonuc = calistirici(db, workspace)
+    except IsAkisiHatasi as hata:
+        # Beklenen, aciklanabilir basarisizlik: nedeni kullaniciya yazilir.
+        db.rollback()
+        kayit = db.get(AutomationRun, run_id)
+        calistirma_bitir(db, kayit, basarili=False, hata_mesaji=str(hata))
+        kaydet(
+            db, action="otomasyon.basarisiz", workspace_id=workspace.id,
+            subject_type="automation_run", subject_id=run_id,
+            details={"workflow_key": workflow_key},
+        )
+        db.commit()
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(hata)
+        ) from hata
+    except Exception as hata:  # noqa: BLE001 - beklenmeyen hata da KAYDEDILIR
+        # Beklenmeyen hata gizlenmez: kayda gecer, sonra yukari firlatilir.
+        db.rollback()
+        kayit = db.get(AutomationRun, run_id)
+        calistirma_bitir(
+            db, kayit, basarili=False,
+            hata_mesaji=f"Beklenmeyen hata: {type(hata).__name__}: {hata}",
+        )
+        db.commit()
+        log.exception(
+            "akis_beklenmeyen_hata",
+            workspace_id=str(workspace.id),
+            workflow_key=workflow_key,
+        )
+        raise
+
+    ozet = dict(sonuc.ozet)
+    if sonuc.notlar:
+        ozet["notlar"] = sonuc.notlar[:10]
+    if sonuc.yapilacak_is_yoktu:
+        ozet["yapilacak_is_yoktu"] = True
+
+    kayit = db.get(AutomationRun, run_id)
+    calistirma_bitir(db, kayit, basarili=True, ozet=ozet)
+    db.commit()
+
+    return {
+        "run_id": str(run_id),
+        "workflow_key": workflow_key,
+        "durum": "succeeded",
+        "yapilacak_is_yoktu": sonuc.yapilacak_is_yoktu,
+        "ozet": sonuc.ozet,
+        "notlar": sonuc.notlar,
+    }
+
+
+@router.post(
+    "/akis/{workflow_key}/calistir-hepsi",
+    summary="Is akisini yetkili TUM musterilerde calistir",
+)
+def akis_hepsinde_calistir(
+    workflow_key: str,
+    govde: AkisCalistir,
+    kimlik: MakineKimligi,
+    db: DbSession,
+) -> dict:
+    """n8n'in zamanlanmis cagrisi buraya gelir.
+
+    Musteri dolasimi BURADA yapilir, n8n'de degil: boylece bir musteride
+    cikan hata digerlerini durdurmaz ve n8n'in is akisi iki dugumden
+    ibaret kalir.
+
+    Akis kapali olan musteriler sessizce atlanir - kapali olmak hata
+    degildir. Yanit her zaman 200'dur; hangi musteride ne oldugu listede
+    tek tek yazar.
+    """
+    if workflow_key not in AKISLAR:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Tanimsiz is akisi: {workflow_key}",
+        )
+
+    idler = yetkili_workspace_idleri(db, kimlik.id)
+    musteriler = db.execute(
+        select(Workspace).where(
+            Workspace.id.in_(idler), Workspace.is_active.is_(True)
+        ).order_by(Workspace.name)
+    ).scalars().all() if idler else []
+
+    sonuclar: list[dict] = []
+    basarili = hatali = atlanan = 0
+
+    for workspace in musteriler:
+        if not acik_mi(db, workspace.id, workflow_key):
+            atlanan += 1
+            continue
+
+        try:
+            kayit = calistirma_baslat(
+                db,
+                workspace_id=workspace.id,
+                workflow_key=workflow_key,
+                trigger=AutomationTrigger.SCHEDULE,
+                api_client_id=kimlik.id,
+                external_execution_id=govde.external_execution_id,
+            )
+            db.commit()
+        except OtomasyonHatasi as hata:
+            db.rollback()
+            atlanan += 1
+            sonuclar.append({
+                "workspace_id": str(workspace.id), "musteri": workspace.name,
+                "durum": "atlandi", "aciklama": str(hata),
+            })
+            continue
+
+        run_id = kayit.id
+        try:
+            sonuc = AKISLAR[workflow_key](db, workspace)
+        except Exception as hata:  # noqa: BLE001 - bir musterinin hatasi digerlerini durdurmaz
+            db.rollback()
+            mesaj = (
+                str(hata) if isinstance(hata, IsAkisiHatasi)
+                else f"Beklenmeyen hata: {type(hata).__name__}: {hata}"
+            )
+            calistirma_bitir(
+                db, db.get(AutomationRun, run_id), basarili=False, hata_mesaji=mesaj,
+            )
+            kaydet(
+                db, action="otomasyon.basarisiz", workspace_id=workspace.id,
+                subject_type="automation_run", subject_id=run_id,
+                details={"workflow_key": workflow_key},
+            )
+            db.commit()
+            hatali += 1
+            if not isinstance(hata, IsAkisiHatasi):
+                log.exception(
+                    "akis_beklenmeyen_hata",
+                    workspace_id=str(workspace.id), workflow_key=workflow_key,
+                )
+            sonuclar.append({
+                "workspace_id": str(workspace.id), "musteri": workspace.name,
+                "durum": "hata", "aciklama": mesaj, "run_id": str(run_id),
+            })
+            continue
+
+        ozet = dict(sonuc.ozet)
+        if sonuc.notlar:
+            ozet["notlar"] = sonuc.notlar[:10]
+        if sonuc.yapilacak_is_yoktu:
+            ozet["yapilacak_is_yoktu"] = True
+
+        calistirma_bitir(db, db.get(AutomationRun, run_id), basarili=True, ozet=ozet)
+        db.commit()
+        basarili += 1
+        sonuclar.append({
+            "workspace_id": str(workspace.id), "musteri": workspace.name,
+            "durum": "tamam", "run_id": str(run_id),
+            "yapilacak_is_yoktu": sonuc.yapilacak_is_yoktu, "ozet": sonuc.ozet,
+        })
+
+    return {
+        "workflow_key": workflow_key,
+        "musteri_sayisi": len(musteriler),
+        "basarili": basarili,
+        "hatali": hatali,
+        "atlanan": atlanan,
+        "sonuclar": sonuclar,
     }

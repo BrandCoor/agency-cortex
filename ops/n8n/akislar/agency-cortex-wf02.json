@@ -1,0 +1,82 @@
+{
+  "id": "agency-cortex-wf02",
+  "name": "WF-02 Trend arastirmasi",
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Europe/Istanbul",
+    "saveExecutionProgress": true,
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all"
+  },
+  "nodes": [
+    {
+      "id": "agency-cortex-wf02-zaman",
+      "name": "Zamanlayici",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 9 * * *"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "agency-cortex-wf02-cagri",
+      "name": "Agency Cortex'e calistir",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        240,
+        0
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 15000,
+      "parameters": {
+        "method": "POST",
+        "url": "http://api:8000/api/v1/makine/akis/wf02_trend/calistir-hepsi",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ external_execution_id: String($execution.id) }) }}",
+        "options": {
+          "timeout": 1800000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "agency-cortex-api",
+          "name": "Agency Cortex API"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Zamanlayici": {
+      "main": [
+        [
+          {
+            "node": "Agency Cortex'e calistir",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "meta": {
+    "aciklama": "Her gun 09:00: sektor trendlerini arastirir."
+  }
+}

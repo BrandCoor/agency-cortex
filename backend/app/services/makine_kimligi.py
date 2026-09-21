@@ -75,6 +75,7 @@ def olustur(
     ad: str,
     olusturan_user_id: uuid.UUID | None,
     workspace_ids: list[uuid.UUID],
+    tum_musteriler: bool = False,
 ) -> tuple[ApiClient, str]:
     """Yeni makine kimligi acar. Doner: (kayit, TAM ANAHTAR).
 
@@ -93,12 +94,14 @@ def olustur(
         key_prefix=onek,
         key_hash=ozet,
         is_active=True,
+        all_workspaces=tum_musteriler,
         created_by_user_id=olusturan_user_id,
     )
     db.add(kayit)
     db.flush()
 
-    yetki_ver(db, kayit, workspace_ids)
+    if not tum_musteriler:
+        yetki_ver(db, kayit, workspace_ids)
     # Anahtarin kendisi LOGLANMAZ.
     log.info("makine_kimligi_olusturuldu", api_client_id=str(kayit.id), ad=temiz_ad)
     return kayit, tam
@@ -140,6 +143,19 @@ def yetki_ver(db: Session, kayit: ApiClient, workspace_ids: list[uuid.UUID]) -> 
 
 
 def yetkili_workspace_idleri(db: Session, api_client_id: uuid.UUID) -> list[uuid.UUID]:
+    """Bu kimligin erisebilecegi ETKIN musterilerin kimlikleri.
+
+    "Tum musteriler" isaretliyse liste her cagrida yeniden hesaplanir;
+    boylece sonradan eklenen musteri de otomatik kapsama girer.
+    """
+    kayit = db.get(ApiClient, api_client_id)
+    if kayit is not None and kayit.all_workspaces:
+        return list(
+            db.execute(
+                select(Workspace.id).where(Workspace.is_active.is_(True))
+            ).scalars().all()
+        )
+
     return list(
         db.execute(
             select(ApiClientWorkspace.workspace_id).where(

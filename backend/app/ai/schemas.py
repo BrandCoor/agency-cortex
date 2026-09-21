@@ -106,3 +106,35 @@ class StrategicCommentary(BaseModel):
 def json_schema_for(model: type[BaseModel]) -> dict[str, Any]:
     """Pydantic modelinden API'nin bekledigi JSON semasini uretir."""
     return model.model_json_schema()
+
+
+class TrendFinding(BaseModel):
+    """Tek bir trend bulgusu.
+
+    `claim_type` ve `uncertainties` ZORUNLUDUR: yeterli kanit yoksa bulgu
+    "kesin" diye yazilmaz, hipotez olarak isaretlenir.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    topic: str = Field(description="Trendin kisa adi")
+    summary: str = Field(description="Ne oluyor, kim yapiyor, neden yayiliyor")
+    relevance_to_brand: str = Field(
+        description="Bu marka icin neden onemli veya neden onemli degil"
+    )
+    platform: str = Field(description="instagram, tiktok, youtube, facebook veya 'genel'")
+    claim_type: str = Field(description="'fact' veya 'hypothesis'")
+    confidence: str = Field(description="'low', 'medium' veya 'high'")
+    source_urls: list[str] = Field(description="Bulgunun dayandigi kaynak adresleri")
+    uncertainties: list[str] = Field(description="Neleri bilmiyoruz, neresi belirsiz")
+
+
+class TrendResearchBatch(BaseModel):
+    """Bir arastirma turunun sonucu."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    findings: list[TrendFinding]
+    research_note: str = Field(
+        description="Arastirmanin kapsami ve sinirlari; neye bakilmadi"
+    )

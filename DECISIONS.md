@@ -681,3 +681,69 @@ Format: Karar / Seçenekler / Neden / Risk / Geri alma
 - **Risk:** Kurulum adımı sunucudaki düz şifreyi okuyor. Şifre GitHub'a
   taşınmıyor, loga basılmıyor ve `ps` çıktısında görünmüyor
   (`--netrc-file`, geçici dosya 600 izniyle ve hemen siliniyor).
+
+---
+
+## K-038 — n8n iş akışları iki düğümden ibaret; iş Agency Cortex'te yapılır
+
+- **Karar:** Her iş akışı **Zamanlayıcı → HTTP çağrısı** şeklinde iki
+  düğümden oluşuyor. Müşteri dolaşımı, hata yakalama ve tüm iş mantığı
+  Agency Cortex'in `calistir-hepsi` ucunda.
+- **Seçenekler:**
+  1. n8n'de müşteri listesini çekip döngü kurmak, her müşteri için ayrı
+     çağrı yapmak, hataları n8n'de yönetmek.
+  2. n8n'de yalnızca zamanlama; geri kalan her şey Cortex'te. **(seçilen)**
+- **Neden:** (1) her iş akışında 6-8 düğüm demekti ve müşteri izolasyonu
+  n8n'in düğüm ayarlarına bağlı hale gelirdi — yanlış bir ifade başka bir
+  müşterinin verisine yazardı. (2) düğüm sayısını 2'ye indiriyor, yanlış
+  ayar yüzeyini neredeyse sıfırlıyor ve n8n'i gerçekten yaptığı işe
+  (zamanlama, tekrar deneme, çalışma geçmişi) indirgiyor.
+- **Bir müşterinin hatası diğerlerini durdurmuyor:** `calistir-hepsi` her
+  müşteriyi ayrı ele alıyor, hatayı o müşterinin çalıştırma kaydına
+  yazıyor ve devam ediyor.
+- **Risk:** Tek bir HTTP çağrısı tüm müşterileri işlediği için uzun
+  sürebilir. Zaman aşımları akış başına ayarlandı (araştırma için 30 dk).
+- **Doğrulandı:** Düğüm tipleri ve parametre adları (`scheduleTrigger`
+  `rule.interval[].field='cronExpression'`, `httpRequest` 4.5) n8n 2.39
+  paketinin kendi kaynağından okundu, tahmin edilmedi. Bir test, dosyaların
+  çağırdığı akış anahtarlarının Cortex'te gerçekten tanımlı olduğunu
+  doğruluyor.
+
+---
+
+## K-039 — İş akışları kurulumu kendi kendine tamamlanıyor
+
+- **Karar:** İş akışlarını n8n'e yükleyen betik, sunucuda **5 dakikada bir**
+  çalışan bir görev olarak kuruluyor. Kurulduğunda kendini durduruyor.
+- **Neden:** n8n'e iş akışı yüklemek için n8n'de bir **sahip hesabı**
+  olması şart (n8n kaynağı: import komutu global owner'ı bulamazsa hata
+  veriyor). O hesabı kullanıcı ilk girişinde kendisi oluşturur ve bu,
+  kurulumdan saatler sonra olabilir. Tek seferlik bir kurulum adımı o anda
+  başarısız olur ve bir daha denenmezdi.
+- **Sonuç:** Kullanıcı n8n hesabını oluşturuyor; birkaç dakika sonra
+  akışlar kendiliğinden kuruluyor. **Başka bir şey yapması gerekmiyor.**
+- **Anahtar nasıl gidiyor:** Betik Agency Cortex'ten makine anahtarı
+  üretiyor ve n8n'e **şifreli kimlik bilgisi** olarak aktarıyor
+  (`import:credentials` düz veriyi alıp n8n'in kendi anahtarıyla şifreliyor).
+  Anahtar hiçbir yerde loglanmıyor, geçici dosya hemen siliniyor.
+- **Neden `$env` değil:** n8n'de `$env` erişimi açılsaydı (varsayılan
+  kapalı), iş akışı düzenleyebilen herkes veritabanı şifresi dâhil tüm
+  ortam değişkenlerini okuyabilirdi. Şifreli kimlik bilgisi bunu gerektirmiyor.
+- **Kanıt:** Betik yükleme sonrası `n8n list:workflow --active=true` ile
+  dört akışın da **etkin** olduğunu doğruluyor; değilse hata veriyor.
+  "Yükledim" demek yetmez — etkin olmayan akış hiç çalışmaz.
+
+---
+
+## K-040 — Manus için kredi koruması eklendi (K-031'in kapanışı)
+
+- **Karar:** Manus çağrısından **önce** `usage.availableCredits` okunuyor;
+  kredi sıfırsa görev başlatılmıyor ve neden söyleniyor.
+- **Neden:** Manus USD ile değil kredi ile çalışıyor ve dokümanda kredinin
+  para karşılığı yok, bu yüzden aylık USD bütçesi Manus'u kapsayamıyor
+  (K-031). Kapsayamadığı için en azından "kredi bitmişken boşuna çağrı
+  yapma" koruması kondu.
+- **Kredi okunamazsa çağrı ENGELLENMİYOR:** Okunamayan bir değere bakıp
+  çalışabilecek bir işi iptal etmek daha kötü olurdu. Yalnızca kredinin
+  sıfır olduğu **kesin** olduğunda duruluyor.
+- **Bu uç kredi harcamıyor** (salt okuma).

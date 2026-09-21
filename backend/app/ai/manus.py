@@ -98,6 +98,14 @@ class ManusGorevBasarisiz(AIProviderError):
     """Gorev error durumunda bitti."""
 
 
+class ManusKrediYetersiz(AIProviderError):
+    """Manus kredisi bitmis; yeni gorev baslatilamaz.
+
+    Butce kontrolunun Manus tarafindaki karsiligidir: USD butcesi krediyi
+    olcemedigi icin (K-031) sinir burada uygulanir.
+    """
+
+
 class ManusZamanAsimi(AIProviderError):
     """Gorev, bizim belirledigimiz bekleme suresinde bitmedi.
 
@@ -304,6 +312,17 @@ class ManusProvider(AIProvider):
         baslangic = time.monotonic()
         metin = f"{request.system}\n\n{request.user_content}".strip()
 
+        # KREDI KONTROLU - cagriDAN ONCE.
+        #
+        # Manus USD ile degil KREDI ile calisir ve dokumanda kredinin para
+        # karsiligi YOKTUR (bkz. DECISIONS.md K-031). Bu yuzden aylik USD
+        # butcesi Manus harcamasini kapsayamaz. Kapsayamadigi icin en
+        # azindan "kredi bitmisken bos yere cagri yapma" korumasi konur:
+        # kredi sifirsa gorev olusturulmaz, sebebi acikca soylenir.
+        #
+        # usage.availableCredits SALT OKUMADIR ve kredi harcamaz.
+        self._krediyi_dogrula()
+
         olusturma = self.gorev_olustur(metin)
         task_id = olusturma.get("task_id")
         if not task_id:
@@ -328,6 +347,34 @@ class ManusProvider(AIProvider):
             latency_ms=int((time.monotonic() - baslangic) * 1000),
             status=AIStatus.SUCCEEDED,
         )
+
+    def _krediyi_dogrula(self) -> None:
+        """Kredi kalmadiysa cagri BASLATMAZ.
+
+        Kredi durumu okunamazsa cagri ENGELLENMEZ: okunamayan bir degere
+        bakip isi durdurmak, calisabilecek bir isi bos yere iptal ederdi.
+        Kredi sifir oldugu KESIN oldugunda durulur.
+        """
+        try:
+            govde = self._istek("GET", UC_KREDI_DURUMU)
+        except ManusError as hata:
+            log.warning("manus_kredi_okunamadi", kod=hata.kod)
+            return
+
+        toplam = govde.get("total_credits")
+        if toplam is None:
+            return
+
+        try:
+            kalan = Decimal(str(toplam))
+        except (ArithmeticError, ValueError):
+            return
+
+        if kalan <= 0:
+            raise ManusKrediYetersiz(
+                "Manus krediniz bitmiş. Araştırma başlatılmadı. "
+                "Manus hesabınızdan kredi ekledikten sonra tekrar çalışacak."
+            )
 
     def health_check(self) -> tuple[bool, str | None]:
         if not self.is_configured:

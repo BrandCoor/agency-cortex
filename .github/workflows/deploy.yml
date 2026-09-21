@@ -233,6 +233,16 @@ jobs:
             "$VPS_USER@$VPS_HOST:$PROJE_DIZINI/ops/"
           ssh -i ~/.ssh/id_deploy -o BatchMode=yes "$VPS_USER@$VPS_HOST" \
             "chmod +x $PROJE_DIZINI/ops/yedek_*.sh"
+          # n8n is akislari ve kurulum betigi.
+          ssh -i ~/.ssh/id_deploy -o BatchMode=yes "$VPS_USER@$VPS_HOST" \
+            "mkdir -p $PROJE_DIZINI/n8n/akislar"
+          scp -i ~/.ssh/id_deploy -o BatchMode=yes \
+            ops/n8n/akislar/*.json \
+            "$VPS_USER@$VPS_HOST:$PROJE_DIZINI/n8n/akislar/"
+          scp -i ~/.ssh/id_deploy -o BatchMode=yes \
+            ops/n8n_kur.sh "$VPS_USER@$VPS_HOST:$PROJE_DIZINI/ops/"
+          ssh -i ~/.ssh/id_deploy -o BatchMode=yes "$VPS_USER@$VPS_HOST" \
+            "chmod +x $PROJE_DIZINI/ops/n8n_kur.sh"
 
       - name: Ayar dosyasini hazirla (gizli degerler SUNUCUDA uretilir)
         run: |
@@ -769,3 +779,43 @@ jobs:
           fi
           echo "BASARILI: dogru sifreyle aciliyor (HTTP 200)."
           UZAK
+
+
+      # Is akislarini n8n'e kurar.
+      #
+      # ILK KURULUMDA BASARISIZ OLMASI BEKLENIR: n8n'e is akisi yuklemek
+      # icin n8n'de bir SAHIP HESABI olmasi gerekir; o hesabi kullanici
+      # ilk girisinde kendisi olusturur. Bu yuzden adim kurulumu
+      # DURDURMAZ, bunun yerine her 5 dakikada bir tekrar deneyen bir
+      # zamanlanmis gorev kurar. Kullanici hesabini actiktan birkac
+      # dakika sonra akislar kendiliginden kurulur.
+      - name: n8n is akislarini kur
+        run: |
+          ssh -i ~/.ssh/id_deploy -o BatchMode=yes "$VPS_USER@$VPS_HOST" \
+            "cat > /tmp/n8n_akis_kur.sh" <<'UZAK'
+          set -eu
+          cd /opt/agency-cortex
+
+          # Zamanlanmis gorev: akislar kurulana kadar tekrar dener.
+          # Betik, isaret dosyasini gorunce kendiliginden hicbir sey yapmaz.
+          satir="*/5 * * * * cd /opt/agency-cortex && ./ops/n8n_kur.sh >> /opt/agency-cortex/n8n-kurulum.log 2>&1"
+          mevcut=$(crontab -l 2>/dev/null || true)
+          if ! printf '%s\n' "$mevcut" | grep -qF "n8n_kur.sh"; then
+            printf '%s\n%s\n' "$mevcut" "$satir" | grep -v '^$' | crontab -
+            echo "Zamanlanmis gorev kuruldu (5 dakikada bir)."
+          else
+            echo "Zamanlanmis gorev zaten kurulu."
+          fi
+
+          echo "--- simdi bir kez deneniyor ---"
+          if ./ops/n8n_kur.sh; then
+            echo "KURULDU: is akislari n8n'de etkin."
+          else
+            echo "HENUZ KURULMADI (beklenen olabilir)."
+            echo "n8n'de sahip hesabi olusturulduktan sonra zamanlanmis gorev"
+            echo "kendiliginden kuracak. Gunlugu: /opt/agency-cortex/n8n-kurulum.log"
+          fi
+          UZAK
+
+          ssh -i ~/.ssh/id_deploy -o BatchMode=yes "$VPS_USER@$VPS_HOST" \
+            "chmod +x /tmp/n8n_akis_kur.sh && /tmp/n8n_akis_kur.sh; rm -f /tmp/n8n_akis_kur.sh"
