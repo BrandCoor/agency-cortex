@@ -585,3 +585,22 @@ ekibine kişi eklemek için bana bağımlıydı. Kendi ekibini kendi yönetmeli.
 
 ### Doğrulandı
 - 325/325 test geçti (önceki 312 + 13 yeni).
+
+## [0.11.2] - 2026-09-21 — Panel: kampanya yönetimi
+
+### Eklendi
+- **Kampanya sayfası** (`/panel/musteri/<id>/kampanya`). Kampanya adı, hedef,
+  başlangıç ve bitiş tarihi. Eklemek/silmek için en az **stratejist** yetkisi.
+
+### Kurallar (hepsi test edildi)
+- Kampanya bir **markaya bağlıdır**; marka girilmeden kampanya oluşturulamaz
+  ve form gösterilmez.
+- **Bitiş tarihi başlangıçtan önce olamaz.** Sessizce kabul edilseydi sonradan
+  üretilen rapor anlamsız olurdu. Aynı gün başlayıp biten kampanya geçerlidir.
+- Tarayıcı dışından gelen bozuk tarih kampanyayı engellemiyor; tarih boş
+  sayılıyor.
+- **İzolasyon:** başka müşterinin kampanyası, kimliği bilinse bile
+  silinemiyor (404). Çalışma alanı kontrolü sorgunun içinde yapılıyor.
+
+### Doğrulandı
+- 338/338 test geçti (önceki 325 + 13 yeni).

@@ -95,6 +95,19 @@ hiçbir şeyi değiştiremezler.
 
 ---
 
+### Kampanyalar
+Müşteri ekranında **"Kampanyalar"** bağlantısı. Belirli bir döneme ve hedefe
+yönelik çalışmalar burada tutulur (örn: *Ramazan 2026 — iftar menüsü
+rezervasyonlarını artırmak*).
+
+- Kampanya bir markaya bağlıdır; **önce marka bilgilerini girmelisiniz.**
+- Tarihler isteğe bağlı; boş bırakabilirsiniz.
+- **Bitiş tarihi başlangıçtan önce olamaz** — sistem kabul etmez. Yanlış
+  tarih aralığı, sonradan üretilen raporu anlamsız hale getirirdi.
+- Eklemek/silmek için en az **stratejist** yetkisi gerekir.
+
+---
+
 ### Bağlı hesaplar
 Müşteri ekranında **"Bağlı hesaplar"** bağlantısı. Hangi hesapların bağlı
 olduğunu, en son ne zaman veri çekildiğini ve varsa hatayı gösterir.

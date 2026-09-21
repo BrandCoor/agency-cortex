@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}Kampanyalar — {{ workspace.name }}{% endblock %}
+{% block content %}
+<p class="muted"><a href="/panel/musteri/{{ workspace.id }}">← {{ workspace.name }}</a></p>
+<h1>Kampanyalar</h1>
+<p class="sub">Belirli bir döneme ve hedefe yönelik çalışmalar.</p>
+
+{% if error %}<div class="err">{{ error }}</div>{% endif %}
+{% if ok %}<div class="ok">{{ ok }}</div>{% endif %}
+
+{% if not marka %}
+  <div class="warn">
+    Önce <a href="/panel/musteri/{{ workspace.id }}/marka">marka bilgilerini</a>
+    girmeniz gerekiyor. Kampanya bir markaya bağlıdır.
+  </div>
+{% else %}
+
+{% if not kampanyalar %}
+  <div class="card empty">Henüz kampanya yok.</div>
+{% endif %}
+
+{% for k in kampanyalar %}
+<div class="card">
+  <div class="row">
+    <strong style="flex:1">{{ k.name }}</strong>
+    <span class="badge b-{{ k.status.value }}">{{ status_labels[k.status.value] }}</span>
+  </div>
+  <div class="muted" style="margin-top:6px">
+    {% if k.starts_on %}{{ k.starts_on.strftime('%d.%m.%Y') }}{% else %}başlangıç yok{% endif %}
+    —
+    {% if k.ends_on %}{{ k.ends_on.strftime('%d.%m.%Y') }}{% else %}bitiş yok{% endif %}
+  </div>
+  {% if k.objective %}<div style="margin-top:8px">{{ k.objective }}</div>{% endif %}
+  {% if duzenleyebilir %}
+  <form method="post" action="/panel/musteri/{{ workspace.id }}/kampanya/sil" style="margin-top:10px">
+    <input type="hidden" name="kampanya_id" value="{{ k.id }}">
+    <button type="submit">Sil</button>
+  </form>
+  {% endif %}
+</div>
+{% endfor %}
+
+{% if duzenleyebilir %}
+<h2>Yeni kampanya</h2>
+<form method="post" action="/panel/musteri/{{ workspace.id }}/kampanya" class="card">
+  <label for="ad">Kampanya adı</label>
+  <input id="ad" name="ad" type="text" required maxlength="200"
+         placeholder="Örn: Ramazan 2026">
+
+  <label for="hedef">Hedef</label>
+  <textarea id="hedef" name="hedef" rows="3"
+            placeholder="Örn: İftar menüsü rezervasyonlarını artırmak"></textarea>
+
+  <label for="baslangic">Başlangıç tarihi</label>
+  <input id="baslangic" name="baslangic" type="date">
+
+  <label for="bitis">Bitiş tarihi</label>
+  <input id="bitis" name="bitis" type="date">
+
+  <div style="margin-top:16px"><button type="submit">Kampanya oluştur</button></div>
+</form>
+{% else %}
+<div class="warn">Kampanya eklemek için en az <strong>stratejist</strong> yetkisi gerekir.</div>
+{% endif %}
+
+{% endif %}
+{% endblock %}

@@ -9,6 +9,7 @@ Uye degilse 404 doner (403 degil - 403, o musterinin varligini ele verirdi).
 
 from __future__ import annotations
 
+import datetime as dt
 import re
 import uuid
 from pathlib import Path
@@ -23,7 +24,7 @@ from sqlalchemy.exc import IntegrityError
 from app.api.deps import DbSession
 from app.cli.hesap import MIN_SIFRE_UZUNLUGU
 from app.core.security import create_token, hash_password, verify_password
-from app.models.brand import Brand, BrandGuideline
+from app.models.brand import Brand, BrandGuideline, Campaign
 from app.models.content import ContentScript
 from app.models.enums import ContentStatus, Platform, WorkspaceRole
 from app.models.identity import User, Workspace, WorkspaceMember
@@ -682,6 +683,164 @@ def member_remove(
     db.delete(hedef_uyelik)
     db.commit()
     return _ekip_sayfasi(request, db, user, uyelik, workspace, ok="Kişi ekipten çıkarıldı.")
+
+
+# --- Kampanyalar -------------------------------------------------------------
+
+def _tarih_coz(metin: str) -> dt.date | None:
+    """Form tarihini cozer. Bos veya hatali ise None doner."""
+    metin = (metin or "").strip()
+    if not metin:
+        return None
+    try:
+        return dt.date.fromisoformat(metin)
+    except ValueError:
+        return None
+
+
+def _kampanya_sayfasi(request, db, user, uyelik, workspace, *, error=None, ok=None, kod=200):
+    marka = db.execute(
+        select(Brand).where(Brand.workspace_id == workspace.id)
+    ).scalars().first()
+
+    kampanyalar = []
+    if marka is not None:
+        kampanyalar = db.execute(
+            select(Campaign)
+            .where(Campaign.workspace_id == workspace.id)
+            .order_by(Campaign.starts_on.desc().nullslast(), Campaign.created_at.desc())
+        ).scalars().all()
+
+    return templates.TemplateResponse(
+        request, "campaigns.html",
+        {
+            "user": user,
+            "workspace": workspace,
+            "marka": marka,
+            "kampanyalar": kampanyalar,
+            "status_labels": STATUS_LABELS,
+            "duzenleyebilir": uyelik.role.covers(WorkspaceRole.STRATEGIST),
+            "error": error,
+            "ok": ok,
+        },
+        status_code=kod,
+    )
+
+
+@router.get("/musteri/{workspace_id}/kampanya", response_class=HTMLResponse)
+def campaigns_page(workspace_id: uuid.UUID, request: Request, db: DbSession):
+    user = current_user_from_cookie(request, db)
+    if user is None:
+        return _giris_yonlendir()
+    uyelik = _uyelik(db, user, workspace_id)
+    if uyelik is None:
+        return HTMLResponse("Bulunamadı.", status_code=404)
+    return _kampanya_sayfasi(request, db, user, uyelik, db.get(Workspace, workspace_id))
+
+
+@router.post("/musteri/{workspace_id}/kampanya")
+def campaign_create(
+    workspace_id: uuid.UUID,
+    request: Request,
+    db: DbSession,
+    ad: Annotated[str, Form()],
+    hedef: Annotated[str, Form()] = "",
+    baslangic: Annotated[str, Form()] = "",
+    bitis: Annotated[str, Form()] = "",
+):
+    user = current_user_from_cookie(request, db)
+    if user is None:
+        return _giris_yonlendir()
+    uyelik = _uyelik(db, user, workspace_id)
+    if uyelik is None:
+        return HTMLResponse("Bulunamadı.", status_code=404)
+
+    workspace = db.get(Workspace, workspace_id)
+    if not uyelik.role.covers(WorkspaceRole.STRATEGIST):
+        return _kampanya_sayfasi(
+            request, db, user, uyelik, workspace,
+            error="Bu işlem için en az stratejist yetkisi gerekir.",
+            kod=status.HTTP_403_FORBIDDEN,
+        )
+
+    marka = db.execute(
+        select(Brand).where(Brand.workspace_id == workspace_id)
+    ).scalars().first()
+    if marka is None:
+        return _kampanya_sayfasi(
+            request, db, user, uyelik, workspace,
+            error="Önce marka bilgilerini girmeniz gerekiyor.",
+            kod=status.HTTP_400_BAD_REQUEST,
+        )
+
+    ad = ad.strip()
+    if len(ad) < 2:
+        return _kampanya_sayfasi(
+            request, db, user, uyelik, workspace,
+            error="Kampanya adı en az 2 karakter olmalı.",
+            kod=status.HTTP_400_BAD_REQUEST,
+        )
+
+    basi = _tarih_coz(baslangic)
+    sonu = _tarih_coz(bitis)
+    # Bitis baslangictan once olamaz; sessizce kabul edilirse raporlama
+    # sonradan anlamsiz sonuc uretir.
+    if basi and sonu and sonu < basi:
+        return _kampanya_sayfasi(
+            request, db, user, uyelik, workspace,
+            error="Bitiş tarihi başlangıçtan önce olamaz.",
+            kod=status.HTTP_400_BAD_REQUEST,
+        )
+
+    db.add(Campaign(
+        workspace_id=workspace_id, brand_id=marka.id, name=ad,
+        objective=hedef.strip() or None, starts_on=basi, ends_on=sonu,
+    ))
+    db.commit()
+    return _kampanya_sayfasi(
+        request, db, user, uyelik, workspace, ok=f"'{ad}' kampanyası oluşturuldu."
+    )
+
+
+@router.post("/musteri/{workspace_id}/kampanya/sil")
+def campaign_delete(
+    workspace_id: uuid.UUID,
+    request: Request,
+    db: DbSession,
+    kampanya_id: Annotated[uuid.UUID, Form()],
+):
+    user = current_user_from_cookie(request, db)
+    if user is None:
+        return _giris_yonlendir()
+    uyelik = _uyelik(db, user, workspace_id)
+    if uyelik is None:
+        return HTMLResponse("Bulunamadı.", status_code=404)
+
+    workspace = db.get(Workspace, workspace_id)
+    if not uyelik.role.covers(WorkspaceRole.STRATEGIST):
+        return _kampanya_sayfasi(
+            request, db, user, uyelik, workspace,
+            error="Bu işlem için en az stratejist yetkisi gerekir.",
+            kod=status.HTTP_403_FORBIDDEN,
+        )
+
+    # Calisma alani kontrolu sorgunun ICINDE: baska musterinin kampanyasi
+    # kimligi bilinse bile silinemez.
+    kampanya = db.execute(
+        select(Campaign).where(
+            Campaign.id == kampanya_id,
+            Campaign.workspace_id == workspace_id,
+        )
+    ).scalar_one_or_none()
+    if kampanya is None:
+        return _kampanya_sayfasi(
+            request, db, user, uyelik, workspace,
+            error="Kampanya bulunamadı.", kod=status.HTTP_404_NOT_FOUND,
+        )
+
+    db.delete(kampanya)
+    db.commit()
+    return _kampanya_sayfasi(request, db, user, uyelik, workspace, ok="Kampanya silindi.")
 
 
 # --- Bagli hesaplar ----------------------------------------------------------
