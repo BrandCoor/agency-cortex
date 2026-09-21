@@ -448,3 +448,72 @@ Format: Karar / Seçenekler / Neden / Risk / Geri alma
   menüde bulunduğunuz sayfa vurgulanıyor.
 - **Risk:** Yok. Telefonda menü üste taşınıyor.
 - **Geri alma:** Yalnızca `base.html` değişir; sayfa içerikleri aynı kalır.
+
+---
+
+## K-026 — Meta sabitleri doğrulanmış değerlerle dolduruldu
+
+- **Karar:** Meta API sürümü, izin ekranı, token ucu, Graph adresi ve izin
+  listesi artık boş değil; resmî dokümandan doğrulanmış değerlerle dolu
+  (21 Eylül 2026 tarihli referans).
+- **Seçilen değerler:** `v26.0`, `www.instagram.com/oauth/authorize`,
+  `api.instagram.com/oauth/access_token`, `graph.instagram.com/v26.0/`,
+  izinler: `instagram_business_basic,instagram_business_manage_insights`.
+- **Instagram Login seçildi**, Facebook Login değil. Nedeni: Instagram
+  Login'de müşterinin Facebook Sayfası olması **gerekmiyor**. Ajans
+  müşterilerinin çoğunda Sayfa bağlantısı ya yok ya da karışık.
+- **İzinler bilerek salt okuma.** Yayınlama, yorum ve mesaj izinleri
+  istenmiyor: (a) v1'de yayınlama kapalı, (b) Meta yalnızca gerçekten
+  kullanılan izinlerin istenmesini şart koşuyor; kullanılmayan izin istemek
+  App Review'da reddedilme sebebi.
+- **Belgelenmiş belirsizlik:** Meta'nın iki resmî sayfası izin ekranı için
+  farklı adres veriyor — güncel Business Login rehberi (13 Mart 2026)
+  `www.instagram.com`, eski OAuth referansı (17 Temmuz 2025)
+  `api.instagram.com`. Aradaki farkı açıklayan ortak bir kural yok.
+  Daha güncel sayfa esas alındı ve bu belirsizlik koda yorum olarak yazıldı.
+- **Geri alma:** Panelden veya ortam değişkeninden ezilebilir.
+
+---
+
+## K-027 — Manus v2 kullanılıyor, v1 kullanılmıyor
+
+- **Karar:** Manus entegrasyonu API **v2** ile yazıldı.
+- **Neden:** v1 resmî ama **deprecated**. İkisi karıştırılamaz çünkü
+  temelden farklılar:
+  | | v1 | v2 |
+  |---|---|---|
+  | Başlık | `API_KEY` | `x-manus-api-key` |
+  | Durumlar | pending/running/completed/failed | running/stopped/waiting/error |
+  Yanlış başlık veya yanlış durum adı, sessizce "görev hiç bitmiyor"
+  davranışına yol açardı.
+- **Risk:** v2'nin de değişmesi. Bu yüzden durum alanı yanıtta bulunamazsa
+  sistem "durum yok" varsaymıyor, açıkça hata veriyor.
+
+---
+
+## K-028 — Manus "waiting" durumunda otomatik onay verilmiyor
+
+- **Karar:** Görev `waiting` durumuna geçerse (Manus kullanıcıdan girdi veya
+  onay bekliyor) sistem **otomatik yanıt vermiyor**; görevi durduruyor ve
+  durumu bildiriyor.
+- **Neden:** Sistemin temel kuralı, insan onayı olmadan iş yapmaması.
+  Manus'un sorusuna otomatik "evet" demek bu kuralın etrafından dolaşmak
+  olurdu — hem de sistemin göremediği bir soruya.
+- **Risk:** Bazı görevler yarıda kalır. Kabul edilebilir: yarım kalan görev,
+  onaysız tamamlanmış görevden iyidir.
+
+---
+
+## K-029 — Gemini fiyatlarında yüksek olan değer yazıldı
+
+- **Karar:** Gemini 3.8/3.7/3.6 Flash için dokümandaki iki fiyattan
+  **yüksek** olanı (1 Ocak 2027 sonrası: $1.50/$7.50) tabloya yazıldı.
+- **Neden:** Bu tablo aylık bütçe kilidini besliyor. Maliyeti olduğundan
+  düşük göstermek, bütçenin sessizce aşılmasına yol açar. Düşük gösterip
+  aşmaktansa yüksek gösterip erken uyarmak tercih edildi.
+- **Not:** Bu bir **ürün kararıdır**, doküman değeri değildir; koda böyle
+  yazıldı.
+- **Ayrıca:** `gemini-2.5-pro` ve `gemini-3.1-pro-preview` istem uzunluğuna
+  göre iki farklı fiyat uyguluyor (≤200k / >200k). Tek fiyatla temsil
+  edilemedikleri için **bilerek** tabloya eklenmediler; unutulmuş
+  sanılmasın diye ayrı bir listede adları yazıldı.

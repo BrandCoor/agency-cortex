@@ -88,13 +88,44 @@ class Settings(BaseSettings):
     meta_webhook_verify_token: str = ""
     meta_webhook_app_secret: str = ""
 
-    # ASAGIDAKI UC DEGER RESMI META DOKUMANINDAN DOGRULANMADAN DOLDURULMAZ.
-    # Bos birakildiginda canli mod acilmaz; tahminle deger yazilmaz.
-    meta_api_version: str = ""        # ornek bicim: v21.0 - dokumandan alinacak
-    meta_authorize_url: str = ""      # izin ekraninin tam adresi
-    meta_token_url: str = ""          # kodu anahtara ceviren ucun tam adresi
-    meta_graph_base_url: str = ""     # veri uclarinin kok adresi
-    meta_scopes: str = ""             # virgulle ayrilmis izin adlari
+    # ASAGIDAKI DEGERLER RESMI META DOKUMANINDAN DOGRULANDI (21 Eylul 2026).
+    # Kaynaklar her satirin yaninda; varsayilanlar ortam degiskeni veya panel
+    # ayariyla ezilebilir.
+    #
+    # Graph API surumu v26.0; tanitim tarihi 29 Temmuz 2026. Her surumun en az
+    # iki yil calismasi garanti ediliyor.
+    # Kaynak: developers.facebook.com/docs/graph-api/changelog/
+    meta_api_version: str = "v26.0"
+
+    # Izin ekrani. Guncel "Business Login for Instagram" rehberi (13 Mart 2026)
+    # bu adresi gosteriyor.
+    #
+    # DIKKAT - BELGELENMIS BELIRSIZLIK: Meta'nin daha eski OAuth referansi
+    # (17 Temmuz 2025) api.instagram.com/oauth/authorize adresini veriyor.
+    # Iki resmi sayfa arasindaki bu farki aciklayan ortak bir kural yok.
+    # Daha guncel olan sayfa esas alindi. Izin ekrani acilmazsa once bu
+    # adres denenmelidir.
+    # Kaynak: developers.facebook.com/documentation/instagram-platform/
+    #         instagram-api-with-instagram-login/business-login
+    meta_authorize_url: str = "https://www.instagram.com/oauth/authorize"
+
+    # Kodu anahtara ceviren uc. Ayni rehberden.
+    meta_token_url: str = "https://api.instagram.com/oauth/access_token"
+
+    # Instagram Login icin veri koku. Facebook Login secilseydi
+    # graph.facebook.com/v26.0/ olurdu.
+    meta_graph_base_url: str = "https://graph.instagram.com/v26.0/"
+
+    # ILK SURUM BILEREK SALT OKUMA.
+    # instagram_business_basic       : profil ve medya metadata'si
+    # instagram_business_manage_insights : hesap ve medya icgoruleri
+    #
+    # Yayinlama, yorum ve mesaj izinleri BILEREK ISTENMIYOR:
+    # - Urun karari: v1'de yayinlama kapali.
+    # - Meta kurali: yalnizca gercekten kullanilan izinler istenmeli;
+    #   kullanilmayan izin istemek App Review'da reddedilme sebebi.
+    # Kaynak: developers.facebook.com/documentation/development/permissions
+    meta_scopes: str = "instagram_business_basic,instagram_business_manage_insights"
 
     # Facebook Login secilirse gerekli ek alanlar
     meta_facebook_app_id: str = ""

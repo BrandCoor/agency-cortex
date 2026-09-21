@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 from app.ai.base import AIProvider
-from app.ai.claude import ClaudeProvider, GeminiProviderStub, ManusProviderStub
+from app.ai.claude import ClaudeProvider, GeminiProviderStub
 from app.ai.fake import FakeProvider
+from app.ai.manus import ManusProvider
 from app.core.config import get_settings
 
 # Hangi gorev hangi saglayiciya gider (urun karari).
@@ -16,6 +17,28 @@ TASK_ROUTING: dict[str, str] = {
     "trend_research": "manus",
     "bulk_classification": "gemini",
 }
+
+
+def _ayar_oku(anahtar: str) -> str | None:
+    """API anahtarini panel ayarlarindan okur; yoksa ortam degiskeninden.
+
+    Panelden girilen deger onceliklidir (bkz. DECISIONS.md K-024).
+    Veritabanina ulasilamazsa sessizce None donmek yerine ortam
+    degiskenine duseriz; boylece anahtar sunucuda tanimliysa sistem calisir.
+    """
+    import os
+
+    try:
+        from app.core.db import SessionLocal
+        from app.services.sistem_ayarlari import deger_oku
+
+        with SessionLocal() as db:
+            deger = deger_oku(db, anahtar)
+            if deger:
+                return deger
+    except Exception:  # noqa: BLE001 - ayar okunamazsa ortam degiskenine duser
+        pass
+    return os.environ.get(anahtar)
 
 
 def get_provider(name: str, *, mode: str | None = None) -> AIProvider:
@@ -32,7 +55,8 @@ def get_provider(name: str, *, mode: str | None = None) -> AIProvider:
     if name == "claude":
         return ClaudeProvider()
     if name == "manus":
-        return ManusProviderStub()
+        # Anahtar once panel ayarlarindan, yoksa ortam degiskeninden okunur.
+        return ManusProvider(api_key=_ayar_oku("MANUS_API_KEY"))
     if name == "gemini":
         return GeminiProviderStub()
 

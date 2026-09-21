@@ -632,3 +632,38 @@ ekibine kişi eklemek için bana bağımlıydı. Kendi ekibini kendi yönetmeli.
 - 351/351 test geçti (önceki 338 + 13 yeni).
 - Anahtarın veritabanında düz metin olmadığı, yanıtlarda geçmediği ve
   loglara düşmediği ayrı ayrı test edildi.
+
+## [0.13.0] - 2026-09-21 — Doğrulanmış API entegrasyonları
+
+Kullanıcının sağladığı "Resmî API Teknik Referansı" belgesi (21 Eylül 2026)
+esas alındı. Belgedeki her değer kaynak URL'siyle birlikte koda yazıldı;
+belgede "DOKÜMANDA BULUNAMADI" diyen hiçbir değer uydurulmadı.
+
+### Eklendi
+- **Manus API v2 sağlayıcısı** (`app/ai/manus.py`). Artık taslak değil,
+  çalışan entegrasyon. Gerekçe: DECISIONS.md K-027.
+  - Base URL `https://api.manus.ai`, başlık `x-manus-api-key`
+  - `task.create` → `task.detail` → `task.listMessages` yaşam döngüsü
+  - v2 durumları: running / stopped / waiting / error
+  - Dokümandaki 6 hata kodu tanınıyor; `rate_limited` ve `internal`
+    tekrar denenebilir olarak işaretli
+  - **`waiting` durumunda otomatik onay verilmiyor** (K-028)
+  - Polling aralığı 5 sn — bu **bizim kararımız**, dokümanda yok; 100/dk
+    limitine göre seçildi (dakikada 12 istek)
+  - Maliyet: Manus kredi ile çalışıyor ve dokümanda para karşılığı yok;
+    bu yüzden maliyet **uydurulmuyor**, boş bırakılıyor
+- **Manus webhook imza doğrulaması** (`app/ai/manus_webhook.py`).
+  RSA-SHA256, 2048-bit, `{timestamp}.{url}.{body_sha256_hex}` biçimi,
+  5 dakikalık tekrar oynatma penceresi.
+
+### Değişti
+- **7 Meta sabitinden 5'i dolduruldu** (K-026). Kalan 3'ü (App ID, App
+  Secret, Redirect URI) dokümandan alınamaz — sizin Meta uygulamanıza ait.
+- **Gemini fiyatları eklendi** (K-029). 8 model fiyatlandı.
+
+### Doğrulandı
+- 385/385 test geçti (önceki 351 + 34 yeni).
+- Webhook imzası **gerçek 2048-bit RSA anahtar çifti** ile test edildi:
+  geçerli imza kabul, gövde değiştirilince ret, URL değiştirilince ret,
+  başka anahtarla imzalanınca ret, 5 dakikadan eski istek ret.
+- v1 başlığının (`API_KEY`) kullanılmadığı ayrıca test edildi.
