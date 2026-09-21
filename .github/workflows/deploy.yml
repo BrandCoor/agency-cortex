@@ -319,7 +319,11 @@ jobs:
           # Ozet, sifre degistiyse yeniden uretilir.
           duz_sifre=$(grep -E '^[[:space:]]*N8N_BASIC_PASSWORD=' .env | tail -1 | cut -d= -f2-)
           if ! grep -qE '^[[:space:]]*N8N_BASIC_HASH=' .env; then
-            ozet=$(docker run --rm caddy:2.10-alpine caddy hash-password --plaintext "$duz_sifre")
+            # Sifre komut satirina YAZILMAZ: sunucudaki "ps" ciktisinda
+            # gorunurdu. Caddy, --plaintext verilmezse stdin'den okur.
+            # "docker run -i" burada guvenli: standart girdisi bu boru
+            # hatti, betigin kendisi degil.
+            ozet=$(printf '%s' "$duz_sifre" | docker run --rm -i caddy:2.10-alpine caddy hash-password)
             printf 'N8N_BASIC_HASH=%s\n' "$ozet" >> .env
             chmod 600 .env
             echo "  + N8N_BASIC_HASH uretildi"
