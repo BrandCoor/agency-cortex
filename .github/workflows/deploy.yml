@@ -286,11 +286,15 @@ jobs:
           set -eu
           cd /opt/agency-cortex
 
+          # DIKKAT: Bu betik "bash -s" ile standart girdiden okunuyor.
+          # "docker compose exec -T" de standart girdiyi okur ve betigin
+          # geri kalanini yutar; bu yuzden her cagriya </dev/null eklendi.
+          # (21 Eylul'de reload adimi tam bu yuzden hic calismamisti.)
           echo "--- yapilandirma dogrulaniyor ---"
-          docker compose exec -T caddy caddy validate --adapter caddyfile --config /etc/caddy/Caddyfile
+          docker compose exec -T caddy caddy validate --adapter caddyfile --config /etc/caddy/Caddyfile </dev/null
 
           echo "--- yeniden yukleniyor (kesintisiz) ---"
-          if docker compose exec -T caddy caddy reload --adapter caddyfile --config /etc/caddy/Caddyfile; then
+          if docker compose exec -T caddy caddy reload --adapter caddyfile --config /etc/caddy/Caddyfile </dev/null; then
             echo "TAMAM: Caddy yeni yapilandirmayi yukledi."
           else
             echo "UYARI: reload basarisiz, konteyner yeniden baslatiliyor."
@@ -304,11 +308,11 @@ jobs:
           set -eu
           cd /opt/agency-cortex
           for i in $(seq 1 40); do
-            if docker compose exec -T api curl -fsS http://localhost:8000/readyz >/dev/null 2>&1; then
+            if docker compose exec -T api curl -fsS http://localhost:8000/readyz >/dev/null 2>&1 </dev/null; then
               echo "BASARILI: sistem hazir"
-              docker compose exec -T api curl -sS http://localhost:8000/readyz
+              docker compose exec -T api curl -sS http://localhost:8000/readyz </dev/null
               echo
-              docker compose exec -T api curl -sS http://localhost:8000/version
+              docker compose exec -T api curl -sS http://localhost:8000/version </dev/null
               exit 0
             fi
             sleep 5

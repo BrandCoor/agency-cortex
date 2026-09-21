@@ -380,3 +380,14 @@ Panel ayrıca "Yayınlandı" seçeneğini hiç göstermez.
   başarısız olursa konteyner yeniden başlatılıyor.
 - Bu hata, yeni eklenen panel kontrolü sayesinde **kurulumu kırmızıya
   düşürerek** yakalandı — sessizce geçmedi.
+
+### Düzeltildi (üçüncü tur)
+- **Yeniden yükleme adımı eklendi ama hiç çalışmadı.** Uzak betikler
+  sunucuya `bash -s` ile standart girdiden veriliyor. `docker compose
+  exec -T` de standart girdiyi okuduğu için betiğin geri kalanını
+  yutuyordu: `caddy validate` çalıştı ("Valid configuration"), ondan
+  sonraki `caddy reload` satırı hiç yürütülmedi. Kurulum kaydında da
+  reload çıktısı yok. Tüm `docker compose exec -T` çağrılarına
+  `</dev/null` eklendi.
+- Hata yerelde birebir üretilip doğrulandı: `printf 'echo A\ncat >/dev/null\necho B\n' | bash -s`
+  yalnızca `A` yazıyor; `</dev/null` eklenince `B` de yazıyor.
