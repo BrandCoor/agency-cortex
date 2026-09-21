@@ -131,10 +131,47 @@ Kurulum öncesi alındı: **20 Eylül 2026**.
 > ⚠️ Hostinger her sunucu için **tek bir snapshot** tutar. Yeni snapshot
 > alındığında eskisi **silinir.** Bu yüzden veritabanı yedeği ayrıca alınır.
 
-### Veritabanı yedeği
-Günlük otomatik yedek `backup_database` işiyle alınır (Aşama 10'da devreye
-girecek). Yedekler sunucu dışında saklanacaktır — sunucu tamamen kaybolursa
-veri yine kurtarılabilsin diye.
+### Veritabanı yedeği — ✅ çalışıyor
+
+| | |
+|---|---|
+| Ne zaman | Her gün saat **03:30** |
+| Nerede | `/opt/agency-cortex/yedek/` |
+| Saklama | **14 gün** (eskiler otomatik silinir) |
+| Doğrulama | Her **pazar 04:00** |
+| Kayıt | `/var/log/agency-cortex-yedek.log` |
+
+**Yedek gerçekten çalışıyor mu?** Her kurulumda bir yedek alınıp **ayrı ve
+geçici** bir veritabanına geri yükleniyor, tabloları sayılıyor, sonra o geçici
+veritabanı siliniyor. Üretim veritabanına dokunulmuyor. Geri yüklenemeyen bir
+yedek, yedek değildir — bu yüzden "yedek alındı" demekle yetinmiyoruz.
+
+**Elle yedek almak** (sunucuda):
+```
+cd /opt/agency-cortex && bash ops/yedek_al.sh
+```
+
+**Yedeği sınamak** (üretime dokunmaz):
+```
+cd /opt/agency-cortex && bash ops/yedek_dogrula.sh
+```
+
+**Yedeği geri yüklemek** — ⚠️ geri alınamaz:
+```
+cd /opt/agency-cortex && bash ops/yedek_geri_yukle.sh yedek/agency-cortex-YYYYMMDD-HHMMSS.dump
+```
+Bu komut önce mevcut durumun yedeğini alır (yanlış dosya seçerseniz
+dönebilmeniz için), uygulamayı durdurur, `GERI YUKLE` yazmanızı ister ve
+işlem bitince sistemi tekrar başlatıp sağlığını kontrol eder.
+
+### ⚠️ Henüz eksik: sunucu dışına kopya
+Yedekler şu an **aynı sunucuda** duruyor. Sunucu tamamen kaybolursa yedekler
+de kaybolur. Sunucu dışına kopyalama henüz kurulmadı — bunun için bir
+depolama hesabı (örneğin bir nesne deposu) gerekiyor. Bu, olduğundan iyi
+gösterilmemesi gereken gerçek bir eksiktir.
+
+Şu an elimizdeki koruma: Hostinger sunucu anlık görüntüsü (tek adet, yenisi
+alınınca eskisi silinir) + günlük veritabanı yedeği (aynı sunucuda).
 
 ### Kritik: silinmemesi gerekenler
 | Veri birimi | İçeriği | Silinirse |

@@ -480,3 +480,33 @@ Panel ayrıca "Yayınlandı" seçeneğini hiç göstermez.
   ayarlanabilir). Bağlantı **tek kullanımlık** olmaya devam ediyor: kullanıldığı
   anda geçersizleşir, yani asıl koruma süreden değil tek kullanımlılıktan
   geliyor.
+
+## [0.10.0] - 2026-09-21 — Aşama 10: Yedekleme
+
+### Eklendi
+- **Günlük otomatik veritabanı yedeği** (her gün 03:30, 14 gün saklama).
+  - `ops/yedek_al.sh` — yedek önce geçici dosyaya yazılır, başarılıysa asıl
+    adına taşınır; böylece yarım kalan bir yedek "geçerli yedek" sanılmaz.
+    Dosya izni 600, çok küçük dosya geçersiz sayılır, eskiler **ancak yeni
+    yedek başarılı olduktan sonra** silinir.
+  - `ops/yedek_dogrula.sh` — yedeği **ayrı ve geçici** bir veritabanına geri
+    yükler, tablo ve kullanıcı sayar, sonra o veritabanını siler. Üretim
+    veritabanına dokunmaz. Her pazar 04:00'te otomatik çalışır.
+  - `ops/yedek_geri_yukle.sh` — üretime geri yükler. Önce mevcut durumun
+    yedeğini alır, uygulamayı durdurur, `GERI YUKLE` onayı ister, işlem
+    sonrası sistemi başlatıp sağlığını doğrular.
+- Kuruluma "Yedekleme kur ve doğrula" adımı: her kurulumda görevler kurulur,
+  bir yedek alınır ve **gerçekten geri yüklenebildiği sınanır.**
+
+### Doğrulandı
+- Gerçek PostgreSQL üzerinde uçtan uca denendi: yedek alındı → **tüm şema
+  silindi** (0 tablo) → yedekten geri yüklendi (29 tablo) → kullanıcı kaydı
+  ve şema sürümü geri geldi.
+- Crontab mantığı ayrıca sınandı: mevcut görevler korunuyor, yedek görevi
+  tekrar tekrar eklenmiyor, boş crontab'da da çalışıyor.
+- Geri yükleme betiğinin onay koruması sınandı: yanlış onayda hiçbir şey
+  değişmiyor.
+
+### Henüz eksik (açıkça)
+- **Yedekler sunucu dışına kopyalanmıyor.** Sunucu tamamen kaybolursa
+  yedekler de kaybolur. Bunun için bir depolama hesabı gerekiyor.

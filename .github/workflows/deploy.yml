@@ -224,6 +224,15 @@ jobs:
           scp -i ~/.ssh/id_deploy -o BatchMode=yes \
             ops/Caddyfile \
             "$VPS_USER@$VPS_HOST:$PROJE_DIZINI/Caddyfile"
+          # Yedekleme betikleri. Sunucuda calisirlar; imajin icinde degiller
+          # cunku docker compose komutlarini SUNUCUDAN cagirmalari gerekir.
+          ssh -i ~/.ssh/id_deploy -o BatchMode=yes "$VPS_USER@$VPS_HOST" \
+            "mkdir -p $PROJE_DIZINI/ops"
+          scp -i ~/.ssh/id_deploy -o BatchMode=yes \
+            ops/yedek_al.sh ops/yedek_dogrula.sh ops/yedek_geri_yukle.sh \
+            "$VPS_USER@$VPS_HOST:$PROJE_DIZINI/ops/"
+          ssh -i ~/.ssh/id_deploy -o BatchMode=yes "$VPS_USER@$VPS_HOST" \
+            "chmod +x $PROJE_DIZINI/ops/yedek_*.sh"
 
       - name: Ayar dosyasini hazirla (gizli degerler SUNUCUDA uretilir)
         run: |
@@ -368,6 +377,37 @@ jobs:
       #
       # Sistemde zaten kullanici varsa komut hicbir sey yapmaz; bu adim her
       # kurulumda guvenle tekrar calistirilabilir.
+      # Yedekleme her kurulumda kurulur ve GERCEKTEN calistigi dogrulanir.
+      # "Yedek aliniyor" demek yetmez; geri yuklenemeyen bir yedek, yedek
+      # degildir. Bu yuzden her kurulumda bir yedek alinip AYRI bir gecici
+      # veritabanina geri yuklenerek sinaniyor.
+      - name: Yedekleme kur ve dogrula
+        run: |
+          ssh -i ~/.ssh/id_deploy -o BatchMode=yes "$VPS_USER@$VPS_HOST" bash -s <<'UZAK'
+          set -eu
+          cd /opt/agency-cortex
+
+          echo "--- zamanlanmis gorevler kuruluyor ---"
+          # Her gun 03:30'da yedek, her pazar 04:00'te dogrulama.
+          # crontab satirlari etikete gore degistirilir; tekrar eklenmez.
+          mevcut=$(crontab -l 2>/dev/null | grep -v '# agency-cortex-yedek' || true)
+          {
+            printf '%s\n' "$mevcut"
+            echo "30 3 * * * cd /opt/agency-cortex && /bin/bash ops/yedek_al.sh >> /var/log/agency-cortex-yedek.log 2>&1 # agency-cortex-yedek"
+            echo "0 4 * * 0 cd /opt/agency-cortex && /bin/bash ops/yedek_dogrula.sh >> /var/log/agency-cortex-yedek.log 2>&1 # agency-cortex-yedek"
+          } | sed '/^$/d' | crontab -
+          echo "kurulu gorevler:"
+          crontab -l | grep 'agency-cortex-yedek' || true
+
+          echo ""
+          echo "--- simdi bir yedek aliniyor ---"
+          /bin/bash ops/yedek_al.sh
+
+          echo ""
+          echo "--- alinan yedek GERCEKTEN geri yuklenebiliyor mu? ---"
+          /bin/bash ops/yedek_dogrula.sh
+          UZAK
+
       - name: Ilk yonetici hesabi
         env:
           ILK_EMAIL: ${{ secrets.ILK_YONETICI_EMAIL }}
