@@ -272,6 +272,32 @@ jobs:
           docker compose ps
           UZAK
 
+      # NEDEN AYRI BIR ADIM?
+      # Caddyfile bir baglama (bind mount) ile konteynere veriliyor. Dosya
+      # sunucuda degisse bile "docker compose up -d" caddy servisinin
+      # tanimini degismemis gorur ve konteynere hic dokunmaz; Caddy de
+      # yapilandirmayi yalnizca acilista okudugu icin ESKI ayarla calismaya
+      # devam eder. 21 Eylul'de panelin canliya cikmamasinin sebebi buydu.
+      #
+      # Once dogrula, sonra yeniden yukle: bozuk bir dosya siteyi dusurmesin.
+      - name: Caddy yapilandirmasini yeniden yukle
+        run: |
+          ssh -i ~/.ssh/id_deploy -o BatchMode=yes "$VPS_USER@$VPS_HOST" bash -s <<'UZAK'
+          set -eu
+          cd /opt/agency-cortex
+
+          echo "--- yapilandirma dogrulaniyor ---"
+          docker compose exec -T caddy caddy validate --adapter caddyfile --config /etc/caddy/Caddyfile
+
+          echo "--- yeniden yukleniyor (kesintisiz) ---"
+          if docker compose exec -T caddy caddy reload --adapter caddyfile --config /etc/caddy/Caddyfile; then
+            echo "TAMAM: Caddy yeni yapilandirmayi yukledi."
+          else
+            echo "UYARI: reload basarisiz, konteyner yeniden baslatiliyor."
+            docker compose restart caddy
+          fi
+          UZAK
+
       - name: Saglik kontrolu
         run: |
           ssh -i ~/.ssh/id_deploy -o BatchMode=yes "$VPS_USER@$VPS_HOST" bash -s <<'UZAK'

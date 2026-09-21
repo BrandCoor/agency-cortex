@@ -368,3 +368,15 @@ Panel ayrıca "Yayınlandı" seçeneğini hiç göstermez.
   "ATLANDI" dedi (tekrar çalıştırmaya güvenli).
 - Kurulum kontrolü artık `/panel/giris` sayfasını dışarıdan çekiyor ve
   giriş formunu bulamazsa kurulumu HATA ile bitiriyor.
+
+### Düzeltildi (ikinci tur)
+- **Düzeltilmiş Caddyfile sunucuya gitti ama devreye girmedi.** Caddyfile
+  konteynere bağlama (bind mount) ile veriliyor; dosya değişse bile
+  `docker compose up -d` caddy servisinin tanımını değişmemiş görüp
+  konteynere dokunmuyor, Caddy de yapılandırmayı yalnızca açılışta
+  okuduğu için eski ayarla devam ediyordu. Kurulum akışına "Caddy
+  yapılandırmasını yeniden yükle" adımı eklendi: önce `caddy validate`
+  ile doğrulanıyor, sonra kesintisiz `caddy reload` yapılıyor; reload
+  başarısız olursa konteyner yeniden başlatılıyor.
+- Bu hata, yeni eklenen panel kontrolü sayesinde **kurulumu kırmızıya
+  düşürerek** yakalandı — sessizce geçmedi.
