@@ -67,34 +67,50 @@ fi
 yaz "Anahtar uretildi (deger loglanmaz)."
 
 # --- 2) Kimlik bilgisini n8n'e aktar ----------------------------------------
-# n8n duz veriyi alip KENDI anahtariyla sifreler; dosya hemen silinir.
-gecici=$(mktemp)
-chmod 600 "$gecici"
-temizle() { rm -f "$gecici"; docker compose exec -T n8n rm -f /tmp/ac-kimlik.json </dev/null 2>/dev/null || true; }
+# n8n duz veriyi alip KENDI anahtariyla sifreler.
+#
+# Dosya SUNUCUNUN diskine hic yazilmaz: dogrudan konteyner icinde, n8n'in
+# kendi kullanicisi tarafindan olusturulur. Hem anahtar sunucuda iz
+# birakmaz hem de izin sorunu kalmaz.
+#
+# ("docker compose cp" dosyayi root'a ait birakiyordu; n8n "node"
+#  kullanicisi olarak calistigi icin okuyamayip EACCES veriyordu.)
+temizle() {
+  docker compose exec -T n8n rm -f /tmp/ac-kimlik.json </dev/null 2>/dev/null || true
+  rm -f /tmp/ac-kimlik-uret.py /tmp/n8n_kimlik.log
+}
 trap temizle EXIT
 
-python3 - "$gecici" "$ANAHTAR" <<'PY'
+cat > /tmp/ac-kimlik-uret.py <<'BETIK'
 import json, sys
-hedef, anahtar = sys.argv[1], sys.argv[2]
-json.dump([{
+print(json.dumps([{
     "id": "agency-cortex-api",
     "name": "Agency Cortex API",
     "type": "httpHeaderAuth",
-    "data": {"name": "X-API-Key", "value": anahtar},
-}], open(hedef, "w"), ensure_ascii=False)
-PY
-unset ANAHTAR
-
-docker compose cp "$gecici" n8n:/tmp/ac-kimlik.json >/dev/null
-rm -f "$gecici"
+    "data": {"name": "X-API-Key", "value": sys.argv[1]},
+}], ensure_ascii=False))
+BETIK
 
 yaz "Kimlik bilgisi n8n'e aktariliyor..."
-if ! docker compose exec -T n8n n8n import:credentials --input=/tmp/ac-kimlik.json </dev/null; then
-  yaz "HATA: kimlik bilgisi aktarilamadi."
-  yaz "Olasi neden: n8n'de henuz SAHIP HESABI olusturulmadi."
-  yaz "n8n adresine girip hesabinizi olusturun; bu betik kendiliginden tekrar deneyecek."
+if ! python3 /tmp/ac-kimlik-uret.py "$ANAHTAR" \
+     | docker compose exec -T n8n sh -c 'umask 077; cat > /tmp/ac-kimlik.json'; then
+  yaz "HATA: kimlik bilgisi dosyasi konteynere yazilamadi."
   exit 1
 fi
+rm -f /tmp/ac-kimlik-uret.py
+unset ANAHTAR
+
+if ! docker compose exec -T n8n n8n import:credentials --input=/tmp/ac-kimlik.json \
+     </dev/null >/tmp/n8n_kimlik.log 2>&1; then
+  yaz "HATA: kimlik bilgisi aktarilamadi. n8n'in soyledigi:"
+  # Anahtar loga sizmasin diye maskelenir.
+  sed -e 's/acx_[A-Za-z0-9_-]*/acx_***/g' /tmp/n8n_kimlik.log | sed 's/^/    /'
+  yaz "Bu asamada en sik neden, n8n'de henuz SAHIP HESABI olmamasidir."
+  yaz "Yukaridaki mesaj baska bir sey soyluyorsa gecerli olan odur."
+  yaz "Betik zamanlanmis olarak tekrar deneyecek."
+  exit 1
+fi
+sed -e 's/acx_[A-Za-z0-9_-]*/acx_***/g' /tmp/n8n_kimlik.log | sed 's/^/    /'
 docker compose exec -T n8n rm -f /tmp/ac-kimlik.json </dev/null || true
 
 # --- 3) Is akislarini yukle -------------------------------------------------
