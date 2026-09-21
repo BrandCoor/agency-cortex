@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import unicodedata
 import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any, Literal
@@ -34,11 +35,32 @@ TokenType = Literal["access", "refresh"]
 # Sifreler
 # --------------------------------------------------------------------------
 
+def _normalize_password(plain: str) -> str:
+    """Sifreyi tek bir Unicode gosterimine cevirir.
+
+    NEDEN GEREKLI?
+    Turkce harfler (g, u, s, i, o, c) iki farkli sekilde kodlanabilir:
+    tek bir karakter olarak (U+011F) veya taban harf + birlesik isaret
+    olarak (g + U+0306). Ekranda ikisi de AYNI gorunur, fakat bayt
+    duzeyinde farklidir; ozetleri de farkli cikar.
+
+    Kullanici sifresini bir cihazda olusturup baska bir cihazda yazdiginda
+    (ornegin masaustunde olusturup telefondan girdiginde) bu iki gosterim
+    karisabilir ve "sifre hatali" hatasi alinir - sifre aslinda dogru
+    oldugu halde.
+
+    Cozum, RFC 8265'in (PRECIS OpaqueString) onerdigi yaklasimdir: sifre
+    hem ozetlenirken hem dogrulanirken ayni bicime (NFKC) cevrilir.
+    Sifrenin gucu degismez; yalnizca gosterim birlestirilir.
+    """
+    return unicodedata.normalize("NFKC", plain)
+
+
 def hash_password(plain: str) -> str:
     """Sifreyi geri cevrilemez sekilde ozetler."""
     if not plain:
         raise ValueError("Sifre bos olamaz.")
-    return _hasher.hash(plain)
+    return _hasher.hash(_normalize_password(plain))
 
 
 def verify_password(plain: str, hashed: str) -> bool:
@@ -48,7 +70,7 @@ def verify_password(plain: str, hashed: str) -> bool:
     Boylece giris ucu, hatanin turunu disariya sizdirmaz.
     """
     try:
-        return _hasher.verify(hashed, plain)
+        return _hasher.verify(hashed, _normalize_password(plain))
     except (VerifyMismatchError, InvalidHashError, ValueError):
         return False
 

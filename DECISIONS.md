@@ -371,3 +371,25 @@ Format: Karar / Seçenekler / Neden / Risk / Geri alma
   silinmesi önerilir.
 - **Geri alma:** Secret silinir; şifre `sifre-degistir` komutuyla veya
   panelden değiştirilir.
+
+---
+
+## K-022 — Şifreler özetlenmeden önce Unicode olarak tekilleştiriliyor
+
+- **Karar:** `hash_password` ve `verify_password`, şifreyi önce NFKC
+  biçimine çevirir.
+- **Sorun:** Türkçe harfler (ğ, ü, ş, ı, ö, ç) iki farklı şekilde
+  kodlanabilir: tek karakter olarak (`ğ` = U+011F) veya taban harf +
+  birleşik işaret olarak (`g` + U+0306). Ekranda **birebir aynı** görünürler,
+  bayt düzeyinde farklıdırlar. Kullanıcı şifresini bir cihazda oluşturup
+  başka bir cihazda yazdığında iki gösterim karışabilir ve şifre doğru
+  olduğu hâlde "şifre hatalı" hatası alınır.
+- **Seçenekler:** (a) NFKC ile tekilleştirmek, (b) Türkçe harfleri
+  şifrelerde yasaklamak, (c) hiçbir şey yapmamak.
+- **Neden (a):** (c) gerçek bir arızaydı — ilk yönetici hesabında bu tam
+  olarak yaşandı. (b) kullanıcıya kendi dilini yasaklamak olurdu.
+  (a) RFC 8265'in (PRECIS OpaqueString) şifreler için önerdiği yaklaşımdır.
+- **Risk:** Düşük. Tekilleştirme yalnızca gösterimi birleştirir; farklı
+  şifrelerin birbirinin yerine geçmesine yol açmaz — bu ayrıca test edildi.
+- **Geri alma:** Gerekmez. Mevcut özetler çalışmaya devam eder: eski özet
+  NFKC biçiminde üretilmişti, aynı biçimle doğrulanıyor.

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import unicodedata
 from datetime import timedelta
 
 import pytest
@@ -98,3 +99,55 @@ def test_her_anahtar_benzersizdir():
     a = decode_token(create_token("abc", "access"), "access")
     b = decode_token(create_token("abc", "access"), "access")
     assert a["jti"] != b["jti"]
+
+
+# --- Unicode gosterim birligi ------------------------------------------------
+# Turkce harfler iki farkli sekilde kodlanabilir; ekranda ayni gorunurler.
+# Kullanici sifresini bir cihazda olusturup baskasinda yazdiginda bu iki
+# gosterim karisabilir. Sifre her iki halde de calismali.
+
+def test_turkce_harfin_iki_gosterimi_de_ayni_sifre_sayiliyor():
+    nfc = unicodedata.normalize("NFC", "Eroğlu4103+X")
+    nfd = unicodedata.normalize("NFD", "Eroğlu4103+X")
+
+    # Onculde: ikisi ekranda ayni, bayt duzeyinde farkli
+    assert nfc != nfd
+    assert len(nfd) == len(nfc) + 1
+
+    ozet = hash_password(nfc)
+    assert verify_password(nfc, ozet)
+    assert verify_password(nfd, ozet)
+
+
+def test_ters_yonde_de_calisiyor():
+    """Sifre birlesik isaretli halde olusturulsa bile duz hali kabul edilmeli."""
+    nfc = unicodedata.normalize("NFC", "Güçlüşifre123")
+    nfd = unicodedata.normalize("NFD", "Güçlüşifre123")
+
+    ozet = hash_password(nfd)
+    assert verify_password(nfc, ozet)
+    assert verify_password(nfd, ozet)
+
+
+def test_normalizasyon_yanlis_sifreyi_kabul_etmiyor():
+    """Gosterim birlestirme, farkli sifrelerin gecmesine yol acmamali."""
+    ozet = hash_password("Eroğlu4103+X")
+
+    assert not verify_password("Eroglu4103+X", ozet)   # g yerine duz g
+    assert not verify_password("Eroğlu4103+Y", ozet)
+    assert not verify_password("Eroğlu4103+", ozet)
+
+
+def test_panel_girisi_iki_gosterimde_de_calisiyor(client, db, make_user):
+    """Uctan uca: hesap bir gosterimle acilsa bile digeriyle giris yapilabilmeli."""
+    nfc = unicodedata.normalize("NFC", "Eroğlu4103+X")
+    nfd = unicodedata.normalize("NFD", "Eroğlu4103+X")
+    kullanici = make_user(email="sahip@ornek.com", password=nfc)
+
+    for ad, sifre in [("NFC", nfc), ("NFD", nfd)]:
+        yanit = client.post(
+            "/panel/giris",
+            data={"email": kullanici.email, "password": sifre},
+            follow_redirects=False,
+        )
+        assert yanit.status_code == 303, f"{ad} gosterimiyle giris basarisiz"

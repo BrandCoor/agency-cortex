@@ -416,3 +416,27 @@ Panel ayrıca "Yayınlandı" seçeneğini hiç göstermez.
 - Tanılama üç senaryoda gerçek PostgreSQL üzerinde çalıştırıldı: sondaki
   boşluk, e-posta uyuşmazlığı, her şeyin doğru olduğu durum. Üçünde de doğru
   sonucu verdi ve şifreyi çıktıya yazmadı.
+
+## [0.7.3] - 2026-09-21 — Türkçe harf içeren şifre düzeltmesi
+
+### Düzeltildi
+- **Şifresinde Türkçe harf olan kullanıcı panele giremiyordu.** `ğ` gibi
+  harfler iki farklı Unicode gösterimiyle yazılabiliyor; ekranda aynı
+  görünüyor ama bayt düzeyinde farklılar, dolayısıyla özetleri de farklı
+  çıkıyordu. Şifreler artık hem özetlenirken hem doğrulanırken NFKC
+  biçimine çevriliyor (RFC 8265 / PRECIS OpaqueString yaklaşımı).
+  Gerekçe: DECISIONS.md K-022.
+
+### Nasıl bulundu
+- Yeni eklenen "tanilama" komutu sunucuda çalıştırıldı. Şifrenin kendisi
+  hiçbir yere yazılmadan şu üç gerçeği verdi: şifre 12 karakter, boşluk
+  yok, **1 adet ASCII dışı karakter var**, ve saklanan özet gizli değerle
+  **uyuşuyor**. Son madde sunucu tarafının doğru olduğunu kanıtladı;
+  geriye tek olasılık olarak gösterim farkı kaldı. Varsayım yerelde
+  birebir üretilip doğrulandı.
+
+### Doğrulandı
+- 281/281 test geçti (önceki 277 + 4 yeni).
+- Aynı şifrenin iki gösterimiyle de panel girişi yapılabiliyor (uçtan uca
+  test). Farklı şifrelerin birbirinin yerine geçmediği ayrıca test edildi.
+- Mevcut hesap bozulmuyor: kayıtlı özet zaten NFKC biçiminde üretilmişti.
