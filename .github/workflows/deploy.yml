@@ -323,7 +323,15 @@ jobs:
             # gorunurdu. Caddy, --plaintext verilmezse stdin'den okur.
             # "docker run -i" burada guvenli: standart girdisi bu boru
             # hatti, betigin kendisi degil.
-            ozet=$(printf '%s' "$duz_sifre" | docker run --rm -i caddy:2.10-alpine caddy hash-password)
+            #
+            # SATIR SONU SART: Caddy stdin'i ReadBytes('\n') ile okuyor.
+            # Satir sonu gelmezse EOF hatasi verip cikiyor - ilk denemede
+            # kurulum tam bu yuzden durdu.
+            ozet=$(printf '%s\n' "$duz_sifre" | docker run --rm -i caddy:2.10-alpine caddy hash-password)
+            if [ -z "$ozet" ]; then
+              echo "HATA: n8n kapi sifresinin ozeti uretilemedi." >&2
+              exit 1
+            fi
             printf 'N8N_BASIC_HASH=%s\n' "$ozet" >> .env
             chmod 600 .env
             echo "  + N8N_BASIC_HASH uretildi"
