@@ -35,6 +35,36 @@ cd "$DIZIN"
 
 yaz() { echo "[$(date -Is)] $*"; }
 
+# HER n8n CLI CAGRISI ZAMAN ASIMINA BAGLIDIR.
+#
+# NEDEN: 23 Eylul'de kurulum adimi 25 dakika boyunca asili kaldi ve
+# hangi komutta takildigi ANLASILAMADI, cunku hicbirinin siniri yoktu.
+# Sinirsiz bekleyen bir adim, hata vermeyen bir adimdan daha kotudur:
+# ne biter, ne de neyin bozuk oldugunu soyler.
+#
+# Takilan komut artik SEBEBIYLE birlikte hata verir; zamanlanmis gorev
+# bes dakika sonra yeniden dener.
+N8N_ZAMAN_ASIMI="${N8N_ZAMAN_ASIMI:-180}"
+
+n8n_calistir() {
+  # Kullanimi: n8n_calistir <aciklama> <komut...>
+  aciklama="$1"; shift
+  if ! timeout --signal=TERM --kill-after=20 "$N8N_ZAMAN_ASIMI" "$@" </dev/null; then
+    kod=$?
+    if [ "$kod" -eq 124 ] || [ "$kod" -eq 137 ]; then
+      yaz "HATA: '$aciklama' ${N8N_ZAMAN_ASIMI} saniyede bitmedi; iptal edildi."
+      yaz "n8n konteynerinin durumu:"
+      docker compose ps n8n </dev/null 2>&1 | sed 's/^/    /' || true
+      yaz "n8n gunlugunun son satirlari:"
+      docker compose logs --tail 20 n8n </dev/null 2>&1 \
+        | sed -e 's/acx_[A-Za-z0-9_-]*/acx_***/g' -e 's/^/    /' || true
+    else
+      yaz "HATA: '$aciklama' basarisiz (cikis kodu $kod)."
+    fi
+    return "$kod"
+  fi
+}
+
 # ISARET DOSYASI, KURULAN AKISLARIN LISTESINI TUTAR.
 #
 # Sadece "kuruldu mu" diye bakmak yetmiyordu: yeni bir akis eklendiginde
@@ -132,7 +162,8 @@ fi
 rm -f /tmp/ac-kimlik-uret.py
 unset ANAHTAR
 
-if ! docker compose exec -T n8n n8n import:credentials --input="$KIMLIK_YOLU" \
+if ! timeout --signal=TERM --kill-after=20 "$N8N_ZAMAN_ASIMI" \
+     docker compose exec -T n8n n8n import:credentials --input="$KIMLIK_YOLU" \
      </dev/null >/tmp/n8n_kimlik.log 2>&1; then
   yaz "HATA: kimlik bilgisi aktarilamadi. n8n'in soyledigi:"
   # Anahtar loga sizmasin diye maskelenir.
@@ -147,12 +178,14 @@ docker compose exec -T n8n rm -f "$KIMLIK_YOLU" </dev/null || true
 
 # --- 3) Is akislarini yukle -------------------------------------------------
 yaz "Is akislari yukleniyor..."
-docker compose exec -T n8n n8n import:workflow --separate --input=/akislar </dev/null
+n8n_calistir "is akislarini yukleme" \
+  docker compose exec -T n8n n8n import:workflow --separate --input=/akislar
 
 # --- 4) Yayinla (n8n 2.x'te etkinlestirme budur) ----------------------------
 for id in $AKIS_IDLERI; do
   yaz "Yayinlaniyor: $id"
-  docker compose exec -T n8n n8n publish:workflow --id="$id" </dev/null
+  n8n_calistir "yayinlama ($id)" \
+    docker compose exec -T n8n n8n publish:workflow --id="$id"
 done
 
 # --- 5) n8n yeniden baslatilir ----------------------------------------------
@@ -170,7 +203,9 @@ done
 # "Yukledim" demek yetmez. Etkin olmayan bir akis hic calismaz ve bu
 # sessizce fark edilmez.
 yaz "Etkin akislar dogrulaniyor..."
-etkinler=$(docker compose exec -T n8n n8n list:workflow --active=true --onlyId </dev/null 2>/dev/null | tr -d '\r')
+etkinler=$(timeout --signal=TERM --kill-after=20 "$N8N_ZAMAN_ASIMI" \
+  docker compose exec -T n8n n8n list:workflow --active=true --onlyId \
+  </dev/null 2>/dev/null | tr -d '\r')
 
 eksik=""
 for id in $AKIS_IDLERI; do

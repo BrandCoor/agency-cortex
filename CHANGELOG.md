@@ -1206,3 +1206,21 @@ Kaldırıldı, durum tablosu düzeltildi.
 - Yeni migration gerçek veriyle ileri → geri → ileri sınandı.
 - İş akışı sayısı artık testlerde **sabit yazılmıyor**, katalogdan
   türetiliyor — yeni akış eklenince test boşuna düşmüyor.
+
+## [0.15.1] - 2026-09-23 — Kurulum adımları artık sonsuza kadar beklemiyor
+
+### Düzeltildi — kurulum 25 dakika asılı kaldı
+"n8n iş akışlarını kur" adımı takıldı ve **hangi komutta** takıldığı
+anlaşılamadı, çünkü hiçbirinin süre sınırı yoktu.
+
+- Her n8n komutu `timeout` ile sarmalandı (180 sn). Takılan komut artık
+  **adıyla** hata veriyor; yanında n8n'in durumu ve son günlük satırları
+  yazılıyor (anahtarlar maskeli).
+- Adım sınırları: iş akışı kurulumu 8 dk, teşhis 5'er dk.
+- İş sınırı: kurulumun tamamı 25 dk.
+- İş akışı kurulumu artık kurulumu **başarısız saymıyor**: sunucudaki
+  zamanlanmış görev 5 dakikada bir yeniden deniyor. Otomasyonun takılması
+  uygulamanın canlıya çıkmasını engellememeli.
+
+**Kök neden hâlâ bilinmiyor** ve bunu "n8n yavaştı" diye geçiştirmiyorum:
+bir sonraki takılmada teşhis çıktısı hangi komut olduğunu yazacak.

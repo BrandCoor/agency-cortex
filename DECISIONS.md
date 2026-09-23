@@ -1097,3 +1097,30 @@ Format: Karar / Seçenekler / Neden / Risk / Geri alma
 - **Boşluk açıklanır:** Rakip/trend ekranında bulgu yoksa **sebebi**
   yazılır (rakip eklenmemiş mi, akış kapalı mı). "Boş" demek, kullanıcıya
   "bozuk mu?" dedirtirdi.
+
+---
+
+## K-056 — Kurulum adımlarına üst sınır konuldu
+
+- **Olay:** 23 Eylül'de kurulumun "n8n iş akışlarını kur" adımı **25
+  dakika boyunca asılı kaldı** ve kendiliğinden bitmedi. Hangi komutta
+  takıldığı **anlaşılamadı**, çünkü hiçbirinin süre sınırı yoktu.
+- **Neden önemli:** Sınırsız bekleyen bir adım, hata veren adımdan daha
+  kötüdür. Ne biter, ne de neyin bozuk olduğunu söyler. Uygulama o sırada
+  zaten canlıya çıkmıştı (sağlık ve dışarıdan HTTPS kontrolleri geçti);
+  yalnızca otomasyon kurulumu takılmıştı — ama iş "devam ediyor"
+  göründüğü için bu ayrım görünmüyordu.
+- **Karar — üç katman:**
+  1. **Her n8n CLI çağrısı** `timeout` ile sarmalandı (varsayılan 180 sn).
+     Takılan komut artık **adıyla** hata verir ve yanında n8n'in konteyner
+     durumu ile son 20 günlük satırı basılır (anahtarlar maskelenerek).
+  2. **Adım sınırı:** iş akışı kurulumu 8 dk, teşhis adımları 5'er dk.
+  3. **İş sınırı:** kurulumun tamamı 25 dk.
+- **Kurulum artık bu adımda başarısız sayılmıyor** (`continue-on-error`):
+  sunucudaki zamanlanmış görev beş dakikada bir yeniden deniyor. n8n
+  kurulumunun takılması, **uygulamanın canlıya çıkmasını engellememeli**.
+- **Kök neden hâlâ bilinmiyor:** hangi n8n komutunun takıldığı
+  ölçülemedi; GitHub günlükleri iş bitmeden indirilemiyor ve bu ortamdan
+  sunucuya SSH yok. Bunu "n8n yavaştı" diye geçiştirmiyorum — bir sonraki
+  takılmada yukarıdaki teşhis çıktısı **hangi komut** olduğunu yazacak.
+- **Geri alma:** `N8N_ZAMAN_ASIMI` ortam değişkeniyle süre değiştirilebilir.

@@ -33,6 +33,10 @@ jobs:
   deploy:
     name: Kurulum
     runs-on: ubuntu-latest
+    # UST SINIR: 23 Eylul'de n8n kurulum adimi 25 dakika asili kaldi ve
+    # kendiliginden bitmedi. Sinirsiz bekleyen bir is, hicbir zaman
+    # "basarisiz" demez; yalnizca belirsiz kalir. Sinir koyuldu.
+    timeout-minutes: 25
     permissions:
       contents: read
       packages: read
@@ -790,6 +794,11 @@ jobs:
       # zamanlanmis gorev kurar. Kullanici hesabini actiktan birkac
       # dakika sonra akislar kendiliginden kurulur.
       - name: n8n is akislarini kur
+        # Akislar kurulamasa bile kurulum BASARILI sayilir: sunucudaki
+        # zamanlanmis gorev bes dakikada bir yeniden dener. Bu adimin
+        # takilmasi, uygulamanin canliya cikmasini engellememeli.
+        timeout-minutes: 8
+        continue-on-error: true
         run: |
           ssh -i ~/.ssh/id_deploy -o BatchMode=yes "$VPS_USER@$VPS_HOST" \
             "cat > /tmp/n8n_akis_kur.sh" <<'UZAK'
@@ -823,6 +832,7 @@ jobs:
       # Kurulumdan SONRA gercek durumu olcup yazar.
       # "Kurdum" demek yetmez; n8n'de ne oldugu goruntulenmeli.
       - name: n8n durumu (tanilama)
+        timeout-minutes: 5
         if: always()
         run: |
           ssh -i ~/.ssh/id_deploy -o BatchMode=yes "$VPS_USER@$VPS_HOST" bash -s <<'UZAK'
@@ -867,6 +877,7 @@ jobs:
       # NEDEN WF-05: bagli hesap yoksa hicbir sey yapmaz. AI harcamaz,
       # disariya istek atmaz. En ucuz gercek kanit budur.
       - name: n8n Cortex'e gercekten ulasiyor mu?
+        timeout-minutes: 5
         run: |
           ssh -i ~/.ssh/id_deploy -o BatchMode=yes "$VPS_USER@$VPS_HOST" bash -s <<'UZAK'
           set -eu
