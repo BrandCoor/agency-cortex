@@ -9,14 +9,14 @@ Son güncelleme: 23 Eylül 2026
 | | |
 |---|---|
 | Depo | https://github.com/BrandCoor/agency-cortex (özel) |
-| Kod | ~23.200 satır Python (uygulama + testler) |
-| Test | 581, tamamı geçiyor (CI'da da) |
+| Kod | ~24.800 satır Python (uygulama + testler) |
+| Test | 636, tamamı geçiyor (CI'da da) |
 | Docker imajı | ✅ Derlendi ve çalıştığı doğrulandı |
 | Sunucu | Hostinger KVM 4 (`1990274`) — ✅ **ÇALIŞIYOR** |
 | Canlı adres | https://agencycortex.tech ✅ HTTPS aktif |
 | Domain | agencycortex.tech → 187.124.22.8 ✅ |
 | Sunucu yedeği | 20 Eylül 2026'da alındı ✅ (sunucu dışı kopya bekliyor) |
-| Otomasyon | n8n'de 5 iş akışı kurulu ve **etkin** ✅ |
+| Otomasyon | n8n'de 6 iş akışı ✅ |
 
 ---
 
@@ -27,16 +27,16 @@ Son güncelleme: 23 Eylül 2026
 | 0 | Keşif | ✅ |
 | 1 | Docker, veritabanı, kuyruk, sağlık kontrolü, loglama | ✅ |
 | 2 | Kullanıcı, müşteri izolasyonu, roller, oturum | ✅ |
-| 3 | Platform mimarisi, OAuth, webhook güvenliği | 🟡 Kod hazır, 4 Meta sabiti doğrulanmadı |
+| 3 | Platform mimarisi, OAuth, webhook güvenliği | 🟡 Kod hazır; Meta değerleri panelden girilir |
 | 4 | Metrikler, KPI motoru, raporlar | ✅ Tamamlandı |
 | 5 | Claude API ile içerik senaryosu | ✅ Tamamlandı |
-| 6 | Manus API ile araştırma | 🟡 Engelli (doküman erişimi yok) |
+| 6 | Manus API ile araştırma | ✅ Tamamlandı (API v2, doküman doğrulandı) |
 | 7 | İnsan onay paneli | ✅ Tamamlandı |
-| 8 | Rakip ve trend modülü | ⬜ Sırada |
-| 9 | Gemini sağlayıcısı | ⬜ Planlanmadı (ayarlardan kaldırıldı) |
+| 8 | Rakip ve trend modülü | ✅ Tamamlandı (WF-06 + ekran) |
+| 9 | Gemini sağlayıcısı | ✅ Tamamlandı (resmî API tanımından) |
 | 10 | Güvenlik, yedekleme, üretim kurulumu | 🟡 Kurulum ✅, sunucu dışı kopya kaldı |
 | 11 | Kullanıcı yönetimi ve panel yenileme | ✅ Tamamlandı |
-| 12 | n8n otomasyonu (5 iş akışı) | ✅ Tamamlandı |
+| 12 | n8n otomasyonu (6 iş akışı) | ✅ Tamamlandı |
 | 13 | Yayın takvimi | ✅ Tamamlandı |
 | 14 | Ayrıntılı yetkiler (19 izin) | ✅ Tamamlandı |
 
@@ -89,7 +89,8 @@ Bunlar yazıldı **ve çalıştığı kanıtlandı:**
 - Menüde gizlenen sayfa, adres elle yazıldığında da 404 dönüyor
 
 ### Otomasyon
-- 5 iş akışı n8n'de kurulu ve etkin (sunucudan ölçüldü)
+- 6 iş akışı tanımlı; kurulum n8n'e yüklüyor ve etkinleştiriyor
+- Kurulum, n8n'in Cortex'e kimliğiyle **gerçekten ulaştığını** doğruluyor
 - Kurulum, n8n'in Cortex'e kimliğiyle **gerçekten ulaştığını** doğruluyor
 
 ---
