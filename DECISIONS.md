@@ -1155,3 +1155,33 @@ Format: Karar / Seçenekler / Neden / Risk / Geri alma
   gerektiriyor; akışa webhook tetikleyici eklemek ürün davranışını
   değiştirirdi. İkisi de bu doğrulama uğruna yapılacak değişiklikler
   değil.
+
+---
+
+## K-058 — Hesap bağlama dönüşünde ham JSON gösterilmiyor
+
+- **Kullanıcının gördüğü:**
+  ```json
+  { "detail": "Eksik parametre: 'state' zorunludur." }
+  ```
+- **Neden kötü:** Bu uca **tarayıcı** gelir (Meta yönlendirir). Ekranda
+  ham JSON görmek kullanıcıya hiçbir şey anlatmaz, ne yapacağını
+  söylemez ve sistemi bozuk gösterir.
+- **Daha kötüsü:** Fonksiyonun kendi açıklaması *"ekranda ham hata JSON'u
+  görünmez"* diyordu; ilk satırı tam olarak onu yapıyordu. Üstelik **üç
+  test bu davranışı doğru sayıp kilitliyordu** — biri "ham JSON hatası
+  görünmemeli" başlığını taşıdığı hâlde yalnızca `state` varken kontrol
+  ediyordu.
+- **Karar:** Dönüşte hiçbir yol ham JSON döndürmüyor:
+  - **`state` yok:** Hangi müşteri olduğu bilinemez, ama müşteri listesine
+    okunabilir bir mesajla dönülür. Meta bir hata gönderdiyse **Meta'nın
+    kendi mesajı aynen geçer** — `Invalid platform app` gibi bir metin en
+    değerli bilgidir, gizlenmemeli.
+  - **`state` geçersiz/kullanılmış:** Bu normal kullanımda da olur (geri
+    tuşu, sayfa yenileme). Anlaşılır mesajla panele dönülür.
+- **Eksik halka da kapatıldı:** `/panel` sayfası `hata` parametresini
+  okumuyordu; mesaj adrese konsa bile **sessizce kaybolurdu**. Artık
+  okunuyor ve bir test bunu doğruluyor.
+- **Ders:** Bir fonksiyonun açıklamasında yazan kural, kodda da geçerli
+  olmalı. Açıklama ile davranış ayrıştığında güvenilen şey açıklama olur
+  ve hata uzun süre fark edilmez.

@@ -93,7 +93,14 @@ def _panele_don(workspace_id, *, hata: str | None = None,
     if uyari:
         parametreler["uyari"] = uyari
 
-    adres = f"/panel/musteri/{workspace_id}/hesaplar"
+    # HANGI musteri oldugu bilinmiyorsa (state okunamadi) musteri
+    # listesine doneriz. Ham JSON gostermektense eksik ama OKUNABILIR
+    # bir sayfa gostermek her zaman daha iyidir.
+    adres = (
+        f"/panel/musteri/{workspace_id}/hesaplar"
+        if workspace_id is not None
+        else "/panel"
+    )
     if parametreler:
         adres += "?" + urlencode(parametreler)
     return RedirectResponse(adres, status_code=status.HTTP_303_SEE_OTHER)
@@ -112,11 +119,32 @@ def meta_callback(
     Kullanici izin vermezse veya bir hata olursa kontrollu sekilde panele
     doner; sistem cokmez ve ekranda ham hata JSON'u gorunmez.
     """
-    # State olmadan nereye donecegimizi BILEMEYIZ; tek gercek hata yolu budur.
+    # STATE OLMADAN HANGI MUSTERIYE DONECEGIMIZI BILEMEYIZ.
+    #
+    # Ama bu, kullaniciya ham JSON gostermenin gerekcesi DEGILDIR. Bu uca
+    # TARAYICI gelir; ekranda {"detail": ...} gormek kullaniciya hicbir
+    # sey anlatmaz ve sistemi bozuk gosterir. Musteri listesine,
+    # okunabilir bir mesajla doneriz.
     if not state:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Eksik parametre: 'state' zorunludur.",
+        if error:
+            # Meta'nin kendi hata mesaji en degerli bilgidir; aynen gecsin.
+            log.info("oauth_statesiz_hata", error=error)
+            return _panele_don(
+                None,
+                hata=(
+                    f"Meta hesap bağlamayı reddetti: {error_description or error}. "
+                    "Sistem ayarları → Meta bağlantı ayrıntıları bölümündeki "
+                    "değerleri Meta uygulamanızdakilerle karşılaştırın."
+                ),
+            )
+        log.info("oauth_state_yok")
+        return _panele_don(
+            None,
+            hata=(
+                "Bağlantı isteği tanınmadı. Bu adres doğrudan açılmış olabilir; "
+                "hesap bağlamayı müşterinin \"Bağlı hesaplar\" sayfasındaki "
+                "düğmeden başlatın."
+            ),
         )
 
     # State dogrulanir ve TUKETILIR - ayni donus ikinci kez islenemez.
@@ -124,10 +152,18 @@ def meta_callback(
     try:
         payload = consume_state(state)
     except StateError as exc:
+        # Suresi dolmus veya ZATEN KULLANILMIS state. Ikisi de normal
+        # kullanimda olabilir (geri tusu, sayfayi yenileme). Ham JSON
+        # yerine anlasilir bir mesajla panele doneriz.
         log.warning("oauth_state_gecersiz", reason=str(exc))
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
-        ) from exc
+        return _panele_don(
+            None,
+            hata=(
+                f"Bağlantı isteği geçersiz: {exc} "
+                "Bu genellikle sayfanın yenilenmesinden veya isteğin "
+                "zaman aşımına uğramasından olur. Baştan deneyin."
+            ),
+        )
 
     # Kullanici izin vermedi veya Meta hata dondurdu
     if error:

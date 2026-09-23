@@ -264,18 +264,27 @@ def test_ayar_eksikken_baglama_akisi_baslatilmaz(
     assert "META_REDIRECT_URI" in r.json()["detail"]
 
 
-def test_callback_eksik_parametreyle_reddedilir(client):
-    assert client.get("/api/v1/oauth/meta/callback").status_code == 400
+def test_callback_eksik_parametreyle_panele_donuyor(client):
+    """400 + ham JSON DEGIL: tarayiciya okunabilir bir sayfa."""
+    r = client.get("/api/v1/oauth/meta/callback", follow_redirects=False)
+    assert r.status_code == 303
+    assert "/panel" in r.headers["location"]
 
 
-def test_callback_statesiz_reddedilir(client):
-    """State yoksa kullaniciyi NEREYE gonderecegimizi bilemeyiz."""
+def test_callback_statesiz_hatada_sebebi_gosteriyor(client):
+    """State yoksa HANGI musteri oldugunu bilemeyiz - ama bu, ham JSON
+    gostermenin gerekcesi degildir. Musteri listesine, Meta'nin kendi
+    mesajiyla birlikte doneriz."""
+    from urllib.parse import parse_qs, urlparse
+
     r = client.get(
         "/api/v1/oauth/meta/callback",
         params={"error": "access_denied", "error_description": "Kullanici izin vermedi"},
+        follow_redirects=False,
     )
-    assert r.status_code == 400
-    assert "state" in r.json()["detail"]
+    assert r.status_code == 303
+    sorgu = parse_qs(urlparse(r.headers["location"]).query)
+    assert "Kullanici izin vermedi" in sorgu["hata"][0]
 
 
 def test_callback_kullanici_reddederse_panele_donuyor(client, make_user, make_workspace):
@@ -307,12 +316,16 @@ def test_callback_kullanici_reddederse_panele_donuyor(client, make_user, make_wo
         consume_state(state)
 
 
-def test_callback_gecersiz_state_reddedilir(client):
+def test_callback_gecersiz_state_panele_donuyor(client):
+    """Suresi dolmus veya kullanilmis state NORMAL kullanimda da olur
+    (geri tusu, sayfa yenileme); ham JSON gosterilmez."""
     r = client.get(
         "/api/v1/oauth/meta/callback",
         params={"code": "abc", "state": "uydurma-state"},
+        follow_redirects=False,
     )
-    assert r.status_code == 400
+    assert r.status_code == 303
+    assert "hata=" in r.headers["location"]
 
 
 def test_yetkisiz_kullanici_hesap_baglayamaz(
@@ -341,3 +354,72 @@ def test_baska_musterinin_hesabi_baglanamaz(
         f"/api/v1/oauth/instagram/authorize/{ws_b.id}", headers=auth_headers(ayse)
     )
     assert r.status_code == 404
+
+
+# --- Donus ekraninda HAM JSON gorunmez ---------------------------------------
+#
+# Bu uca TARAYICI gelir (Meta yonlendirir). Ekranda {"detail": ...} gormek
+# kullaniciya hicbir sey anlatmaz ve sistemi bozuk gosterir.
+#
+# 23 Eylul'de kullanici tam bunu gordu:
+#   {"detail": "Eksik parametre: 'state' zorunludur."}
+# Fonksiyonun kendi aciklamasi "ham hata JSON'u gorunmez" diyordu; ilk
+# satiri ise tam olarak onu yapiyordu.
+
+CALLBACK = "/api/v1/oauth/meta/callback"
+
+
+def test_statesiz_donus_ham_json_gostermiyor(client):
+    yanit = client.get(CALLBACK, follow_redirects=False)
+
+    assert yanit.status_code == 303
+    assert "/panel" in yanit.headers["location"]
+    assert "detail" not in yanit.text
+
+
+def test_statesiz_donusun_sebebi_yaziyor(client):
+    yanit = client.get(CALLBACK, follow_redirects=False)
+    from urllib.parse import parse_qs, urlparse
+
+    sorgu = parse_qs(urlparse(yanit.headers["location"]).query)
+    assert "hata" in sorgu
+    assert "tanınmadı" in sorgu["hata"][0]
+
+
+def test_statesiz_hatada_metanin_mesaji_aynen_gecer(client):
+    """Meta'nin kendi mesaji en degerli bilgi; gizlenmemeli."""
+    yanit = client.get(
+        CALLBACK,
+        params={"error": "access_denied", "error_description": "Invalid platform app"},
+        follow_redirects=False,
+    )
+    from urllib.parse import parse_qs, urlparse
+
+    sorgu = parse_qs(urlparse(yanit.headers["location"]).query)
+    assert "Invalid platform app" in sorgu["hata"][0]
+
+
+def test_gecersiz_state_ham_json_gostermiyor(client):
+    yanit = client.get(
+        CALLBACK, params={"state": "boyle-bir-state-yok"}, follow_redirects=False
+    )
+    assert yanit.status_code == 303
+    assert "detail" not in yanit.text
+    assert "hata=" in yanit.headers["location"]
+
+
+def test_panel_hatayi_gercekten_gosteriyor(client, db, make_user):
+    """Mesaj adrese konsa da sayfa okumuyorsa SESSIZCE kaybolurdu."""
+    from app.panel.auth import COOKIE_NAME  # noqa: F401
+
+    kullanici = make_user(password="GucluSifre123!")
+    db.commit()
+    client.post(
+        "/panel/giris",
+        data={"email": kullanici.email, "password": "GucluSifre123!"},
+        follow_redirects=False,
+    )
+
+    sayfa = client.get("/panel", params={"hata": "Deneme mesaji 42"})
+    assert sayfa.status_code == 200
+    assert "Deneme mesaji 42" in sayfa.text

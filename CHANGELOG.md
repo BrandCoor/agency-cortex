@@ -1238,3 +1238,28 @@ zamanlanmış görev 5 dakikada bir yeniden deniyor.
 "Kurulum 25 dakika asılı kaldı" diye kaydetmiştim. Günlük sonradan
 gösterdi ki iş **3 dakikada** son adıma gelmişti; GitHub'ın bana döndüğü
 adım verisi eskiydi. Süre sınırları yine de doğru bir ekleme.
+
+## [0.15.2] - 2026-09-23 — Hesap bağlama dönüşünde ham JSON kalmadı
+
+### Düzeltildi — ekranda `{"detail": ...}` görünüyordu
+Instagram bağlama dönüşünde kullanıcı ham JSON hatası görüyordu:
+`{"detail": "Eksik parametre: 'state' zorunludur."}`
+
+Bu uca **tarayıcı** gelir; ham JSON kullanıcıya ne olduğunu da ne
+yapacağını da söylemez. Artık hiçbir dönüş yolu ham JSON döndürmüyor:
+
+- **`state` yok:** müşteri listesine okunabilir mesajla dönülüyor. Meta
+  bir hata gönderdiyse **Meta'nın kendi mesajı aynen geçiyor**.
+- **`state` geçersiz/kullanılmış:** (geri tuşu, sayfa yenileme) anlaşılır
+  mesajla panele dönülüyor.
+
+### Düzeltildi — mesaj sessizce kayboluyordu
+`/panel` sayfası `hata` parametresini okumuyordu; adrese konan mesaj
+ekranda hiç görünmezdi. Artık okunuyor.
+
+### Not — üç test bu hatayı doğru sayıyordu
+Eski testler 400 + ham JSON bekliyordu; biri "ham JSON görünmemeli"
+başlığını taşıdığı hâlde yalnızca `state` varken kontrol ediyordu.
+Üçü de doğru davranışı sınayacak şekilde yeniden yazıldı.
+
+**641/641 test geçiyor.**

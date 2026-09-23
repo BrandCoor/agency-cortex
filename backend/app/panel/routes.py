@@ -302,11 +302,17 @@ def _musteri_listesi(request, db, user, *, error=None, kod=200):
 
 
 @router.get("", response_class=HTMLResponse)
-def workspaces_page(request: Request, db: DbSession):
+def workspaces_page(request: Request, db: DbSession, hata: str = ""):
+    """Musteri listesi.
+
+    `hata`: hesap baglama donusu hangi musteriye ait oldugu anlasilamadan
+    buraya dustuyse, sebebi burada gosterilir. Parametre okunmasaydi mesaj
+    SESSIZCE kaybolurdu ve kullanici neden burada oldugunu bilemezdi.
+    """
     user = current_user_from_cookie(request, db)
     if user is None:
         return _giris_yonlendir()
-    return _musteri_listesi(request, db, user)
+    return _musteri_listesi(request, db, user, error=hata or None)
 
 
 # --- Yeni musteri ------------------------------------------------------------
