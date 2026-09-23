@@ -1102,25 +1102,56 @@ Format: Karar / Seçenekler / Neden / Risk / Geri alma
 
 ## K-056 — Kurulum adımlarına üst sınır konuldu
 
-- **Olay:** 23 Eylül'de kurulumun "n8n iş akışlarını kur" adımı **25
-  dakika boyunca asılı kaldı** ve kendiliğinden bitmedi. Hangi komutta
-  takıldığı **anlaşılamadı**, çünkü hiçbirinin süre sınırı yoktu.
-- **Neden önemli:** Sınırsız bekleyen bir adım, hata veren adımdan daha
-  kötüdür. Ne biter, ne de neyin bozuk olduğunu söyler. Uygulama o sırada
-  zaten canlıya çıkmıştı (sağlık ve dışarıdan HTTPS kontrolleri geçti);
-  yalnızca otomasyon kurulumu takılmıştı — ama iş "devam ediyor"
-  göründüğü için bu ayrım görünmüyordu.
-- **Karar — üç katman:**
-  1. **Her n8n CLI çağrısı** `timeout` ile sarmalandı (varsayılan 180 sn).
-     Takılan komut artık **adıyla** hata verir ve yanında n8n'in konteyner
-     durumu ile son 20 günlük satırı basılır (anahtarlar maskelenerek).
-  2. **Adım sınırı:** iş akışı kurulumu 8 dk, teşhis adımları 5'er dk.
-  3. **İş sınırı:** kurulumun tamamı 25 dk.
-- **Kurulum artık bu adımda başarısız sayılmıyor** (`continue-on-error`):
-  sunucudaki zamanlanmış görev beş dakikada bir yeniden deniyor. n8n
-  kurulumunun takılması, **uygulamanın canlıya çıkmasını engellememeli**.
-- **Kök neden hâlâ bilinmiyor:** hangi n8n komutunun takıldığı
-  ölçülemedi; GitHub günlükleri iş bitmeden indirilemiyor ve bu ortamdan
-  sunucuya SSH yok. Bunu "n8n yavaştı" diye geçiştirmiyorum — bir sonraki
-  takılmada yukarıdaki teşhis çıktısı **hangi komut** olduğunu yazacak.
-- **Geri alma:** `N8N_ZAMAN_ASIMI` ortam değişkeniyle süre değiştirilebilir.
+- **Neden eklendi:** 23 Eylül'deki kurulumda, GitHub'ın adım durumunu
+  okurken işin "n8n iş akışlarını kur" adımında 25 dakika asılı kaldığını
+  sandım ve öyle yazdım. **Yanlıştı.** İşin günlüğü sonradan gösterdi ki
+  iş aslında **3 dakikada** son adıma kadar gelmişti; bana dönen API
+  verisi eskiydi (`updated_at` 25 dakika boyunca hiç değişmedi).
+- **Yine de sınır konuldu:** Kurulumun hiçbir adımında süre sınırı yoktu.
+  Sınırsız bekleyen bir adım, hata veren adımdan daha kötüdür: ne biter,
+  ne de neyin bozuk olduğunu söyler. Sınırlar **bu olaydan bağımsız**
+  olarak doğru:
+  1. Her n8n CLI çağrısı `timeout` ile (varsayılan 180 sn); takılan komut
+     **adıyla** hata verir, yanında n8n'in durumu ve son günlük satırları
+     yazılır (anahtarlar maskeli).
+  2. Adım sınırı: iş akışı kurulumu 8 dk, teşhis adımları 5'er dk.
+  3. İş sınırı: kurulumun tamamı 25 dk.
+- **İş akışı kurulumu artık kurulumu başarısız saymıyor**
+  (`continue-on-error`): sunucudaki zamanlanmış görev 5 dakikada bir
+  yeniden dener. Otomasyonun takılması, **uygulamanın canlıya çıkmasını
+  engellememeli**.
+- **Ders:** Bir dış API'nin "devam ediyor" demesi, gerçekten devam ettiği
+  anlamına gelmez. Ölçüm yaparken verinin **tazeliğini** de kontrol
+  etmeliyim; `updated_at` sabit kalıyorsa veri eskimiştir.
+
+---
+
+## K-057 — Kurulum doğrulaması yanlış alarm veriyordu
+
+- **Sorun:** K-052'de eklenen "n8n Cortex'e gerçekten ulaşıyor mu?"
+  adımı, WF-05'i `n8n execute` ile çalıştırıp anahtarın son kullanım
+  zamanına bakıyordu. İlk gerçek çalıştırmada şu çıktı:
+
+  ```
+  n8n Task Broker's port 5679 is already in use.
+  Do you have another instance of n8n running already?
+  ```
+
+  `n8n execute` **ikinci bir n8n örneği başlatmaya çalışıyor** ve çalışan
+  n8n varken portu meşgul bulup hiç çalışmıyor. Adım ise bunu
+  "n8n Cortex'e ulaşamıyor" diye raporladı.
+- **Neden ciddi:** Sağlam bir kurulumu bozuk sandıran bir alarm, hiç
+  alarm olmamasından daha kötüdür; bir sonrakinde gerçek alarma da
+  inanılmaz.
+- **Karar:** Üç sonuç ayrıldı:
+  - **Başarılı** — son kullanım zamanı değişti: n8n gerçekten ulaştı.
+  - **Belirsiz** — komut hiç çalışamadı (port meşgul): akış
+    **denenemedi**; bu bir ulaşabilirlik hatası **değildir**. Kurulum
+    başarılı sayılır ve gerçek kanıtın ilk zamanlanmış çalışmada (WF-05,
+    her gün 06:00) oluşacağı yazılır.
+  - **Başarısız** — akış çalıştı ama son kullanım değişmedi: gerçek
+    sorun; çözümüyle birlikte hata verilir.
+- **Alternatifler:** n8n'in REST API'siyle tetiklemek kimlik doğrulaması
+  gerektiriyor; akışa webhook tetikleyici eklemek ürün davranışını
+  değiştirirdi. İkisi de bu doğrulama uğruna yapılacak değişiklikler
+  değil.

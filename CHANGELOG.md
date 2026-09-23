@@ -1207,20 +1207,34 @@ Kaldırıldı, durum tablosu düzeltildi.
 - İş akışı sayısı artık testlerde **sabit yazılmıyor**, katalogdan
   türetiliyor — yeni akış eklenince test boşuna düşmüyor.
 
-## [0.15.1] - 2026-09-23 — Kurulum adımları artık sonsuza kadar beklemiyor
+## [0.15.1] - 2026-09-23 — Kurulum doğrulaması ve süre sınırları
 
-### Düzeltildi — kurulum 25 dakika asılı kaldı
-"n8n iş akışlarını kur" adımı takıldı ve **hangi komutta** takıldığı
-anlaşılamadı, çünkü hiçbirinin süre sınırı yoktu.
+### Düzeltildi — kurulum doğrulaması YANLIŞ ALARM veriyordu
+"n8n Cortex'e gerçekten ulaşıyor mu?" adımı, ilk gerçek çalıştırmada
+sağlam bir kurulumu **bozuk** diye raporladı. Sebep:
 
-- Her n8n komutu `timeout` ile sarmalandı (180 sn). Takılan komut artık
-  **adıyla** hata veriyor; yanında n8n'in durumu ve son günlük satırları
-  yazılıyor (anahtarlar maskeli).
-- Adım sınırları: iş akışı kurulumu 8 dk, teşhis 5'er dk.
-- İş sınırı: kurulumun tamamı 25 dk.
-- İş akışı kurulumu artık kurulumu **başarısız saymıyor**: sunucudaki
-  zamanlanmış görev 5 dakikada bir yeniden deniyor. Otomasyonun takılması
-  uygulamanın canlıya çıkmasını engellememeli.
+```
+n8n Task Broker's port 5679 is already in use.
+```
 
-**Kök neden hâlâ bilinmiyor** ve bunu "n8n yavaştı" diye geçiştirmiyorum:
-bir sonraki takılmada teşhis çıktısı hangi komut olduğunu yazacak.
+`n8n execute` ikinci bir n8n örneği başlatmaya çalışıyor ve çalışan n8n
+varken hiç çalışmıyor. Yani akış **denenemedi** — Cortex'e ulaşılamadığı
+için değil. Artık üç sonuç ayrı:
+- **Başarılı:** son kullanım değişti, n8n gerçekten ulaştı.
+- **Belirsiz:** komut çalışamadı; kurulum başarılı sayılıyor ve gerçek
+  kanıtın ilk zamanlanmış çalışmada oluşacağı yazılıyor.
+- **Başarısız:** akış çalıştı ama son kullanım değişmedi — gerçek sorun.
+
+Sağlam bir kurulumu bozuk sandıran alarm, hiç alarm olmamasından kötüdür.
+
+### Eklendi — kurulum adımlarına süre sınırı
+Hiçbir adımda sınır yoktu. Her n8n komutu `timeout` ile sarmalandı
+(180 sn); takılan komut **adıyla** hata veriyor, yanında n8n'in durumu ve
+son günlük satırları yazılıyor. Adım sınırları 8/5/5 dk, iş sınırı 25 dk.
+İş akışı kurulumu artık kurulumu başarısız saymıyor: sunucudaki
+zamanlanmış görev 5 dakikada bir yeniden deniyor.
+
+### Not — önceki sürümde yazdığım bir teşhis yanlıştı
+"Kurulum 25 dakika asılı kaldı" diye kaydetmiştim. Günlük sonradan
+gösterdi ki iş **3 dakikada** son adıma gelmişti; GitHub'ın bana döndüğü
+adım verisi eskiydi. Süre sınırları yine de doğru bir ekleme.

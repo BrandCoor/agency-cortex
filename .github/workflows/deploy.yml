@@ -865,17 +865,20 @@ jobs:
 
       # UCTAN UCA KANIT
       #
-      # "Akislar etkin" demek, n8n'in Agency Cortex'e GERCEKTEN ulasabildigi
-      # anlamina GELMEZ. Anahtar yenilendiginde n8n eski anahtarla kalirsa
-      # her akis 401 alir ve bu SESSIZCE olur: bir sonraki zamanlanmis
-      # calismaya kadar (yarin 06:00) kimse fark etmez.
+      # "Akislar etkin" demek, n8n'in Agency Cortex'e GERCEKTEN
+      # ulasabildigi anlamina GELMEZ. Anahtar yenilendiginde n8n eski
+      # anahtarla kalirsa her akis 401 alir ve bu SESSIZCE olur.
       #
-      # Bu yuzden kurulumdan sonra WF-05 ELLE calistirilir ve anahtarin
-      # "son kullanim" zamani degisti mi diye bakilir. Degistiyse n8n
-      # gercekten ulasmistir.
+      # WF-05 elle calistirilip anahtarin "son kullanim" zamani degisti
+      # mi diye bakilir. WF-05 secildi cunku bagli hesap yoksa hicbir
+      # sey yapmaz: AI harcamaz, disariya istek atmaz.
       #
-      # NEDEN WF-05: bagli hesap yoksa hicbir sey yapmaz. AI harcamaz,
-      # disariya istek atmaz. En ucuz gercek kanit budur.
+      # DIKKAT - BU KONTROL KESIN SONUC VERMEYEBILIR:
+      # "n8n execute" ikinci bir n8n ornegi baslatmaya calisir ve calisan
+      # n8n varken "Task Broker's port 5679 is already in use" diyerek hic
+      # calismaz. O zaman akis DENENEMEMIS olur; Cortex'e ulasilamadigi
+      # icin degil. Ikisini ayni hata gibi gostermek, saglam bir kurulumu
+      # bozuk sandiran YANLIS BIR ALARM olurdu. (23 Eylul'de tam bu oldu.)
       - name: n8n Cortex'e gercekten ulasiyor mu?
         timeout-minutes: 5
         run: |
@@ -888,26 +891,40 @@ jobs:
           echo "once : $onceki"
 
           echo "WF-05 elle calistiriliyor (bagli hesap yoksa is yapmaz)..."
-          if ! docker compose exec -T n8n n8n execute --id agency-cortex-wf05 </dev/null 2>&1 \
-               | tail -5; then
-            echo "UYARI: akis elle calistirilamadi."
-          fi
+          cikti=$(timeout --kill-after=20 120 \
+                  docker compose exec -T n8n n8n execute --id agency-cortex-wf05 \
+                  </dev/null 2>&1 || true)
+          printf '%s\n' "$cikti" | tail -5 | sed 's/^/    /'
 
           sonraki=$(docker compose exec -T api python -m app.cli.otomasyon durum </dev/null 2>/dev/null \
                     | grep -i son_kullanim || echo "son_kullanim: okunamadi")
           echo "sonra: $sonraki"
 
-          if [ "$onceki" = "$sonraki" ]; then
+          if [ "$onceki" != "$sonraki" ]; then
             echo
-            echo "HATA: n8n calisti ama Agency Cortex'teki 'son kullanim' DEGISMEDI."
-            echo "Bu, n8n'in Cortex'e ulasamadigi anlamina gelir; en olasi sebep"
-            echo "n8n'deki makine anahtarinin eskimis olmasi."
-            echo "Cozum: sunucuda 'rm /opt/agency-cortex/.n8n-akislari-kuruldu'"
-            echo "calistirilip kurulum tekrarlanmali (zamanlanmis gorev 5 dakikada"
-            echo "bir dener)."
-            exit 1
+            echo "TAMAM: n8n, Agency Cortex'e kimligiyle ulasti."
+            exit 0
+          fi
+
+          # Akis HIC CALISMADIYSA bu bir ulasabilirlik hatasi DEGILDIR.
+          if printf '%s' "$cikti" | grep -qiE "already in use|another instance|EADDRINUSE"; then
+            echo
+            echo "SONUC BELIRSIZ: akis calistirilamadi."
+            echo "Sebep: n8n zaten calisiyor; 'n8n execute' ikinci bir ornek"
+            echo "baslatmaya calisiyor ve portu mesgul buluyor. Yani akis"
+            echo "DENENEMEDI - Cortex'e ULASILAMADIGI anlamina GELMEZ."
+            echo
+            echo "Gercek kanit ilk zamanlanmis calismada olusacak (WF-05,"
+            echo "her gun 06:00). Panelde: Otomasyon -> son calismalar."
+            exit 0
           fi
 
           echo
-          echo "TAMAM: n8n, Agency Cortex'e kimligiyle ulasti."
+          echo "HATA: akis calisti ama 'son kullanim' DEGISMEDI."
+          echo "Bu, n8n'in Cortex'e ulasamadigi anlamina gelir; en olasi"
+          echo "sebep n8n'deki makine anahtarinin eskimis olmasi."
+          echo "Cozum: sunucuda 'rm /opt/agency-cortex/.n8n-akislari-kuruldu'"
+          echo "calistirilip kurulum tekrarlanmali (zamanlanmis gorev 5"
+          echo "dakikada bir dener)."
+          exit 1
           UZAK
