@@ -44,6 +44,41 @@ yanlıştı: Instagram bağlama hata verdiğinde düzeltecek yeriniz kalmıyordu
 
 ---
 
+## "URL Yüklenemedi" hatası (Facebook izin ekranı)
+
+Facebook şunu diyorsa:
+
+> Bu bağlantının domaini uygulamanın domainlerinde yer almıyor.
+
+Dönüş adresimizin **alan adı** Meta uygulamanızda tanımlı değildir.
+Meta uygulama ayarlarında şu ikisini ekleyin:
+
+| Nereye | Ne |
+|---|---|
+| Uygulama Domainleri (App Domains) | `agencycortex.tech` |
+| OAuth yönlendirme adresleri | `https://agencycortex.tech/api/v1/oauth/meta/callback` |
+
+Yönlendirme adresi **birebir** aynı olmalı — sondaki eğik çizgi farkı bile
+hataya yol açar. Panel bu iki değeri Bağlı hesaplar sayfasında kopyalanacak
+şekilde gösterir.
+
+---
+
+## Dört değer AYNI akıştan olmalı
+
+Meta'nın iki ayrı giriş akışı var ve uçları farklı alan adlarında
+(`instagram.com` ailesi / `facebook.com` ailesi). İzin ekranı, anahtar
+değişimi ve veri uçları **aynı akıştan** gelmelidir.
+
+**Karışık yapılandırma sessizce bozulur:** izin ekranı açılır, kullanıcı
+izni verir, sonra anahtar değişimi başarısız olur — ve sebebi hiç belli
+olmaz. Panel artık bu uyumsuzluğu tespit edip uyarıyor.
+
+> Hangi akışın seçileceği Meta'nın resmî dokümanından belirlenir; panel
+> yalnızca değerlerin **birbiriyle tutarlı** olup olmadığını söyler.
+
+---
+
 ## "Invalid platform app" hatası
 
 Bu mesaj Instagram'ın kendi izin ekranından gelir ve gönderdiğimiz

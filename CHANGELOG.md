@@ -1263,3 +1263,21 @@ başlığını taşıdığı hâlde yalnızca `state` varken kontrol ediyordu.
 Üçü de doğru davranışı sınayacak şekilde yeniden yazıldı.
 
 **641/641 test geçiyor.**
+
+## [0.15.3] - 2026-09-23 — Meta yapılandırma teşhisi
+
+### Eklendi — "URL Yüklenemedi" için tam talimat
+Facebook, dönüş adresimizin alan adını tanımadığında bu hatayı verir.
+Panel artık Meta uygulamasına eklenecek iki değeri kopyalanacak şekilde
+gösteriyor: alan adı (`agencycortex.tech`) ve birebir dönüş adresi.
+
+### Eklendi — karışık akış uyarısı
+Meta'nın iki ayrı giriş akışı var ve uçları farklı alan adlarında. Dört
+değer farklı akışlardan gelirse **sessizce bozulur**: izin ekranı açılır,
+kullanıcı izni verir, sonra anahtar değişimi başarısız olur — sebebi hiç
+belli olmadan. Panel bu uyumsuzluğu artık **önceden** bildiriyor.
+
+Hangi akışın doğru olduğunu söylemiyoruz (o Meta'nın dokümanında); yalnızca
+değerlerin birbiriyle tutarlı olup olmadığını söylüyoruz.
+
+**644/644 test geçiyor.**

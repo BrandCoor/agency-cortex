@@ -1185,3 +1185,28 @@ Format: Karar / Seçenekler / Neden / Risk / Geri alma
 - **Ders:** Bir fonksiyonun açıklamasında yazan kural, kodda da geçerli
   olmalı. Açıklama ile davranış ayrıştığında güvenilen şey açıklama olur
   ve hata uzun süre fark edilmez.
+
+---
+
+## K-059 — Meta ayarlarında akış tutarlılığı kontrol ediliyor
+
+- **Olay:** Kullanıcı Facebook izin ekranından *"URL Yüklenemedi — bu
+  bağlantının domaini uygulamanın domainlerinde yer almıyor"* hatası aldı.
+- **Birinci sorun (Meta tarafı):** Dönüş adresimizin alan adı
+  (`agencycortex.tech`) Meta uygulamasının **Uygulama Domainleri**
+  listesinde yoktu. Panel artık eklenecek alan adını ve birebir
+  kopyalanacak dönüş adresini gösteriyor.
+- **İkinci sorun — asıl tehlikeli olan:** Ayarlar **karışmıştı**. İzin
+  ekranı `facebook.com`, anahtar değişimi ve veri uçları `instagram.com`
+  ailesindendi. Alan adı düzeltilse bile akış **bir sonraki adımda**
+  kırılacaktı: izin ekranı açılır, kullanıcı izni verir, sonra anahtar
+  değişimi başarısız olur — ve sebebi hiç belli olmaz.
+- **Karar:** Panel, dört değerin alan adı ailelerini karşılaştırıp
+  uyumsuzluğu **önceden** bildiriyor.
+- **Ne SÖYLEMİYORUZ:** Hangi akışın doğru olduğunu söylemiyoruz — onu
+  Meta'nın resmî dokümanı belirler ve o dokümana erişimimiz yok. Yalnızca
+  değerlerin **birbiriyle tutarlı** olup olmadığını söylüyoruz. Bu,
+  bilmediğimiz bir şeyi uydurmadan gerçek bir yardım sağlar.
+- **Neden değerli:** Bu hata sınıfı sessizdir. Kullanıcı izin ekranını
+  gördüğü için "çalışıyor" sanır; kırılma en son adımda ve anlaşılmaz bir
+  mesajla gelir.

@@ -34,7 +34,11 @@ from app.models.social import SocialAccount
 from app.panel.auth import clear_session_cookie, current_user_from_cookie, set_session_cookie
 from app.panel.ortak import uyelik_bul
 from app.platforms.base import PlatformError
-from app.platforms.meta_ayar import meta_ayarlarini_oku
+from app.platforms.meta_ayar import (
+    kaydedilecek_alan_adi,
+    meta_ayarlarini_oku,
+    tutarlilik_uyarisi,
+)
 from app.platforms.registry import get_adapter, platform_status
 from app.services.ai_runner import month_spend
 from app.services.approvals import (
@@ -1021,7 +1025,9 @@ PANELDE_GOSTERILEN_PLATFORMLAR = ("instagram", "facebook")
 
 def _eksik_meta_ayarlari() -> list[str]:
     """Baglanti icin eksik olan alanlar (panel ayarlari dahil)."""
-    from app.platforms.meta_ayar import meta_ayarlarini_oku
+    from app.platforms.meta_ayar import (
+    meta_ayarlarini_oku,
+)
 
     return meta_ayarlarini_oku().eksikler
 
@@ -1042,7 +1048,9 @@ def _hesaplar_sayfasi(
     request, db, user, uyelik, workspace, *,
     error=None, ok=None, uyari=None, kod=200,
 ):
-    from app.platforms.meta_ayar import meta_ayarlarini_oku
+    from app.platforms.meta_ayar import (
+    meta_ayarlarini_oku,
+)
 
     durumlar = {d["platform"]: d for d in platform_status()}
     meta_ayar = meta_ayarlarini_oku()
@@ -1096,6 +1104,13 @@ def _hesaplar_sayfasi(
                 "app_id": meta_ayar.app_id or "(girilmedi)",
                 "donus_adresi": meta_ayar.redirect_uri or "(belirlenemedi)",
                 "izinler": ", ".join(meta_ayar.scopes) or "(yok)",
+                # Facebook "URL Yuklenemedi ... domaini uygulamanin
+                # domainlerinde yer almiyor" dediginde eklenecek deger.
+                "alan_adi": kaydedilecek_alan_adi(meta_ayar),
+                # Dort deger farkli akislardan geliyorsa SESSIZCE bozulur:
+                # izin ekrani acilir, izin verilir, sonra anahtar degisimi
+                # basarisiz olur ve sebebi belli olmaz.
+                "tutarsizlik": tutarlilik_uyarisi(meta_ayar),
             },
             "eksik_ayarlar": meta_eksikler,
             "sistem_yoneticisi": user.is_superuser,

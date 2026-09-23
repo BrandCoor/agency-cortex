@@ -132,3 +132,62 @@ def meta_hazir_mi() -> bool:
     acardi.
     """
     return meta_ayarlarini_oku().hazir
+
+
+# --- Tutarlilik kontrolu -----------------------------------------------------
+#
+# Meta'nin iki ayri giris akisi var ve ucları FARKLI alan adlarinda:
+# instagram.com ailesi ve facebook.com ailesi. Bu dort degerin AYNI
+# akistan gelmesi gerekir.
+#
+# Karisik yapilandirma SESSIZCE bozulur: izin ekrani acilir, kullanici
+# izni verir, sonra anahtar degisimi basarisiz olur. Hata en son adimda
+# ortaya cikar ve sebebi hic belli olmaz.
+#
+# Burada HANGI akisin dogru oldugunu SOYLEMIYORUZ - onu Meta'nin resmi
+# dokumani belirler. Yalnizca degerlerin BIRBIRIYLE tutarli olup
+# olmadigini soyluyoruz.
+
+def _aile(adres: str) -> str | None:
+    """Adresin hangi alan adi ailesinden oldugunu doner."""
+    from urllib.parse import urlparse
+
+    konak = (urlparse(adres or "").netloc or "").lower()
+    if not konak:
+        return None
+    if "instagram.com" in konak:
+        return "instagram.com"
+    if "facebook.com" in konak:
+        return "facebook.com"
+    return konak
+
+
+def tutarlilik_uyarisi(ayar: MetaAyarlari) -> str | None:
+    """Adresler farkli akislardan geliyorsa uyari metni doner."""
+    aileler = {
+        "İzin ekranı": _aile(ayar.authorize_url),
+        "Anahtar değişimi": _aile(ayar.token_url),
+        "Veri uçları": _aile(ayar.graph_base_url),
+    }
+    bulunanlar = {a for a in aileler.values() if a}
+    if len(bulunanlar) <= 1:
+        return None
+
+    satirlar = ", ".join(f"{ad}: {aile}" for ad, aile in aileler.items() if aile)
+    return (
+        "Bu adresler FARKLI Meta akışlarından geliyor gibi görünüyor "
+        f"({satirlar}). Dördü de aynı akışın dokümanından alınmalıdır. "
+        "Karışık yapılandırmada izin ekranı açılır, kullanıcı izni verir, "
+        "sonra anahtar değişimi başarısız olur — ve sebebi belli olmaz."
+    )
+
+
+def kaydedilecek_alan_adi(ayar: MetaAyarlari) -> str | None:
+    """Meta uygulamasina eklenmesi gereken alan adi.
+
+    Facebook "URL Yuklenemedi ... domaini uygulamanin domainlerinde yer
+    almiyor" dediginde eklenmesi gereken deger budur.
+    """
+    from urllib.parse import urlparse
+
+    return (urlparse(ayar.redirect_uri or "").netloc or "").lower() or None

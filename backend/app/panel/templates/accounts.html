@@ -168,6 +168,29 @@
           <td><code>{{ teshis.izinler }}</code></td></tr>
     </tbody>
   </table>
+  {% if teshis.tutarsizlik %}
+  <div class="err" style="margin-top:12px">
+    <strong>Dikkat — ayarlar birbiriyle uyumsuz</strong><br>
+    {{ teshis.tutarsizlik }}
+  </div>
+  {% endif %}
+
+  {% if teshis.alan_adi %}
+  <div class="bilgi" style="margin-top:12px">
+    <strong>Facebook "URL Yüklenemedi" diyorsa:</strong> bu, dönüş
+    adresimizin alan adının Meta uygulamanızda tanımlı olmadığı anlamına
+    gelir. Meta uygulama ayarlarında <em>Uygulama Domainleri</em> alanına
+    şunu ekleyin:
+    <div style="margin-top:6px"><code>{{ teshis.alan_adi }}</code></div>
+    Ayrıca OAuth yönlendirme adresleri listesine <strong>birebir</strong>
+    şunu ekleyin:
+    <div style="margin-top:6px"><code>{{ teshis.donus_adresi }}</code></div>
+    <div class="sessiz" style="margin-top:6px">
+      Sondaki eğik çizgi farkı bile hataya yol açar; kopyalayıp yapıştırın.
+    </div>
+  </div>
+  {% endif %}
+
   <div class="warn" style="margin-top:12px">
     <strong>"Invalid platform app" hatası alıyorsanız:</strong> bu mesaj
     Instagram'ın kendi izin ekranından gelir ve gönderdiğimiz

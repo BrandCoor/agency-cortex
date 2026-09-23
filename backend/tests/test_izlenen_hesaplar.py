@@ -232,3 +232,55 @@ def test_teshiste_gizli_anahtar_yok(client, db, ortam, monkeypatch):
     _, ws = ortam()
     sayfa = client.get(f"/panel/musteri/{ws.id}/hesaplar")
     assert "COK-GIZLI-DEGER-12345" not in sayfa.text
+
+
+# --- Meta yapilandirma teshisi ------------------------------------------------
+
+def test_karisik_akis_uyarisi_veriliyor():
+    """Dort deger farkli akislardan gelirse SESSIZCE bozulur.
+
+    Izin ekrani acilir, kullanici izni verir, sonra anahtar degisimi
+    basarisiz olur - ve sebebi hic belli olmaz. Uyari tam bunu onler.
+    """
+    from app.platforms.meta_ayar import MetaAyarlari, tutarlilik_uyarisi
+
+    karisik = MetaAyarlari(
+        app_id="1", app_secret="x", redirect_uri="https://ornek/cb",
+        api_version="v23.0",
+        authorize_url="https://www.facebook.com/v21.0/dialog/oauth",
+        token_url="https://api.instagram.com/oauth/access_token",
+        graph_base_url="https://graph.instagram.com/v23.0/",
+        scopes=["instagram_business_basic"],
+    )
+    uyari = tutarlilik_uyarisi(karisik)
+    assert uyari is not None
+    assert "facebook.com" in uyari
+    assert "instagram.com" in uyari
+
+
+def test_tutarli_akista_uyari_yok():
+    from app.platforms.meta_ayar import MetaAyarlari, tutarlilik_uyarisi
+
+    tutarli = MetaAyarlari(
+        app_id="1", app_secret="x", redirect_uri="https://ornek/cb",
+        api_version="v23.0",
+        authorize_url="https://www.instagram.com/oauth/authorize",
+        token_url="https://api.instagram.com/oauth/access_token",
+        graph_base_url="https://graph.instagram.com/v23.0/",
+        scopes=["instagram_business_basic"],
+    )
+    assert tutarlilik_uyarisi(tutarli) is None
+
+
+def test_meta_uygulamasina_eklenecek_alan_adi_uretiliyor():
+    """Facebook 'URL Yuklenemedi' dediginde eklenecek deger budur."""
+    from app.platforms.meta_ayar import MetaAyarlari, kaydedilecek_alan_adi
+
+    ayar = MetaAyarlari(
+        app_id="1", app_secret="x",
+        redirect_uri="https://agencycortex.tech/api/v1/oauth/meta/callback",
+        api_version="v23.0", authorize_url="https://www.instagram.com/oauth/authorize",
+        token_url="https://api.instagram.com/oauth/access_token",
+        graph_base_url="https://graph.instagram.com/v23.0/", scopes=[],
+    )
+    assert kaydedilecek_alan_adi(ayar) == "agencycortex.tech"
