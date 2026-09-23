@@ -1,6 +1,6 @@
 # Proje Durumu
 
-Son güncelleme: 20 Eylül 2026
+Son güncelleme: 23 Eylül 2026
 
 ---
 
@@ -9,13 +9,14 @@ Son güncelleme: 20 Eylül 2026
 | | |
 |---|---|
 | Depo | https://github.com/BrandCoor/agency-cortex (özel) |
-| Kod | ~6.500 satır Python |
-| Test | 270, tamamı geçiyor (CI'da da) |
+| Kod | ~23.200 satır Python (uygulama + testler) |
+| Test | 581, tamamı geçiyor (CI'da da) |
 | Docker imajı | ✅ Derlendi ve çalıştığı doğrulandı |
 | Sunucu | Hostinger KVM 4 (`1990274`) — ✅ **ÇALIŞIYOR** |
 | Canlı adres | https://agencycortex.tech ✅ HTTPS aktif |
 | Domain | agencycortex.tech → 187.124.22.8 ✅ |
-| Sunucu yedeği | 20 Eylül 2026'da alındı ✅ |
+| Sunucu yedeği | 20 Eylül 2026'da alındı ✅ (sunucu dışı kopya bekliyor) |
+| Otomasyon | n8n'de 5 iş akışı kurulu ve **etkin** ✅ |
 
 ---
 
@@ -32,8 +33,12 @@ Son güncelleme: 20 Eylül 2026
 | 6 | Manus API ile araştırma | 🟡 Engelli (doküman erişimi yok) |
 | 7 | İnsan onay paneli | ✅ Tamamlandı |
 | 8 | Rakip ve trend modülü | ⬜ Sırada |
-| 9 | Gemini sağlayıcısı | ⬜ |
-| 10 | Güvenlik, yedekleme, üretim kurulumu | 🟡 Kurulum ✅, yedekleme testi kaldı |
+| 9 | Gemini sağlayıcısı | ⬜ Planlanmadı (ayarlardan kaldırıldı) |
+| 10 | Güvenlik, yedekleme, üretim kurulumu | 🟡 Kurulum ✅, sunucu dışı kopya kaldı |
+| 11 | Kullanıcı yönetimi ve panel yenileme | ✅ Tamamlandı |
+| 12 | n8n otomasyonu (5 iş akışı) | ✅ Tamamlandı |
+| 13 | Yayın takvimi | ✅ Tamamlandı |
+| 14 | Ayrıntılı yetkiler (19 izin) | ✅ Tamamlandı |
 
 ---
 
@@ -67,6 +72,25 @@ Bunlar yazıldı **ve çalıştığı kanıtlandı:**
 ### Dürüstlük
 - Geliştirilmemiş 5 platform "yok" olarak bildiriliyor, "yakında" değil
 - Meta adaptörü ayarlar doğrulanmadan hiçbir yetenek bildirmiyor
+- Örnek veri modundaki platform "bağlanabilir" diye gösterilmiyor
+- Takvim "sistem kendisi paylaşmaz" diye açıkça yazıyor; paylaşım elle
+  işaretlenir, böylece takvim varsayımı değil gerçeği gösterir
+- Panelde açılıp kapatılan **her izin** gerçekten uygulanıyor; bunu bir
+  test sürekli denetliyor (`test_her_izin_bir_yerde_gercekten_...`)
+
+### AI bütçesi
+- İki iş aynı anda çalıştırıldı; bütçe **aşılamadı** (veritabanı kilidi)
+- Kilit kaldırılınca aynı test **düşüyor** — yani gerçekten ölçüyor
+
+### Yetkiler
+- 19 izin, her müşteri için her rol bazında ayarlanabiliyor
+- SAHİP rolü kısıtlanamıyor (müşteri kilitlenemez)
+- İzni alınan kullanıcı isteği **elle** gönderse de reddediliyor
+- Menüde gizlenen sayfa, adres elle yazıldığında da 404 dönüyor
+
+### Otomasyon
+- 5 iş akışı n8n'de kurulu ve etkin (sunucudan ölçüldü)
+- Kurulum, n8n'in Cortex'e kimliğiyle **gerçekten ulaştığını** doğruluyor
 
 ---
 
@@ -81,8 +105,17 @@ Bunlar yazıldı **ve çalıştığı kanıtlandı:**
 ### 2. Sunucu kurulumu
 **Durum:** ✅ Tamamlandı. Sistem canlıda, HTTPS aktif, dışarıdan doğrulandı.
 
-### 3. İçerik üretimi, araştırma, panel
-Aşama 5-9. Sıradaki iş.
+### 3. Sunucu dışı yedek kopya
+**Durum:** Sunucuda günlük yedek alınıyor ve doğrulanıyor. Ancak yedeğin
+**başka bir yerde** kopyası yok. Sunucu tamamen kaybolursa yedek de gider.
+**Bekleyen karar:** Kopyanın nereye gideceği (depolama sağlayıcısı) size ait.
+
+### 4. Manus araştırma ve rakip/trend modülü
+Aşama 6 ve 8. Sıradaki iş.
+
+### 5. Yeniden başlatma testi
+Sunucu yeniden başlatıldığında tüm servislerin kendiliğinden gelmesi
+henüz **ölçülmedi**.
 
 ---
 
@@ -101,8 +134,11 @@ Aşama 5-9. Sıradaki iş.
 | AI hataları loglanıyor | ✅ |
 | İnsan onayı olmadan yayın yapılamıyor | ✅ |
 | Secret'lar Git'e girmiyor | ✅ Her gönderimde kontrol edildi |
-| Backup/restore testi geçiyor | ⬜ Aşama 10 |
+| Backup/restore testi geçiyor | 🟡 Sunucuda ✅, sunucu dışı kopya yok |
 | Sunucu yeniden başlayınca servisler geliyor | ⬜ Yeniden başlatma testi yapılmadı |
+| Yayın takvimi ile planlama yapılabiliyor | ✅ |
+| Kullanıcı yetkileri ayrıntılı ayarlanabiliyor | ✅ 19 izin, müşteri başına |
+| Otomasyon (n8n) müşteri başına açılıp kapanıyor | ✅ |
 | Docker imajı derlenip çalışıyor | ✅ CI'da doğrulandı |
 | README teknik olmayan kullanıcıya uygun | ✅ |
 
