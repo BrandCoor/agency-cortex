@@ -26,10 +26,12 @@ içerik senaryosu önerir.
 | 6 | Manus API ile araştırma | 🟡 Doküman erişimi engelli |
 | 7 | İnsan onay paneli | ✅ Tamamlandı |
 | 8 | Rakip ve trend modülü | ⬜ Sırada |
-| 9 | Gemini sağlayıcısı | ⬜ |
+| 9 | Gemini sağlayıcısı | ⬜ Planlanmadı (ayarlardan kaldırıldı) |
 | 10 | Güvenlik, yedekleme, üretim kurulumu | ✅ Tamamlandı |
 | 11 | Kullanıcı yönetimi ve panel yenileme | ✅ Tamamlandı |
-| 12 | n8n otomasyon altyapısı | 🟡 Altyapı hazır, iş akışları n8n'de kurulacak |
+| 12 | n8n otomasyon altyapısı | ✅ Tamamlandı (5 iş akışı sunucuda etkin) |
+| 13 | Yayın takvimi (planlama; sistem kendisi paylaşmaz) | ✅ Tamamlandı |
+| 14 | Ayrıntılı yetkiler (19 izin, müşteri başına ayarlanır) | ✅ Tamamlandı |
 
 ---
 
@@ -95,7 +97,12 @@ Bunlar koda gömülüdür, isteğe bağlı değildir:
   tutulur ve `.env` asla Git'e gönderilmez.
 - Loglarda token, şifre ve kişisel bilgiler otomatik maskelenir.
 - Üretim ortamı şablon şifrelerle **açılmaz**; uygulama hata verip durur.
-- Yayın, yorum ve mesaj gönderimi ilk sürümde kapalıdır.
+- Yayın, yorum ve mesaj gönderimi ilk sürümde kapalıdır. Yayın takvimi
+  **planlama** yapar; paylaşımı siz yaparsınız ve takvimde işaretlersiniz.
+- Yetki kontrolü sunucu tarafındadır. Menüde bir bağlantıyı gizlemek
+  güvenlik sayılmaz: adres elle yazıldığında da reddedilir.
+- Panelde açılıp kapatılan her izin gerçekten uygulanır; bunu bir test
+  sürekli denetler.
 
 ---
 
@@ -109,3 +116,6 @@ Bunlar koda gömülüdür, isteğe bağlı değildir:
 | `CREDENTIALS.md` | Hangi gizli bilginin nereye yazılacağı |
 | `INSTALLATION.md` | Sizin yapacağınız adımlar (Meta hesap kurulumu) |
 | `docs/platforms/meta.md` | Meta entegrasyonunda doğrulanacaklar |
+| `docs/otomasyon-plani.md` | Kaç iş akışı var, her müşteride nasıl çalışıyor |
+| `OPERATIONS.md` | Günlük işletme: yedek, günlük, sorun giderme |
+| `DEPLOYMENT.md` | Sunucuya kurulum ve güncelleme |

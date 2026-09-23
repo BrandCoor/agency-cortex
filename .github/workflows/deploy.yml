@@ -852,3 +852,51 @@ jobs:
           echo "=== Kurulum gunlugunun son 20 satiri ==="
           tail -20 n8n-kurulum.log 2>/dev/null || echo "(gunluk yok)"
           UZAK
+
+      # UCTAN UCA KANIT
+      #
+      # "Akislar etkin" demek, n8n'in Agency Cortex'e GERCEKTEN ulasabildigi
+      # anlamina GELMEZ. Anahtar yenilendiginde n8n eski anahtarla kalirsa
+      # her akis 401 alir ve bu SESSIZCE olur: bir sonraki zamanlanmis
+      # calismaya kadar (yarin 06:00) kimse fark etmez.
+      #
+      # Bu yuzden kurulumdan sonra WF-05 ELLE calistirilir ve anahtarin
+      # "son kullanim" zamani degisti mi diye bakilir. Degistiyse n8n
+      # gercekten ulasmistir.
+      #
+      # NEDEN WF-05: bagli hesap yoksa hicbir sey yapmaz. AI harcamaz,
+      # disariya istek atmaz. En ucuz gercek kanit budur.
+      - name: n8n Cortex'e gercekten ulasiyor mu?
+        run: |
+          ssh -i ~/.ssh/id_deploy -o BatchMode=yes "$VPS_USER@$VPS_HOST" bash -s <<'UZAK'
+          set -eu
+          cd /opt/agency-cortex
+
+          onceki=$(docker compose exec -T api python -m app.cli.otomasyon durum </dev/null 2>/dev/null \
+                   | grep -i son_kullanim || echo "son_kullanim: okunamadi")
+          echo "once : $onceki"
+
+          echo "WF-05 elle calistiriliyor (bagli hesap yoksa is yapmaz)..."
+          if ! docker compose exec -T n8n n8n execute --id agency-cortex-wf05 </dev/null 2>&1 \
+               | tail -5; then
+            echo "UYARI: akis elle calistirilamadi."
+          fi
+
+          sonraki=$(docker compose exec -T api python -m app.cli.otomasyon durum </dev/null 2>/dev/null \
+                    | grep -i son_kullanim || echo "son_kullanim: okunamadi")
+          echo "sonra: $sonraki"
+
+          if [ "$onceki" = "$sonraki" ]; then
+            echo
+            echo "HATA: n8n calisti ama Agency Cortex'teki 'son kullanim' DEGISMEDI."
+            echo "Bu, n8n'in Cortex'e ulasamadigi anlamina gelir; en olasi sebep"
+            echo "n8n'deki makine anahtarinin eskimis olmasi."
+            echo "Cozum: sunucuda 'rm /opt/agency-cortex/.n8n-akislari-kuruldu'"
+            echo "calistirilip kurulum tekrarlanmali (zamanlanmis gorev 5 dakikada"
+            echo "bir dener)."
+            exit 1
+          fi
+
+          echo
+          echo "TAMAM: n8n, Agency Cortex'e kimligiyle ulasti."
+          UZAK
