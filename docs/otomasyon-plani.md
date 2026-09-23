@@ -2,7 +2,7 @@
 
 ## Kaç tane?
 
-**Beş.** Her biri farklı bir işi yapıyor; sayı bilerek küçük tutuldu.
+**Altı.** Her biri farklı bir işi yapıyor; sayı bilerek küçük tutuldu.
 Veri kaynağı olmayan bir akış eklemek, panelde sürekli "yapacak iş yoktu"
 yazan bir satır üretmekten başka işe yaramaz.
 
@@ -13,10 +13,13 @@ yazan bir satır üretmekten başka işe yaramaz.
 | WF-02 | **Trend araştırması** | Sektör trendlerini araştırır, bulguları kaydeder | Her gün 09:00 | Marka bilgisi |
 | WF-03 | **İçerik zekâsı** | Bulgulardan içerik senaryosu önerir | Pzt/Çar/Cum 10:00 | WF-02'nin bulguları |
 | WF-04 | **Haftalık zekâ raporu** | Haftanın raporunu üretir | Her pazartesi 08:00 | WF-01'in verisi |
+| WF-06 | **Rakip araştırması** | İzlenen rakip hesapları araştırır | Salı/Perşembe 11:00 | İzlenen rakip hesap |
 
 **Sıra tesadüf değil.** WF-05 önce çalışır ki WF-01 geçerli bir anahtarla
 veri çekebilsin. WF-02 sabah araştırır, WF-03 bir saat sonra o bulgulardan
-içerik önerir. WF-01 hafta boyunca veri toplar, WF-04 pazartesi sabahı
+içerik önerir. WF-06, WF-02'den iki saat sonra çalışır: aynı anda çalışsalardı
+ikisi de AI bütçesinden aynı dakikada düşerdi.
+WF-01 hafta boyunca veri toplar, WF-04 pazartesi sabahı
 onu rapora çevirir.
 
 ### WF-05 neden var?
