@@ -26,7 +26,7 @@ from app.cli.hesap import MIN_SIFRE_UZUNLUGU
 from app.core.security import create_token, hash_password, verify_password
 from app.models.brand import Brand, BrandGuideline, Campaign
 from app.models.content import ContentScript
-from app.models.enums import ContentStatus, Platform
+from app.models.enums import ContentStatus, Platform, ReklamPlatformu
 from app.models.identity import User, Workspace, WorkspaceMember
 from app.models.izlenen import IzlemeTuru
 from app.models.reporting import Report, ReportSection
@@ -55,6 +55,16 @@ from app.services.izlenen_hesaplar import IzlemeHatasi
 from app.services.izlenen_hesaplar import ekle as izlemeye_ekle
 from app.services.izlenen_hesaplar import kaldir as izlemeden_kaldir
 from app.services.izlenen_hesaplar import listele as izlenenleri_listele
+from app.services.kampanyalar import (
+    PLATFORM_ADLARI,
+    KampanyaHatasi,
+    butce_coz,
+    gun_durumu,
+    platform_ekle,
+    platform_kaldir,
+    platformlari_getir,
+    toplam_butce,
+)
 from app.services.oauth_state import create_state
 from app.services.sifre_sifirlama import JetonHatasi, jeton_gecerli_mi, jetonu_tuket
 from app.services.sistem_ayarlari import (
@@ -869,8 +879,21 @@ def _kampanya_sayfasi(request, db, user, uyelik, workspace, *, error=None, ok=No
             "aktif": "kampanya",
             "workspace": workspace,
             "marka": marka,
-            "kampanyalar": kampanyalar,
+            "kampanyalar": [
+                {
+                    "k": k,
+                    "platformlar": platformlari_getir(db, k.id),
+                    "toplam": toplam_butce(db, k.id),
+                    "asama": gun_durumu(
+                        dt.date.today(), k.starts_on, k.ends_on
+                    ),
+                }
+                for k in kampanyalar
+            ],
             "status_labels": STATUS_LABELS,
+            "platform_secenekleri": [
+                (p.value, PLATFORM_ADLARI.get(p, p.value)) for p in ReklamPlatformu
+            ],
             "duzenleyebilir": izin_var_mi(db, user, "kampanya.yonet"),
             "error": error,
             "ok": ok,
@@ -1554,4 +1577,113 @@ def tracked_remove(
     db.commit()
     return _hesaplar_sayfasi(
         request, db, user, uyelik, workspace, ok="İzleme listesinden çıkarıldı."
+    )
+
+
+# --- Kampanya platform dagilimi ----------------------------------------------
+#
+# Bir kampanya ayni anda Meta'da, Google Ads'te ve organik olarak
+# yurutulebilir; her birinin butcesi ve hedefi farklidir. Tek bir "butce"
+# alani, hangi paranin nereye gittigi sorusunu yanitsiz birakirdi.
+
+@router.post("/musteri/{workspace_id}/kampanya/platform")
+def campaign_platform_add(
+    workspace_id: uuid.UUID,
+    request: Request,
+    db: DbSession,
+    kampanya_id: Annotated[uuid.UUID, Form()],
+    platform: Annotated[str, Form()],
+    butce: Annotated[str, Form()] = "0",
+    hedef: Annotated[str, Form()] = "",
+    harici_kimlik: Annotated[str, Form()] = "",
+    notlar: Annotated[str, Form()] = "",
+):
+    user = current_user_from_cookie(request, db)
+    if user is None:
+        return _giris_yonlendir()
+    uyelik = uyelik_bul(request, db, user, workspace_id)
+    if uyelik is None:
+        return HTMLResponse("Bulunamadı.", status_code=404)
+
+    workspace = db.get(Workspace, workspace_id)
+    if not izin_var_mi(db, user, "kampanya.yonet"):
+        return _kampanya_sayfasi(
+            request, db, user, uyelik, workspace,
+            error="Kampanya yönetme yetkiniz yok.",
+            kod=status.HTTP_403_FORBIDDEN,
+        )
+
+    try:
+        secilen = ReklamPlatformu(platform)
+        tutar = butce_coz(butce)
+    except (ValueError, KampanyaHatasi) as hata:
+        return _kampanya_sayfasi(
+            request, db, user, uyelik, workspace,
+            error=str(hata) if isinstance(hata, KampanyaHatasi) else "Geçersiz platform.",
+            kod=status.HTTP_400_BAD_REQUEST,
+        )
+
+    try:
+        platform_ekle(
+            db, workspace_id=workspace_id, campaign_id=kampanya_id,
+            platform=secilen, butce=tutar, hedef=hedef,
+            notlar=notlar, harici_kimlik=harici_kimlik,
+        )
+    except KampanyaHatasi as hata:
+        return _kampanya_sayfasi(
+            request, db, user, uyelik, workspace,
+            error=str(hata), kod=status.HTTP_404_NOT_FOUND,
+        )
+
+    kaydet(
+        db, action="kampanya.platform_eklendi", actor_user_id=user.id,
+        workspace_id=workspace_id, subject_type="campaign",
+        subject_id=kampanya_id, request=request,
+        details={"platform": secilen.value, "butce": str(tutar)},
+    )
+    db.commit()
+    return _kampanya_sayfasi(
+        request, db, user, uyelik, workspace,
+        ok=f"{PLATFORM_ADLARI.get(secilen, secilen.value)} kaydedildi.",
+    )
+
+
+@router.post("/musteri/{workspace_id}/kampanya/platform/sil")
+def campaign_platform_remove(
+    workspace_id: uuid.UUID,
+    request: Request,
+    db: DbSession,
+    satir_id: Annotated[uuid.UUID, Form()],
+):
+    user = current_user_from_cookie(request, db)
+    if user is None:
+        return _giris_yonlendir()
+    uyelik = uyelik_bul(request, db, user, workspace_id)
+    if uyelik is None:
+        return HTMLResponse("Bulunamadı.", status_code=404)
+
+    workspace = db.get(Workspace, workspace_id)
+    if not izin_var_mi(db, user, "kampanya.yonet"):
+        return _kampanya_sayfasi(
+            request, db, user, uyelik, workspace,
+            error="Kampanya yönetme yetkiniz yok.",
+            kod=status.HTTP_403_FORBIDDEN,
+        )
+
+    try:
+        platform_kaldir(db, workspace_id=workspace_id, satir_id=satir_id)
+    except KampanyaHatasi as hata:
+        return _kampanya_sayfasi(
+            request, db, user, uyelik, workspace,
+            error=str(hata), kod=status.HTTP_404_NOT_FOUND,
+        )
+
+    kaydet(
+        db, action="kampanya.platform_silindi", actor_user_id=user.id,
+        workspace_id=workspace_id, subject_type="campaign_platform",
+        subject_id=satir_id, request=request,
+    )
+    db.commit()
+    return _kampanya_sayfasi(
+        request, db, user, uyelik, workspace, ok="Platform kaldırıldı."
     )

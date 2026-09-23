@@ -393,6 +393,9 @@
     <div class="logo"><span class="mark">AC</span> Agency Cortex</div>
 
     <div class="baslik">Genel</div>
+    <a class="bag {% if aktif == 'dashboard' %}aktif{% endif %}" href="/panel/dashboard">
+      {{ ikon('panoya') }} Gösterge paneli
+    </a>
     <a class="bag {% if aktif == 'musteriler' %}aktif{% endif %}" href="/panel">
       {{ ikon('musteriler') }} Müşteriler
     </a>

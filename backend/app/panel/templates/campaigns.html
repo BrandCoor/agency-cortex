@@ -1,8 +1,12 @@
 {% extends "base.html" %}
 {% block title %}Kampanyalar — {{ workspace.name }}{% endblock %}
 {% block content %}
+
 <h1>Kampanyalar</h1>
-<p class="sub">Belirli bir döneme ve hedefe yönelik çalışmalar.</p>
+<p class="alt-yazi">
+  Belirli bir döneme ve hedefe yönelik çalışmalar. Her kampanya birden
+  çok platformda yürütülebilir; bütçe platform bazında ayrı ayrı tutulur.
+</p>
 
 {% if error %}<div class="err">{{ error }}</div>{% endif %}
 {% if ok %}<div class="ok">{{ ok }}</div>{% endif %}
@@ -14,26 +18,119 @@
   </div>
 {% else %}
 
+<div class="bilgi">
+  <b>Buradaki bütçeler sizin girdiğiniz plandır</b>
+  Reklam platformlarından çekilen <em>gerçek harcama</em> değildir. Meta
+  ve Google Ads hesaplarına bağlanıp gerçek harcamayı okumak ayrı bir
+  entegrasyondur ve henüz yoktur — olsaydı burada ayrıca belirtilirdi.
+</div>
+
 {% if not kampanyalar %}
-  <div class="card empty">Henüz kampanya yok.</div>
+  <div class="bos">Henüz kampanya yok.</div>
 {% endif %}
 
-{% for k in kampanyalar %}
+{% for c in kampanyalar %}
 <div class="card">
-  <div class="row">
-    <strong style="flex:1">{{ k.name }}</strong>
-    <span class="badge b-{{ k.status.value }}">{{ status_labels[k.status.value] }}</span>
+  <div class="row" style="flex-wrap:wrap">
+    <strong style="flex:1; font-size:16px">{{ c.k.name }}</strong>
+    <span class="pill
+      {% if c.asama == 'devam ediyor' %}p-ok
+      {% elif c.asama == 'bitti' %}p-notr
+      {% elif c.asama == 'başlamadı' %}p-warn{% endif %}">{{ c.asama }}</span>
+    <span class="badge b-{{ c.k.status.value }}">{{ status_labels[c.k.status.value] }}</span>
   </div>
+
   <div class="muted" style="margin-top:6px">
-    {% if k.starts_on %}{{ k.starts_on.strftime('%d.%m.%Y') }}{% else %}başlangıç yok{% endif %}
+    {% if c.k.starts_on %}{{ c.k.starts_on.strftime('%d.%m.%Y') }}{% else %}başlangıç yok{% endif %}
     —
-    {% if k.ends_on %}{{ k.ends_on.strftime('%d.%m.%Y') }}{% else %}bitiş yok{% endif %}
+    {% if c.k.ends_on %}{{ c.k.ends_on.strftime('%d.%m.%Y') }}{% else %}bitiş yok{% endif %}
+    {% if c.toplam %}
+      · <strong>toplam plan: {{ "%.2f"|format(c.toplam) }}</strong>
+    {% endif %}
   </div>
-  {% if k.objective %}<div style="margin-top:8px">{{ k.objective }}</div>{% endif %}
+
+  {% if c.k.objective %}<div style="margin-top:8px">{{ c.k.objective }}</div>{% endif %}
+
+  {% if c.platformlar %}
+  <div class="tablo-sar" style="margin-top:14px">
+    <table>
+      <thead>
+        <tr><th>Platform</th><th>Bütçe</th><th>Hedef</th><th>Platform kimliği</th><th class="sag daralt"></th></tr>
+      </thead>
+      <tbody>
+      {% for p in c.platformlar %}
+        <tr>
+          <td><strong>{{ p.platform_adi }}</strong>
+            {% if p.notlar %}<div class="sessiz">{{ p.notlar }}</div>{% endif %}
+          </td>
+          <td class="daralt">
+            {% if p.butce %}{{ "%.2f"|format(p.butce) }}
+            {% else %}<span class="sessiz">—</span>{% endif %}
+          </td>
+          <td>{% if p.hedef %}{{ p.hedef }}{% else %}<span class="sessiz">—</span>{% endif %}</td>
+          <td>{% if p.harici_kimlik %}<code>{{ p.harici_kimlik }}</code>
+              {% else %}<span class="sessiz">girilmedi</span>{% endif %}</td>
+          <td class="sag daralt">
+            {% if duzenleyebilir %}
+            <form method="post" action="/panel/musteri/{{ workspace.id }}/kampanya/platform/sil" style="margin:0">
+              <input type="hidden" name="satir_id" value="{{ p.id }}">
+              <button type="submit" class="kucuk tehlikeli">Kaldır</button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="sessiz" style="margin-top:12px">Bu kampanyaya henüz platform eklenmedi.</div>
+  {% endif %}
+
   {% if duzenleyebilir %}
-  <form method="post" action="/panel/musteri/{{ workspace.id }}/kampanya/sil" style="margin-top:10px">
-    <input type="hidden" name="kampanya_id" value="{{ k.id }}">
-    <button type="submit">Sil</button>
+  <details style="margin-top:12px">
+    <summary>Platform ekle / güncelle</summary>
+    <form method="post" action="/panel/musteri/{{ workspace.id }}/kampanya/platform">
+      <input type="hidden" name="kampanya_id" value="{{ c.k.id }}">
+      <div class="izgara">
+        <div>
+          <label>Platform</label>
+          <select name="platform" required>
+            {% for deger, ad in platform_secenekleri %}
+            <option value="{{ deger }}">{{ ad }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label>Bütçe</label>
+          <input name="butce" placeholder="Örn: 15.000,00 veya 15000">
+        </div>
+        <div>
+          <label>Hedef</label>
+          <input name="hedef" maxlength="200" placeholder="Örn: 500 rezervasyon">
+        </div>
+        <div>
+          <label>Platform kampanya kimliği (isteğe bağlı)</label>
+          <input name="harici_kimlik" maxlength="120" placeholder="Reklam hesabındaki kimlik">
+        </div>
+      </div>
+      <div style="margin-top:10px">
+        <label>Not</label>
+        <input name="notlar" placeholder="İsteğe bağlı">
+      </div>
+      <div style="margin-top:12px"><button type="submit" class="birincil">Kaydet</button></div>
+      <div class="sessiz" style="margin-top:6px">
+        Aynı platform ikinci kez eklenirse <strong>güncellenir</strong>,
+        kopya oluşmaz — aksi halde toplam bütçe iki kez sayılırdı.
+      </div>
+    </form>
+  </details>
+
+  <form method="post" action="/panel/musteri/{{ workspace.id }}/kampanya/sil"
+        style="margin-top:10px"
+        onsubmit="return confirm('{{ c.k.name }} kampanyası silinecek. Emin misiniz?')">
+    <input type="hidden" name="kampanya_id" value="{{ c.k.id }}">
+    <button type="submit" class="kucuk tehlikeli">Kampanyayı sil</button>
   </form>
   {% endif %}
 </div>
@@ -42,24 +139,34 @@
 {% if duzenleyebilir %}
 <h2>Yeni kampanya</h2>
 <form method="post" action="/panel/musteri/{{ workspace.id }}/kampanya" class="card">
-  <label for="ad">Kampanya adı</label>
-  <input id="ad" name="ad" type="text" required maxlength="200"
-         placeholder="Örn: Ramazan 2026">
-
-  <label for="hedef">Hedef</label>
-  <textarea id="hedef" name="hedef" rows="3"
-            placeholder="Örn: İftar menüsü rezervasyonlarını artırmak"></textarea>
-
-  <label for="baslangic">Başlangıç tarihi</label>
-  <input id="baslangic" name="baslangic" type="date">
-
-  <label for="bitis">Bitiş tarihi</label>
-  <input id="bitis" name="bitis" type="date">
-
-  <div style="margin-top:16px"><button type="submit">Kampanya oluştur</button></div>
+  <div class="izgara">
+    <div>
+      <label for="ad">Kampanya adı</label>
+      <input id="ad" name="ad" type="text" required maxlength="200"
+             placeholder="Örn: Ramazan 2026">
+    </div>
+    <div>
+      <label for="baslangic">Başlangıç tarihi</label>
+      <input id="baslangic" name="baslangic" type="date">
+    </div>
+    <div>
+      <label for="bitis">Bitiş tarihi</label>
+      <input id="bitis" name="bitis" type="date">
+    </div>
+  </div>
+  <div style="margin-top:12px">
+    <label for="hedef">Hedef</label>
+    <textarea id="hedef" name="hedef" rows="3"
+              placeholder="Örn: İftar menüsü rezervasyonlarını artırmak"></textarea>
+  </div>
+  <div style="margin-top:14px"><button type="submit" class="birincil">Kampanya oluştur</button></div>
+  <div class="sessiz" style="margin-top:6px">
+    Kampanyayı oluşturduktan sonra platformlarını ve bütçelerini
+    ekleyebilirsiniz.
+  </div>
 </form>
 {% else %}
-<div class="warn">Kampanya eklemek için en az <strong>stratejist</strong> yetkisi gerekir.</div>
+<div class="warn">Kampanya eklemek için <strong>kampanya.yonet</strong> izni gerekir.</div>
 {% endif %}
 
 {% endif %}

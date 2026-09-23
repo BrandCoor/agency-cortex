@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+{% block title %}Gösterge paneli{% endblock %}
+{% block content %}
+
+<h1>Gösterge paneli</h1>
+<p class="alt-yazi">
+  Buradaki her sayı gerçek kayıtlardan gelir. Üretilemeyen bir ölçü
+  gösterilmez; nedeni yazılır.
+</p>
+
+<div class="olculer">
+  <div class="kutu">
+    <div class="etiket">Müşteri</div>
+    <div class="deger">{{ ozet.musteri_sayisi }}</div>
+    <div class="ek">erişebildiğiniz</div>
+  </div>
+
+  <div class="kutu {% if ozet.bekleyen_onay %}vurgulu{% endif %}">
+    <div class="etiket">Onay bekleyen</div>
+    <div class="deger">{{ ozet.bekleyen_onay }}</div>
+    <div class="ek">içerik ve rapor</div>
+  </div>
+
+  <div class="kutu">
+    <div class="etiket">Yaklaşan plan</div>
+    <div class="deger">{{ ozet.yaklasan_plan }}</div>
+    <div class="ek">önümüzdeki 7 gün</div>
+  </div>
+
+  <div class="kutu {% if ozet.gecikmis_plan %}uyari{% endif %}">
+    <div class="etiket">Geciken plan</div>
+    <div class="deger">{{ ozet.gecikmis_plan }}</div>
+    <div class="ek">zamanı geçti, yayınlanmadı</div>
+  </div>
+
+  <div class="kutu {% if ozet.basarisiz_calisma %}kotu{% endif %}">
+    <div class="etiket">Başarısız çalışma</div>
+    <div class="deger">{{ ozet.basarisiz_calisma }}</div>
+    <div class="ek">son 24 saat</div>
+  </div>
+
+  <div class="kutu {% if butce_yuzde >= 80 %}kotu{% endif %}">
+    <div class="etiket">AI bütçesi</div>
+    <div class="deger kucukce">
+      ${{ "%.2f"|format(butce_harcanan) }}
+      <span class="sessiz">/ ${{ "%.0f"|format(butce_sinir) }}</span>
+    </div>
+    <div class="ek">bu ay · %{{ butce_yuzde }}</div>
+  </div>
+</div>
+
+{% for n in ozet.notlar %}
+<div class="bilgi" style="margin-top:14px">{{ n }}</div>
+{% endfor %}
+
+{% if ozet.musteriler %}
+<h2>Müşteriler</h2>
+<div class="card sikisik"><div class="tablo-sar">
+  <table>
+    <thead>
+      <tr>
+        <th>Müşteri</th>
+        <th class="daralt">Onay bekleyen</th>
+        <th class="daralt">Yaklaşan</th>
+        <th class="daralt">Bağlı hesap</th>
+        <th class="daralt">AI bütçesi</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for m in ozet.musteriler %}
+      <tr>
+        <td><a href="/panel/musteri/{{ m.id }}"><strong>{{ m.ad }}</strong></a></td>
+        <td class="daralt">
+          {% if m.bekleyen_onay %}
+            <span class="pill p-acc">{{ m.bekleyen_onay }}</span>
+          {% else %}<span class="sessiz">—</span>{% endif %}
+        </td>
+        <td class="daralt">
+          {% if m.yaklasan_plan %}{{ m.yaklasan_plan }}
+          {% else %}<span class="sessiz">—</span>{% endif %}
+        </td>
+        <td class="daralt">
+          {% if m.bagli_hesap %}{{ m.bagli_hesap }}
+          {% else %}<span class="sessiz">yok</span>{% endif %}
+        </td>
+        <td class="daralt">
+          <span class="pill {% if m.butce_kritik %}p-bad{% endif %}">%{{ m.butce_yuzde }}</span>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div></div>
+{% endif %}
+
+<h2>Son iş akışı çalışmaları</h2>
+{% if ozet.son_calismalar %}
+<div class="card sikisik"><div class="tablo-sar">
+  <table>
+    <thead>
+      <tr><th>Müşteri</th><th>Akış</th><th>Durum</th><th>Zaman</th></tr>
+    </thead>
+    <tbody>
+    {% for c in ozet.son_calismalar %}
+      <tr>
+        <td>{{ c.musteri }}</td>
+        <td><code>{{ c.akis }}</code></td>
+        <td>
+          {% if c.basarili %}<span class="pill p-ok">başarılı</span>
+          {% elif c.basarisiz %}<span class="pill p-bad">hata</span>
+          {% else %}<span class="pill">{{ c.durum }}</span>{% endif %}
+          {% if c.hata %}<div class="sessiz" style="color:var(--bad)">{{ c.hata }}</div>{% endif %}
+        </td>
+        <td class="muted">{{ c.zaman.strftime('%d.%m.%Y %H:%M') }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div></div>
+<div class="sessiz" style="margin-top:8px">
+  Tümü için <a href="/panel/otomasyon">Otomasyon</a> sayfasına bakın.
+</div>
+{% else %}
+<div class="bos">Henüz çalışma kaydı yok.</div>
+{% endif %}
+
+{% endblock %}

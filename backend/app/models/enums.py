@@ -35,6 +35,23 @@ _ROLE_LEVELS: dict[WorkspaceRole, int] = {
 }
 
 
+class ReklamPlatformu(str, enum.Enum):
+    """Kampanya butcesinin dagitildigi mecra.
+
+    ORGANIK bilerek listede: her kampanyanin reklam butcesi olmak
+    zorunda degildir. Yalnizca organik icerikle yurutulen bir kampanyayi
+    "platformsuz" birakmak, onu kampanya listesinde eksik gosterirdi.
+    """
+
+    META = "meta"                  # Facebook + Instagram reklamlari
+    GOOGLE_ADS = "google_ads"
+    TIKTOK_ADS = "tiktok_ads"
+    LINKEDIN_ADS = "linkedin_ads"
+    X_ADS = "x_ads"
+    YOUTUBE_ADS = "youtube_ads"
+    ORGANIK = "organik"            # Reklam harcamasi yok
+
+
 class PermissionPackage(str, enum.Enum):
     """Bir KULLANICININ hazir yetki paketi.
 
