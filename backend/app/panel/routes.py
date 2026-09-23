@@ -28,6 +28,7 @@ from app.models.brand import Brand, BrandGuideline, Campaign
 from app.models.content import ContentScript
 from app.models.enums import ContentStatus, Platform
 from app.models.identity import User, Workspace, WorkspaceMember
+from app.models.izlenen import IzlemeTuru
 from app.models.reporting import Report, ReportSection
 from app.models.social import SocialAccount
 from app.panel.auth import clear_session_cookie, current_user_from_cookie, set_session_cookie
@@ -46,6 +47,10 @@ from app.services.approvals import (
 )
 from app.services.baglanti_sinama import SINAYICILAR, sina
 from app.services.denetim import kaydet
+from app.services.izlenen_hesaplar import IzlemeHatasi
+from app.services.izlenen_hesaplar import ekle as izlemeye_ekle
+from app.services.izlenen_hesaplar import kaldir as izlemeden_kaldir
+from app.services.izlenen_hesaplar import listele as izlenenleri_listele
 from app.services.oauth_state import create_state
 from app.services.sifre_sifirlama import JetonHatasi, jeton_gecerli_mi, jetonu_tuket
 from app.services.sistem_ayarlari import (
@@ -974,6 +979,12 @@ def campaign_delete(
 # hangi ayarlarin eksik oldugu yazilir. Calismayan bir dugme gostermek,
 # kullaniciya olmayan bir yetenek varmis gibi sunmaktir.
 
+IZLEME_ETIKETLERI = {
+    IzlemeTuru.KENDI: "Kendi hesabı (henüz bağlanmadı)",
+    IzlemeTuru.RAKIP: "Rakip",
+    IzlemeTuru.REFERANS: "Referans",
+}
+
 PLATFORM_ETIKETLERI = {
     "instagram": "Instagram",
     "facebook": "Facebook",
@@ -1056,8 +1067,36 @@ def _hesaplar_sayfasi(
             # kullanicinin kopyalayabilecegi sekilde gosterilir.
             "donus_adresi": meta_ayar.redirect_uri,
             "izinler": meta_ayar.scopes,
+            # TESHIS: "Bagla" dugmesine basinca Meta'ya TAM OLARAK ne
+            # gonderiliyor. Bunu gostermezsek kullanici Instagram'in
+            # kendi hata sayfasina dusuyor ve elinde hicbir bilgi olmuyor.
+            # App ID gizli bir deger DEGILDIR; izin adresinde zaten gider.
+            # App Secret burada da, adreste de ASLA yer almaz.
+            "teshis": {
+                "izin_adresi": meta_ayar.authorize_url,
+                "app_id": meta_ayar.app_id or "(girilmedi)",
+                "donus_adresi": meta_ayar.redirect_uri or "(belirlenemedi)",
+                "izinler": ", ".join(meta_ayar.scopes) or "(yok)",
+            },
             "eksik_ayarlar": meta_eksikler,
             "sistem_yoneticisi": user.is_superuser,
+            # IZLENEN hesaplar AYRI bir liste. Bagli hesapla ayni yerde
+            # gosterilseydi, sinirli veriyle tam veri ayni sanilirdi.
+            "izlenenler": [
+                {
+                    "id": str(t.id),
+                    "platform": PLATFORM_ETIKETLERI.get(t.platform.value, t.platform.value),
+                    "username": t.username,
+                    "tur": IZLEME_ETIKETLERI.get(t.tur, t.tur.value),
+                    "notlar": t.notlar,
+                    "veri_durumu": t.veri_durumu,
+                }
+                for t in izlenenleri_listele(db, workspace.id)
+            ],
+            "izleyebilir": izin_var_mi(db, user, "hesap.izle"),
+            "izleme_turleri": [
+                (t.value, IZLEME_ETIKETLERI[t]) for t in IzlemeTuru
+            ],
             "error": error,
             "ok": ok,
             "uyari": uyari,
@@ -1377,3 +1416,108 @@ def report_decision(
         return RedirectResponse(f"{temel}?error={quote(str(exc))}", status_code=303)
 
     return RedirectResponse(temel, status_code=303)
+
+
+# --- Izlenen hesaplar --------------------------------------------------------
+#
+# BAGLI hesaptan AYRI tutulur. Bagli hesapta erisim izni vardir ve tam
+# veri gelir; izlenen hesapta yalnizca kullanici adi vardir.
+
+@router.post("/musteri/{workspace_id}/hesaplar/izle")
+def tracked_add(
+    workspace_id: uuid.UUID,
+    request: Request,
+    db: DbSession,
+    platform: Annotated[str, Form()],
+    kullanici_adi: Annotated[str, Form()],
+    tur: Annotated[str, Form()],
+    notlar: Annotated[str, Form()] = "",
+):
+    user = current_user_from_cookie(request, db)
+    if user is None:
+        return _giris_yonlendir()
+    uyelik = uyelik_bul(request, db, user, workspace_id)
+    if uyelik is None:
+        return HTMLResponse("Bulunamadı.", status_code=404)
+
+    workspace = db.get(Workspace, workspace_id)
+    if not izin_var_mi(db, user, "hesap.izle"):
+        return _hesaplar_sayfasi(
+            request, db, user, uyelik, workspace,
+            error="İzlenen hesapları yönetme yetkiniz yok.",
+            kod=status.HTTP_403_FORBIDDEN,
+        )
+
+    try:
+        secilen = Platform(platform)
+        izleme_turu = IzlemeTuru(tur)
+    except ValueError:
+        return _hesaplar_sayfasi(
+            request, db, user, uyelik, workspace,
+            error="Geçersiz platform veya izleme türü.",
+            kod=status.HTTP_400_BAD_REQUEST,
+        )
+
+    try:
+        kayit = izlemeye_ekle(
+            db, workspace_id=workspace_id, platform=secilen,
+            ham_ad=kullanici_adi, tur=izleme_turu, notlar=notlar,
+        )
+    except IzlemeHatasi as exc:
+        return _hesaplar_sayfasi(
+            request, db, user, uyelik, workspace,
+            error=str(exc), kod=status.HTTP_400_BAD_REQUEST,
+        )
+
+    kaydet(
+        db, action="izlenen_hesap.ekle", actor_user_id=user.id,
+        workspace_id=workspace_id, subject_type="tracked_account",
+        subject_id=kayit.id, request=request,
+        details={"platform": secilen.value, "username": kayit.username},
+    )
+    db.commit()
+    return _hesaplar_sayfasi(
+        request, db, user, uyelik, workspace,
+        ok=f"@{kayit.username} izleme listesine eklendi.",
+    )
+
+
+@router.post("/musteri/{workspace_id}/hesaplar/izleme-kaldir")
+def tracked_remove(
+    workspace_id: uuid.UUID,
+    request: Request,
+    db: DbSession,
+    kayit_id: Annotated[uuid.UUID, Form()],
+):
+    user = current_user_from_cookie(request, db)
+    if user is None:
+        return _giris_yonlendir()
+    uyelik = uyelik_bul(request, db, user, workspace_id)
+    if uyelik is None:
+        return HTMLResponse("Bulunamadı.", status_code=404)
+
+    workspace = db.get(Workspace, workspace_id)
+    if not izin_var_mi(db, user, "hesap.izle"):
+        return _hesaplar_sayfasi(
+            request, db, user, uyelik, workspace,
+            error="İzlenen hesapları yönetme yetkiniz yok.",
+            kod=status.HTTP_403_FORBIDDEN,
+        )
+
+    try:
+        izlemeden_kaldir(db, workspace_id=workspace_id, kayit_id=kayit_id)
+    except IzlemeHatasi as exc:
+        return _hesaplar_sayfasi(
+            request, db, user, uyelik, workspace,
+            error=str(exc), kod=status.HTTP_404_NOT_FOUND,
+        )
+
+    kaydet(
+        db, action="izlenen_hesap.kaldir", actor_user_id=user.id,
+        workspace_id=workspace_id, subject_type="tracked_account",
+        subject_id=kayit_id, request=request,
+    )
+    db.commit()
+    return _hesaplar_sayfasi(
+        request, db, user, uyelik, workspace, ok="İzleme listesinden çıkarıldı."
+    )

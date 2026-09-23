@@ -1115,3 +1115,48 @@ gizlemek güvenlik değildir; adres elle yazıldığında da 404 dönüyor
 ### Doğrulandı
 - **580/580 test geçti** (569 + 11 yeni).
 - `ruff check app tests` temiz, `alembic check` temiz.
+
+## [0.14.0] - 2026-09-23 — Yetkiler kullanıcıda, izlenen hesaplar ayrı
+
+### Düzeltildi — Trend araştırması her çalışmada hata veriyordu
+Panelde şu görünüyordu: *"AI çıktısı 2 denemede de beklenen yapıya
+uymadı: 3 validation errors for TrendResearchBatch"*. Sebep: örnek veri
+sağlayıcısı `trend_research` görevini tanımıyor ve hiçbir şemaya uymayan
+bir değer döndürüyordu. Artık şemaya uygun örnek çıktı üretiyor; bulgular
+**hipotez** olarak işaretleniyor, örnek veri kesin bilgi gibi sunulmuyor.
+Tanınmayan bir görev türü artık sessizce geçmiyor, açıkça hata veriyor.
+Bir bekçi test, kodda kullanılan her görev türünü denetliyor.
+
+### Değişti — Yetkiler artık KULLANICININ altında
+Yetki ekranı müşterinin altındaydı ve aynı kişi iki müşteride iki farklı
+yetkide olabiliyordu. Artık:
+- Her kullanıcının **tek** bir yetki kümesi var
+  (`Yönetim → Kullanıcılar → kişi → Yetkiler`).
+- **Ekip sayfası atama yapar, yetki vermez.** Rol seçimi kaldırıldı.
+- Hazır paket (Yönetici/Stratejist/Editör/İzleyici) sadece başlangıç
+  noktası; 19 iznin her biri tek tek açılıp kapatılabiliyor.
+- Kısıtlanamaz kişi artık **sistem yöneticisi**.
+
+**Kimse yetki kaybetmedi:** herkesin paketi, sahip olduğu en yüksek
+müşteri rolünden türetildi. Gerçek veriyle ölçüldü.
+
+### Eklendi — İzlenen hesaplar (bağlı hesaplardan ayrı)
+- **Bağlı hesap:** sahibi izin verdi, veri tam gelir.
+- **İzlenen hesap:** sadece kullanıcı adı/bağlantı yazılır, yetki
+  istenmez. Rakip ve referans hesaplar için.
+- `@ad`, `ad` veya tam bağlantı — üçü de kabul ediliyor.
+- Zaten bağlı olan hesap ayrıca izlemeye alınamıyor.
+- **Dürüstlük:** izlemeye almak veri çekmeye başlamak değildir; şu an
+  otomatik veri çekilmiyor ve sebebi her kaydın yanında yazıyor.
+
+### Eklendi — Hesap bağlama teşhisi
+"Bağla" düğmesine basınca Meta'ya gönderilen değerler artık panelde
+görünüyor (izin adresi, uygulama kimliği, dönüş adresi, izinler).
+**App Secret hiçbir yerde gösterilmiyor** — bir test bunu denetliyor.
+`Invalid platform app` hatası için ne kontrol edileceği yazıyor; kesin
+çözüm yazılmadı çünkü Meta dokümanlarına erişim bu ortamda engelli.
+
+### Doğrulandı
+- **598/598 test geçti.**
+- `ruff check app tests` temiz, `alembic check` temiz.
+- Her iki migration gerçek veriyle ileri → geri → ileri sınandı.

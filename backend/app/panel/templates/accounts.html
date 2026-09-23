@@ -147,4 +147,128 @@
   {% endif %}
 </div>
 {% endfor %}
+
+<h2>Bağlantı ayarları (teşhis)</h2>
+<div class="card sikisik">
+  <p class="alt-yazi" style="margin-top:0">
+    "Bağla" düğmesine bastığınızda Meta'ya <strong>tam olarak bunlar</strong>
+    gönderiliyor. Meta'nın izin ekranı hata verirse, aşağıdakileri Meta
+    uygulamanızdaki değerlerle karşılaştırın. <em>Gizli anahtar (App Secret)
+    burada da, gönderilen adreste de yer almaz.</em>
+  </p>
+  <table class="izin-tablo">
+    <tbody>
+      <tr><td class="daralt"><strong>İzin adresi</strong></td>
+          <td><code>{{ teshis.izin_adresi }}</code></td></tr>
+      <tr><td class="daralt"><strong>Uygulama kimliği</strong></td>
+          <td><code>{{ teshis.app_id }}</code></td></tr>
+      <tr><td class="daralt"><strong>Dönüş adresi</strong></td>
+          <td><code>{{ teshis.donus_adresi }}</code></td></tr>
+      <tr><td class="daralt"><strong>İstenen izinler</strong></td>
+          <td><code>{{ teshis.izinler }}</code></td></tr>
+    </tbody>
+  </table>
+  <div class="warn" style="margin-top:12px">
+    <strong>"Invalid platform app" hatası alıyorsanız:</strong> bu mesaj
+    Instagram'ın kendi izin ekranından gelir ve gönderdiğimiz
+    <em>uygulama kimliğinin bu izin adresi için geçerli olmadığını</em>
+    söyler. Meta uygulamasında Instagram ve Facebook için
+    <strong>ayrı kimlikler</strong> bulunabilir; yukarıdaki kimliğin
+    Meta panelindeki hangi değerle eşleştiğini kontrol edin.
+    <br><br>
+    Bunu kesin olarak yazamıyorum: Meta'nın resmî dokümanlarına bu
+    geliştirme ortamından erişim <strong>engelli</strong>. Doğrulamadan
+    uç adresi veya izin adı yazmak, sessizce yanlış veri üreten bir
+    entegrasyona yol açardı. Erişim açıldığında bu kısım kesinleştirilecek.
+  </div>
+</div>
+
+<h2>İzlenen hesaplar</h2>
+<div class="bilgi">
+  <strong>Bağlamak ile izlemek aynı şey değildir.</strong><br>
+  <strong>Bağlı hesap:</strong> sahibi izin ekranından yetki vermiştir.
+  Erişim, etkileşim ve içgörü verisi <em>tam</em> gelir. Kendi
+  hesaplarınız ve yönetimini üstlendiğiniz hesaplar böyle eklenir.<br>
+  <strong>İzlenen hesap:</strong> yalnızca kullanıcı adını yazarsınız.
+  Hiçbir yetki istenmez. Rakip ve referans hesaplar böyle takip edilir;
+  elde edilebilecek veri <em>sınırlıdır</em>.
+</div>
+
+{% if izlenenler %}
+<div class="card sikisik"><div class="tablo-sar">
+  <table>
+    <thead>
+      <tr><th>Hesap</th><th>Platform</th><th>Neden</th><th>Veri durumu</th><th class="sag"></th></tr>
+    </thead>
+    <tbody>
+    {% for t in izlenenler %}
+      <tr>
+        <td><strong>@{{ t.username }}</strong>
+          {% if t.notlar %}<div class="alt-yazi">{{ t.notlar }}</div>{% endif %}
+        </td>
+        <td>{{ t.platform }}</td>
+        <td><span class="pill p-notr">{{ t.tur }}</span></td>
+        <td class="alt-yazi">{{ t.veri_durumu }}</td>
+        <td class="sag daralt">
+          {% if izleyebilir %}
+          <form method="post" action="/panel/musteri/{{ workspace.id }}/hesaplar/izleme-kaldir"
+                style="margin:0"
+                onsubmit="return confirm('@{{ t.username }} izleme listesinden çıkarılacak.')">
+            <input type="hidden" name="kayit_id" value="{{ t.id }}">
+            <button type="submit" class="kucuk tehlikeli">Çıkar</button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div></div>
+{% else %}
+<div class="bos">Henüz izlenen hesap yok.</div>
+{% endif %}
+
+{% if izleyebilir %}
+<div class="card">
+  <h3>İzleme listesine hesap ekle</h3>
+  <form method="post" action="/panel/musteri/{{ workspace.id }}/hesaplar/izle">
+    <div class="izgara">
+      <div>
+        <label for="kullanici_adi">Kullanıcı adı veya bağlantı</label>
+        <input id="kullanici_adi" name="kullanici_adi" required
+               placeholder="@markaadi veya https://instagram.com/markaadi">
+      </div>
+      <div>
+        <label for="izle_platform">Platform</label>
+        <select id="izle_platform" name="platform" required>
+          {% for p in platformlar %}
+          <option value="{{ p.platform }}">{{ p.etiket }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label for="tur">Neden izliyorsunuz?</label>
+        <select id="tur" name="tur" required>
+          {% for deger, etiket in izleme_turleri %}
+          <option value="{{ deger }}">{{ etiket }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+    <div style="margin-top:12px">
+      <label for="notlar">Not (isteğe bağlı)</label>
+      <input id="notlar" name="notlar" placeholder="Neden takip ediyoruz?">
+    </div>
+    <div style="margin-top:15px">
+      <button type="submit" class="birincil">İzleme listesine ekle</button>
+    </div>
+  </form>
+  <div class="sessiz" style="margin-top:8px">
+    İzlemeye almak <strong>veri çekmeye başlamak değildir</strong>. Şu anda
+    izlenen hesaplardan otomatik veri çekilmiyor; sebebi listede her
+    kaydın yanında yazıyor.
+  </div>
+</div>
+{% endif %}
+
 {% endblock %}

@@ -49,6 +49,9 @@ IZINLER: tuple[Izin, ...] = (
          "Instagram/Facebook hesabını bağlar. Hesabın verisine erişim açar."),
     Izin("hesap.gor", "Sosyal hesaplar", "Bağlı hesapları gör",
          "Hangi hesapların bağlı olduğunu ve son veri çekimini görür."),
+    Izin("hesap.izle", "Sosyal hesaplar", "İzlenen hesapları yönet",
+         "Rakip veya referans hesapları kullanıcı adıyla takip listesine "
+         "ekler ve çıkarır. Hesaba erişim yetkisi İSTEMEZ."),
 
     # --- Icerik ---
     Izin("icerik.uret", "İçerik", "Yapay zekâ ile içerik ürettir",
@@ -103,7 +106,7 @@ GRUPLAR = tuple(dict.fromkeys(i.grup for i in IZINLER))
 PAKET_VARSAYILANI: dict[PermissionPackage, frozenset[str]] = {
     PermissionPackage.ADMIN: IZIN_ANAHTARLARI,
     PermissionPackage.STRATEGIST: frozenset({
-        "marka.duzenle", "kampanya.yonet", "hesap.gor",
+        "marka.duzenle", "kampanya.yonet", "hesap.gor", "hesap.izle",
         "icerik.uret", "icerik.duzenle", "icerik.onaya_sun",
         "takvim.gor", "takvim.planla",
         "rapor.gor", "rapor.hazirla", "rapor.sun",

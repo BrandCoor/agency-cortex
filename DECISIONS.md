@@ -945,3 +945,77 @@ Format: Karar / Seçenekler / Neden / Risk / Geri alma
   çok zarar olurdu.
 - **Yan fayda:** Üyelik sorgusunun **üç ayrı kopyası** tek bir yardımcıya
   (`panel/ortak.py`) indirildi. Kopyalar zamanla birbirinden ayrılırdı.
+
+---
+
+## K-050 — Yetkiler kullanıcıya taşındı (K-046'nın düzeltmesi)
+
+- **Sorun:** İzinler (müşteri, rol) çiftine bağlıydı. Aynı kişi bir
+  müşteride editör, diğerinde stratejist olabiliyordu; **"bu kullanıcı
+  neyi yapabilir?" sorusunun tek bir cevabı yoktu.** Yetki ekranı da her
+  müşterinin altında ayrı ayrı duruyordu.
+- **Karar:** İzinler **kullanıcıya** ait. Yetki ekranı
+  `Yönetim → Kullanıcılar → kişi` altında. Müşteri üyeliği yalnızca
+  **erişimi** belirler: üyelik varsa o müşteri görünür.
+- **Ekip sayfası artık atama yapar, yetki vermez.** Rol seçimi kaldırıldı;
+  `workspace_members.role` sütunu düşürüldü.
+- **`yetki.duzenle` izni kaldırıldı:** yetki ekranı sistem yöneticisine
+  özel. Ayrı bir izin, hiçbir şeyi açmayan bir düğme olurdu.
+- **Kısıtlanamaz çıpa artık `is_superuser`.** Önce müşteri sahibiydi;
+  sahiplik kavramı kalktığı için sistemi yönetebilecek en az bir kişi
+  garantisi buraya taşındı.
+- **Paket (Yönetici/Stratejist/Editör/İzleyici)** yalnızca başlangıç
+  noktası; her izin tek tek değiştirilebilir. Paket değiştirmek
+  özelleştirmeleri siler — eski pakete göre "şunu kapat" ayarı yeni
+  pakette anlamsız, hatta tehlikeli olurdu.
+- **Kimse yetki kaybetmedi:** herkesin paketi, sahip olduğu **en yüksek**
+  müşteri rolünden türetildi. Gerçek veriyle ölçüldü; iki müşteride
+  farklı rolü olan kişi en geniş yetkiyi aldı.
+- **Risk:** Aynı kişiye müşteri bazında farklı yetki vermek artık mümkün
+  değil. Kullanıcı bunu açıkça istedi; ihtiyaç doğarsa ayrı bir hesap
+  açmak daha anlaşılır bir çözüm olur.
+- **Geri alma:** Migration geri alınabilir; geri alındığında herkes
+  `admin` rolüne döner. Yetkiyi daraltmak veri kaybı olmaz ama yanlış
+  kişiyi dışarıda bırakabilirdi.
+
+---
+
+## K-051 — Bağlı hesap ile izlenen hesap ayrıldı
+
+- **Karar:** İki ayrı kavram, iki ayrı tablo:
+  - **Bağlı hesap** (`social_accounts`): sahibi izin ekranından yetki
+    vermiştir, erişim anahtarı vardır, veri **tam** gelir.
+  - **İzlenen hesap** (`tracked_accounts`): yalnızca kullanıcı adı veya
+    bağlantısı yazılmıştır, hiçbir yetki yoktur. Rakip ve referans
+    hesaplar böyle takip edilir.
+- **Neden ayrı:** Aynı listede gösterilselerdi, izlenen hesabın **sınırlı**
+  verisi bağlı hesabın **tam** verisi kadar güvenilir sanılırdı. İkisini
+  aynı kefeye koymak raporu yanlış yapardı.
+- **Zaten bağlı olan hesap ayrıca izlenemez:** aynı hesap iki listede
+  görünseydi hangi verinin geçerli olduğu belirsizleşirdi.
+- **Yazım kolaylığı:** `@ad`, `ad`, tam bağlantı — üçü de kabul edilir.
+  "Neden çalışmadı?" sorusunu baştan önler.
+- **Dürüstlük:** İzlemeye almak **veri çekmeye başlamak değildir.** Şu an
+  izlenen hesaplardan otomatik veri çekilmiyor ve sebebi her kaydın
+  yanında yazıyor. "Yakında" denmiyor.
+- **Geri alma:** Tablo düşürülebilir; bağlı hesaplar etkilenmez.
+
+---
+
+## K-052 — Hesap bağlama teşhisi panelde gösteriliyor
+
+- **Sorun:** "Bağla" düğmesine basan kullanıcı doğrudan Instagram'ın
+  hata sayfasına düşüyordu (`Invalid platform app`) ve **ne
+  gönderdiğimizi göremiyordu.**
+- **Karar:** Bağlı hesaplar sayfasında, Meta'ya gönderilen değerler
+  aynen gösteriliyor: izin adresi, uygulama kimliği, dönüş adresi,
+  istenen izinler. **App Secret hiçbir yerde gösterilmiyor** ve bir test
+  bunu sürekli denetliyor.
+- **Neden kesin çözüm yazılmadı:** Meta'nın resmî dokümanlarına bu
+  geliştirme ortamından erişim **ağ politikası tarafından engelli**
+  (`developers.facebook.com` → engellendi). Uç adresi veya izin adı
+  tahminle yazmak, sessizce yanlış veri üreten bir entegrasyon doğururdu.
+  Panelde de bu durum açıkça yazıyor; hata "bizde bir sorun yok" diye
+  geçiştirilmiyor.
+- **Açılması gereken:** Ortam ayarlarındaki ağ erişim listesine
+  `developers.facebook.com` eklenmesi.

@@ -18,6 +18,7 @@ from app.models.enums import (
     WorkspaceRole,
 )
 from app.models.identity import User, Workspace, WorkspaceMember
+from app.models.izlenen import IzlemeTuru, TrackedAccount
 from app.models.ops import (
     Approval,
     AuditLog,
@@ -52,7 +53,7 @@ __all__ = [
     "Campaign", "CompetitorAccount", "CompetitorObservation", "ContentCalendar",
     "ContentIdea", "ContentScript", "ContentStatus", "MediaMetricsNormalized",
     "MediaMetricsRaw", "MediaType", "Notification", "OAuthCredential",
-    "Platform", "PlatformMedia", "Report", "ReportPeriod", "ReportSection", "UserPermission",
+    "Platform", "PlatformMedia", "Report", "ReportPeriod", "ReportSection", "UserPermission", "TrackedAccount", "IzlemeTuru",
     "SocialAccount", "SystemError", "SystemSetting", "TrendObservation", "User", "WebhookEvent",
     "Workspace", "WorkspaceMember", "WorkspaceRole",
 ]
