@@ -341,3 +341,30 @@ müşteride çalışmasına izin veriyorum" demektir; çalıştıran taraf n8n'd
 **"Hata" görüyorum.**
 Hata mesajı satırın altında yazar. Bana o mesajı iletin — hangi akış,
 hangi müşteri, ne zaman.
+
+---
+
+## 11. Panelin görünümünü doğrulama (geliştirici aracı)
+
+Bu bölüm **sizin için değil**, sistemi geliştirenler içindir. Burada
+durmasının sebebi şu: testlerin geçmesi panelin **doğru göründüğünü**
+kanıtlamaz. 23 Eylül'de panel baştan yazıldığında 19 CSS sınıfı tanımsız
+kaldı; bütün sayfalar HTTP 200 dönüyor ve testlerin tamamı geçiyordu, ama
+ekranda başlıklar hizasız, ölçü kutuları düz metindi.
+
+`ops/panel_goruntule.py` bu hata sınıfını görünür kılar: ayrı bir
+veritabanında uygulamayı ayağa kaldırır, örnek veri yazar ve 14 sayfayı
+koyu ve açık temada gerçek bir tarayıcıda çizdirip resimlerini alır.
+
+```
+pip install playwright && playwright install chromium
+python ops/panel_goruntule.py ./gorsel-cikti
+```
+
+Sonunda `SORUNLU: yok` yazması beklenir. Giriş ekranına düşen veya
+"Not Found" dönen her sayfa adıyla birlikte listelenir ve betik sıfırdan
+farklı bir çıkış kodu döndürür.
+
+**Güvenlik:** Betik veritabanını sıfırdan kurar, yani içindeki her şeyi
+siler. Bu yüzden veritabanı adının `_gorsel` ile bitmesi zorunludur ve
+kontrol edilir. Üretim sunucusunda çalıştırılmaz.
