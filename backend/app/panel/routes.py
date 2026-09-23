@@ -55,8 +55,11 @@ from app.services.oauth_state import create_state
 from app.services.sifre_sifirlama import JetonHatasi, jeton_gecerli_mi, jetonu_tuket
 from app.services.sistem_ayarlari import (
     AYAR_ANAHTARLARI,
+    AYAR_GRUPLARI,
+    AyarHatasi,
     deger_sil,
     deger_yaz,
+    dogrula,
     durum_listesi,
 )
 from app.services.yetkiler import PAKET_ADLARI, izin_var_mi
@@ -710,6 +713,7 @@ def _ayarlar_sayfasi(
             "user": user,
             "aktif": "ayarlar",
             "ayarlar": durum_listesi(db),
+            "gruplar": AYAR_GRUPLARI,
             "sinanabilir": set(SINAYICILAR),
             "sinama": sinama,
             "error": error,
@@ -755,7 +759,16 @@ def settings_save(
             kod=status.HTTP_400_BAD_REQUEST,
         )
 
-    deger_yaz(db, anahtar, deger, user_id=user.id)
+    # BICIM KONTROLU: yanlis deger sessizce kabul edilirse baglanti
+    # bozulur ve nedeni hicbir yerde gorunmez.
+    try:
+        temiz = dogrula(anahtar, deger)
+    except AyarHatasi as hata:
+        return _ayarlar_sayfasi(
+            request, db, user, error=str(hata), kod=status.HTTP_400_BAD_REQUEST,
+        )
+
+    deger_yaz(db, anahtar, temiz, user_id=user.id)
     db.commit()
     # Kaydedilen degerin KENDISI yanitta yer almaz.
     return _ayarlar_sayfasi(request, db, user, ok=f"{anahtar} kaydedildi.")

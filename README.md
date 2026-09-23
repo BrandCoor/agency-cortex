@@ -20,18 +20,18 @@ içerik senaryosu önerir.
 | 0 | VPS ve repo keşfi | ✅ Tamamlandı |
 | 1 | Docker, PostgreSQL, Redis, sağlık kontrolü, loglama | ✅ Tamamlandı |
 | 2 | Kullanıcı, çalışma alanı, rol, oturum | ✅ Tamamlandı |
-| 3 | Instagram/Facebook OAuth + veri senkronu | 🟡 Kod hazır, 4 Meta sabiti doğrulanmayı bekliyor |
+| 3 | Instagram/Facebook OAuth + veri senkronu | 🟡 Kod hazır; Meta değerleri panelden girilir |
 | 4 | Metrikler, KPI motoru, günlük/haftalık rapor | ✅ Tamamlandı |
 | 5 | Claude API ile içerik senaryosu | ✅ Tamamlandı |
-| 6 | Manus API ile araştırma | 🟡 Doküman erişimi engelli |
+| 6 | Manus API ile araştırma | ✅ Tamamlandı (API v2, doküman doğrulandı) |
 | 7 | İnsan onay paneli | ✅ Tamamlandı |
-| 8 | Rakip ve trend modülü | ⬜ Sırada |
-| 9 | Gemini sağlayıcısı | ⬜ Planlanmadı (ayarlardan kaldırıldı) |
+| 8 | Rakip ve trend modülü | ✅ Tamamlandı (WF-06 + Rakip/trend ekranı) |
+| 9 | Gemini sağlayıcısı | ✅ Tamamlandı (resmî API tanımından) |
 | 10 | Güvenlik, yedekleme, üretim kurulumu | ✅ Tamamlandı |
 | 11 | Kullanıcı yönetimi ve panel yenileme | ✅ Tamamlandı |
-| 12 | n8n otomasyon altyapısı | ✅ Tamamlandı (5 iş akışı sunucuda etkin) |
+| 12 | n8n otomasyon altyapısı | ✅ Tamamlandı (6 iş akışı) |
 | 13 | Yayın takvimi (planlama; sistem kendisi paylaşmaz) | ✅ Tamamlandı |
-| 14 | Ayrıntılı yetkiler (19 izin, müşteri başına ayarlanır) | ✅ Tamamlandı |
+| 14 | Ayrıntılı yetkiler (19 izin, kullanıcı başına ayarlanır) | ✅ Tamamlandı |
 
 ---
 

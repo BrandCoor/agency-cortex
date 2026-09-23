@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 from app.ai.base import AIProvider
-from app.ai.claude import ClaudeProvider, GeminiProviderStub
+from app.ai.claude import ClaudeProvider
 from app.ai.fake import FakeProvider
+from app.ai.gemini import GeminiProvider
 from app.ai.manus import ManusProvider
 from app.core.config import get_settings
 
@@ -58,7 +59,8 @@ def get_provider(name: str, *, mode: str | None = None) -> AIProvider:
         # Anahtar once panel ayarlarindan, yoksa ortam degiskeninden okunur.
         return ManusProvider(api_key=_ayar_oku("MANUS_API_KEY"))
     if name == "gemini":
-        return GeminiProviderStub()
+        # Anahtar once panel ayarlarindan, yoksa ortam degiskeninden okunur.
+        return GeminiProvider(api_key=_ayar_oku("GEMINI_API_KEY"))
 
     raise ValueError(f"Bilinmeyen AI saglayicisi: {name}")
 

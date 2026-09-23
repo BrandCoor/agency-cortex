@@ -109,6 +109,31 @@ class FakeProvider(AIProvider):
                 ),
             }
 
+        if request.task_type == "competitor_research":
+            return {
+                "findings": [
+                    {
+                        "username": request.metadata.get("ilk_rakip", "rakip0"),
+                        "observation": (
+                            "Sahte saglayici tarafindan uretildi - gercek "
+                            "gozlem DEGIL."
+                        ),
+                        "why_it_matters": "Ornek veridir; karar dayanagi olamaz.",
+                        # Sahte veri ASLA 'fact' degildir.
+                        "claim_type": "hypothesis",
+                        "confidence": "low",
+                        "source_urls": [],
+                        "uncertainties": [
+                            "Gercek hesap incelenmedi; ornek veridir.",
+                        ],
+                    }
+                ],
+                "research_note": (
+                    "Ornek veri modu: hicbir rakip hesap incelenmedi. "
+                    "Gercek arastirma icin AI saglayicisini baglayin."
+                ),
+            }
+
         # BURAYA DUSMEK BIR HATADIR.
         #
         # Onceden burasi {"result": "sahte-cikti-..."} donuyordu. Bu deger

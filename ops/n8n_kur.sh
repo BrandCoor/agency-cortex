@@ -17,7 +17,7 @@
 # 3. Is akislari yuklenir
 # 4. Her akis yayinlanir (n8n 2.x'te etkinlestirme boyle yapilir)
 # 5. n8n yeniden baslatilir - yayinlama calisir haldeyken etkili olmaz
-# 6. Dort akisin da ETKIN oldugu dogrulanir; degilse betik HATA verir
+# 6. Akislarin TAMAMININ etkin oldugu dogrulanir; degilse betik HATA verir
 #
 # ANAHTAR HICBIR YERDE LOGLANMAZ.
 #
@@ -29,7 +29,7 @@ ISARET="$DIZIN/.n8n-akislari-kuruldu"
 
 KIMLIK_ID="agency-cortex-api"
 KIMLIK_AD="Agency Cortex API"
-AKIS_IDLERI="agency-cortex-wf01 agency-cortex-wf02 agency-cortex-wf03 agency-cortex-wf04 agency-cortex-wf05"
+AKIS_IDLERI="agency-cortex-wf01 agency-cortex-wf02 agency-cortex-wf03 agency-cortex-wf04 agency-cortex-wf05 agency-cortex-wf06"
 
 cd "$DIZIN"
 

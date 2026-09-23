@@ -20,13 +20,19 @@ import pytest
 
 from app.ai.base import AIRequest
 from app.ai.fake import FakeProvider
-from app.ai.schemas import ContentScriptBatch, StrategicCommentary, TrendResearchBatch
+from app.ai.schemas import (
+    CompetitorResearchBatch,
+    ContentScriptBatch,
+    StrategicCommentary,
+    TrendResearchBatch,
+)
 
 #: Gorev turu -> ciktisinin uymasi gereken sema.
 GOREV_SEMALARI = {
     "content_script": ContentScriptBatch,
     "trend_research": TrendResearchBatch,
     "strategic_commentary": StrategicCommentary,
+    "competitor_research": CompetitorResearchBatch,
 }
 
 

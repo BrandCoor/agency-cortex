@@ -9,9 +9,11 @@ from decimal import Decimal
 
 import pytest
 
-from app.ai.base import AIRequest, ProviderNotConfigured, ProviderNotImplemented
-from app.ai.claude import DEFAULT_MODEL, ClaudeProvider, GeminiProviderStub, ManusProviderStub
+from app.ai.base import AIRequest, ProviderNotConfigured
+from app.ai.claude import DEFAULT_MODEL, ClaudeProvider
 from app.ai.fake import FakeProvider
+from app.ai.gemini import GeminiProvider
+from app.ai.manus import ManusProvider
 from app.ai.pricing import MODEL_PRICING, UnknownModelPricing, estimate_cost
 from app.ai.registry import TASK_ROUTING, get_provider, provider_for_task, provider_status
 from app.ai.schemas import ContentScriptBatch, StrategicCommentary
@@ -89,18 +91,20 @@ def test_claude_anahtarsizken_acik_hata_verir():
         ClaudeProvider().complete(istek())
 
 
-def test_manus_tamamlanmadigini_soyler():
-    """Resmi dokumana erisilemedigi icin tahminle yazilmadi."""
-    p = ManusProviderStub()
+def test_manus_anahtarsizken_acik_hata_verir():
+    """Anahtar yoksa SESSIZCE bos sonuc donmez; acik hata verir."""
+    p = ManusProvider(api_key=None)
+    assert p.missing_config == ["MANUS_API_KEY"]
     assert p.health_check()[0] is False
-    with pytest.raises(ProviderNotImplemented):
+    with pytest.raises(ProviderNotConfigured):
         p.complete(istek("competitor_research"))
 
 
-def test_gemini_ilk_surumde_kapsam_disi():
-    p = GeminiProviderStub()
+def test_gemini_anahtarsizken_acik_hata_verir():
+    p = GeminiProvider(api_key=None)
+    assert p.missing_config == ["GEMINI_API_KEY"]
     assert p.health_check()[0] is False
-    with pytest.raises(ProviderNotImplemented):
+    with pytest.raises(ProviderNotConfigured):
         p.complete(istek("bulk_classification"))
 
 

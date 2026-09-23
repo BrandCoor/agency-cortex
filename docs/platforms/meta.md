@@ -1,6 +1,6 @@
 # Meta (Instagram / Facebook) Entegrasyonu
 
-**Durum: KOD HAZIR — 4 sabit doğrulanmayı bekliyor.**
+**Durum: KOD HAZIR — bağlantı değerleri panelden girilir.**
 
 | Ne | Durum |
 |---|---|
@@ -9,8 +9,53 @@
 | Token şifreli saklama | ✅ Yazıldı ve test edildi |
 | Webhook imza + tekrar koruma | ✅ Yazıldı ve test edildi |
 | Redirect / webhook adresleri | ✅ Üretildi (aşağıda) |
-| **API sürümü, izin adları, uç adresleri** | ❌ **Doğrulanmadı** |
+| Bağlantı teşhisi (ne gönderiliyor?) | ✅ Panelde görünür |
+| **API sürümü, izin adları, uç adresleri** | 🟡 **Panelden girilir** |
 | Gerçek hesapla uçtan uca test | ❌ Yapılmadı |
+
+---
+
+## Bağlantı değerleri artık panelden girilir
+
+`Panel → Sistem ayarları → Meta bağlantı ayrıntıları`
+
+| Ayar | Ne olacağı |
+|---|---|
+| `META_API_VERSION` | Kullanılacak Graph API sürümü (örn. `v23.0`) |
+| `META_AUTHORIZE_URL` | İzin ekranının tam adresi |
+| `META_TOKEN_URL` | Kodu anahtara çeviren uç |
+| `META_GRAPH_BASE_URL` | Veri uçlarının kök adresi |
+| `META_SCOPES` | İstenecek izin adları (virgülle) |
+
+**Neden panelde:** Meta'nın resmî dokümanına erişimi olan kişi **sizsiniz**;
+bu geliştirme ortamından `developers.facebook.com` adresine erişim ağ
+politikası tarafından engelli. Bu alanlar bir süre panelden kaldırılmıştı —
+yanlıştı: Instagram bağlama hata verdiğinde düzeltecek yeriniz kalmıyordu.
+
+**Yanlış değer riski nasıl karşılanıyor:**
+- Biçim doğrulaması: sürüm `v` ile başlamalı, adres `https://` olmalı,
+  izinler virgülle ayrılmalı.
+- **Yayın izni reddedilir.** Bu sürümde sistem hiçbir şeyi kendisi
+  paylaşmaz; kullanmadığımız bir yetkiyi hesap sahibinden istemek yanlış
+  olurdu.
+- Boş bırakılırsa sistemdeki varsayılan kullanılır.
+- Her alanın altında **"şu an geçerli"** değeri yazar — girdiğiniz değerin
+  devreye girip girmediğini tahmin etmek zorunda kalmazsınız.
+
+---
+
+## "Invalid platform app" hatası
+
+Bu mesaj Instagram'ın kendi izin ekranından gelir ve gönderdiğimiz
+**uygulama kimliğinin o izin adresi için geçerli olmadığını** söyler.
+
+`Panel → müşteri → Bağlı hesaplar → Bağlantı ayarları (teşhis)` bölümünde
+Meta'ya **tam olarak ne gönderdiğimiz** yazar: izin adresi, uygulama
+kimliği, dönüş adresi, izinler. Bunları Meta uygulamanızdaki değerlerle
+karşılaştırın.
+
+> Kesin çözüm burada yazılmadı: doğrulamadan uç adresi veya izin adı
+> yazmak, sessizce yanlış veri üreten bir entegrasyona yol açardı.
 
 ---
 

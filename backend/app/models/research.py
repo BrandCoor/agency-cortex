@@ -19,16 +19,10 @@ from app.core.db import Base
 from app.models.base import Timestamps, UUIDPrimaryKey, WorkspaceScoped
 from app.models.enums import Platform
 
-
-class CompetitorAccount(UUIDPrimaryKey, WorkspaceScoped, Timestamps, Base):
-    """Takip edilen rakip hesap."""
-
-    __tablename__ = "competitor_accounts"
-
-    platform: Mapped[Platform] = mapped_column(Enum(Platform, name="platform"), nullable=False)
-    username: Mapped[str] = mapped_column(String(200), nullable=False)
-    display_name: Mapped[str | None] = mapped_column(String(300))
-    notes: Mapped[str | None] = mapped_column(Text)
+# NOT: Burada bir `CompetitorAccount` tablosu vardi ve HIC KULLANILMIYORDU.
+# Rakip hesaplar artik `tracked_accounts` tablosunda tutuluyor
+# (models/izlenen.py, tur=RAKIP). Ayni seyi iki tabloda tutmak, hangisinin
+# gecerli oldugu sorusunu dogururdu; biri guncellenip digeri unutulurdu.
 
 
 class CompetitorObservation(UUIDPrimaryKey, WorkspaceScoped, Timestamps, Base):
@@ -36,8 +30,10 @@ class CompetitorObservation(UUIDPrimaryKey, WorkspaceScoped, Timestamps, Base):
 
     __tablename__ = "competitor_observations"
 
-    competitor_id: Mapped[uuid.UUID] = mapped_column(
-        PGUUID(as_uuid=True), ForeignKey("competitor_accounts.id", ondelete="CASCADE"),
+    #: Hangi IZLENEN hesap hakkinda. Hesap listeden cikarilirsa gozlemleri
+    #: de gider: sahibi olmayan gozlem, kime ait oldugu bilinmeyen veridir.
+    tracked_account_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("tracked_accounts.id", ondelete="CASCADE"),
         nullable=False, index=True,
     )
     observed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

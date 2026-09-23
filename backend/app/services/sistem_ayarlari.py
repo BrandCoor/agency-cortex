@@ -29,7 +29,8 @@ class AyarTanimi:
 
     def __init__(
         self, anahtar: str, etiket: str, aciklama: str, *,
-        gizli: bool = True, acar: str = "",
+        gizli: bool = True, acar: str = "", grup: str = "Anahtarlar",
+        dogrulama: str = "", ornek: str = "",
     ):
         self.anahtar = anahtar
         self.etiket = etiket
@@ -39,6 +40,12 @@ class AyarTanimi:
         # Bu ayar girilince sistemde NE calisir hale gelir.
         # Kullanici "girdim, ne oldu?" diye sormasin diye.
         self.acar = acar
+        # Panelde hangi baslik altinda gosterilecek.
+        self.grup = grup
+        # Bicim dogrulamasi: "url", "surum", "kapsam" veya bos.
+        self.dogrulama = dogrulama
+        # Kullaniciya gosterilecek ornek deger.
+        self.ornek = ornek
 
 
 # Panelde gosterilen ayarlar. Sira, doldurma sirasini da anlatir.
@@ -68,31 +75,76 @@ AYARLAR: list[AyarTanimi] = [
         acar="Müşteri ekranındaki \"Instagram hesabı bağla\" düğmesi "
              "ve WF-01 ile WF-05 iş akışları",
     ),
+    AyarTanimi(
+        "GEMINI_API_KEY", "Gemini API anahtarı",
+        "Toplu sınıflandırma işlerinde kullanılır (ucuz ve hızlı model). "
+        "aistudio.google.com → Get API key.",
+        acar="Toplu sınıflandırma (bulk_classification) görevleri",
+    ),
+
+    # --- Meta bağlantı ayrıntıları ------------------------------------------
+    #
+    # BU ALANLAR BİLEREK GERİ GETİRİLDİ.
+    #
+    # Bir süre panelden kaldırılmışlardı: "kullanıcının dolduracağı değer
+    # değil, doğrulanmış sabitler" diye. Bu YANLIŞTI. Meta bu değerleri
+    # değiştirebiliyor ve resmî dokümana erişimi olan kişi kullanıcının
+    # KENDİSİ. Alanları kaldırmak, kullanıcıyı geliştiriciye bağımlı
+    # bırakıyordu: Instagram bağlama hata verdiğinde düzeltecek yer yoktu.
+    #
+    # Kaldırılma gerekçesi "yanlış değer sessizce bağlantıyı bozabilir"
+    # idi. Bu risk, alanları gizleyerek değil, BİÇİM DOĞRULAMASI ve
+    # "şu an hangi değer geçerli" göstergesiyle çözülür.
+    AyarTanimi(
+        "META_API_VERSION", "Meta Graph API sürümü",
+        "Kullanılacak Graph API sürümü. Meta'nın sürüm sayfasından "
+        "doğrulayın. Boş bırakılırsa sistemdeki varsayılan kullanılır.",
+        gizli=False, grup="Meta bağlantı ayrıntıları",
+        dogrulama="surum", ornek="v23.0",
+        acar="Meta uçlarına yapılan tüm isteklerin sürümü",
+    ),
+    AyarTanimi(
+        "META_AUTHORIZE_URL", "İzin ekranı adresi",
+        "Kullanıcının yönlendirileceği izin adresi. "
+        "\"Invalid platform app\" hatası alıyorsanız bu adres ile "
+        "uygulama kimliğinin aynı ürüne ait olduğunu kontrol edin.",
+        gizli=False, grup="Meta bağlantı ayrıntıları",
+        dogrulama="url", ornek="https://www.instagram.com/oauth/authorize",
+        acar="\"Instagram hesabı bağla\" düğmesinin gittiği adres",
+    ),
+    AyarTanimi(
+        "META_TOKEN_URL", "Anahtar değişim adresi",
+        "İzin kodunun erişim anahtarına çevrildiği uç.",
+        gizli=False, grup="Meta bağlantı ayrıntıları",
+        dogrulama="url", ornek="https://api.instagram.com/oauth/access_token",
+        acar="İzin ekranından dönüşte hesabın bağlanması",
+    ),
+    AyarTanimi(
+        "META_GRAPH_BASE_URL", "Veri uçlarının kök adresi",
+        "Metrik ve profil verisinin çekildiği kök adres.",
+        gizli=False, grup="Meta bağlantı ayrıntıları",
+        dogrulama="url", ornek="https://graph.instagram.com/v23.0/",
+        acar="WF-01 veri senkronu ve tüm metrik çekimleri",
+    ),
+    AyarTanimi(
+        "META_SCOPES", "İstenecek izinler",
+        "Virgülle ayrılmış izin adları. Yayın izni İSTENMEZ: bu sürümde "
+        "sistem hiçbir şeyi kendisi paylaşmaz.",
+        gizli=False, grup="Meta bağlantı ayrıntıları",
+        dogrulama="kapsam",
+        ornek="instagram_business_basic,instagram_business_manage_insights",
+        acar="İzin ekranında hesap sahibinden istenen yetkiler",
+    ),
 ]
 
-# KALDIRILAN AYARLAR (META_API_VERSION, META_AUTHORIZE_URL, META_TOKEN_URL,
-# META_GRAPH_BASE_URL, META_SCOPES):
+#: Panelde gosterilecek grup sirasi.
+AYAR_GRUPLARI = tuple(dict.fromkeys(a.grup for a in AYARLAR))
+
+# GEMINI_API_KEY kaldirilmadi, ASAGIDA tanimli.
 #
-# Bunlar panelde gosteriliyordu ama kullanicinin dolduracagi degerler
-# DEGIL: hepsi Meta'nin resmi referansindan dogrulanmis sabitler ve kodda
-# tanimli (core/config.py). Panelde durmalari iki zarar veriyordu:
-# 1. Kullaniciya "bunlari da doldurmam mi gerekiyor?" dedirtiyordu.
-# 2. Yanlis yazilan bir deger, dogrulanmis sabiti sessizce ezip baglantiyi
-#    bozabiliyordu - ve nedeni hicbir yerde gorunmuyordu.
-#
-# Bu yuzden panelden kaldirildilar ve `platforms/meta_ayar.py` bu
-# anahtarlar icin panel degerini OKUMUYOR.
-#
-# GEMINI_API_KEY de kaldirildi: Gemini saglayicisi henuz gelistirilmedi.
-# Kullanilmayan bir anahtar istemek, calismayan bir alan gostermektir.
-KALDIRILAN_AYARLAR = frozenset({
-    "GEMINI_API_KEY",
-    "META_API_VERSION",
-    "META_AUTHORIZE_URL",
-    "META_TOKEN_URL",
-    "META_GRAPH_BASE_URL",
-    "META_SCOPES",
-})
+# ONCEDEN kaldirilmisti cunku Gemini saglayicisi yazilmamisti. Artik
+# yazildi; anahtar girilince gercekten calisiyor.
+KALDIRILAN_AYARLAR: frozenset[str] = frozenset()
 
 AYAR_ANAHTARLARI = {a.anahtar for a in AYARLAR}
 
@@ -168,6 +220,99 @@ def durum_listesi(db: Session) -> list[dict]:
                 "kaynak": "panel" if kayit is not None else ("sunucu" if ortamda else None),
                 "son_dort": kayit.son_dort if kayit else None,
                 "guncellendi": kayit.updated_at if kayit else None,
+                "grup": tanim.grup,
+                "ornek": tanim.ornek,
+                # SU AN HANGI DEGER GECERLI.
+                #
+                # Gizli olmayan ayarlarda bunu gostermek sart: kullanici
+                # bir deger girdiginde "gecerli oldu mu, yoksa varsayilan
+                # mi kullaniliyor?" sorusunu baska turlu yanitlayamaz.
+                "gecerli_deger": (
+                    None if tanim.gizli else _gecerli_deger(db, tanim.anahtar)
+                ),
             }
         )
     return satirlar
+
+
+def _gecerli_deger(db: Session, anahtar: str) -> str | None:
+    """Sistemin SU AN kullandigi deger (gizli olmayan ayarlar icin)."""
+    if anahtar.startswith("META_"):
+        # Meta ayarlari tek bir yerden cozulur; panel o sonucu gosterir.
+        from app.platforms.meta_ayar import meta_ayarlarini_oku
+
+        ayar = meta_ayarlarini_oku()
+        esleme = {
+            "META_APP_ID": ayar.app_id,
+            "META_API_VERSION": ayar.api_version,
+            "META_AUTHORIZE_URL": ayar.authorize_url,
+            "META_TOKEN_URL": ayar.token_url,
+            "META_GRAPH_BASE_URL": ayar.graph_base_url,
+            "META_SCOPES": ",".join(ayar.scopes),
+        }
+        return esleme.get(anahtar) or None
+    return deger_oku(db, anahtar)
+
+
+# --- Bicim dogrulamasi -------------------------------------------------------
+#
+# Alanlar panelde oldugu icin YANLIS deger girilebilir. Yanlis deger
+# sessizce kabul edilirse baglanti bozulur ve nedeni hicbir yerde
+# gorunmez. Bu yuzden kaydetmeden ONCE bicim kontrol edilir.
+#
+# Dikkat: bu kontrol degerin DOGRU oldugunu kanitlamaz, yalnizca
+# ACIKCA YANLIS olani engeller. Dogrulugu Meta'nin resmi dokumani
+# belirler.
+
+import re  # noqa: E402
+
+_SURUM = re.compile(r"^v\d+\.\d+$")
+_KAPSAM = re.compile(r"^[a-z0-9_]+(,[a-z0-9_]+)*$")
+
+
+class AyarHatasi(ValueError):
+    """Girilen deger beklenen bicimde degil."""
+
+
+def dogrula(anahtar: str, deger: str) -> str:
+    """Degeri temizler ve bicimini kontrol eder."""
+    temiz = (deger or "").strip()
+    tanim = next((a for a in AYARLAR if a.anahtar == anahtar), None)
+    if tanim is None or not tanim.dogrulama or not temiz:
+        return temiz
+
+    if tanim.dogrulama == "surum":
+        if not _SURUM.match(temiz):
+            raise AyarHatasi(
+                f"{tanim.etiket}: sürüm 'v' ile başlamalı ve nokta içermeli. "
+                f"Örnek: {tanim.ornek}"
+            )
+    elif tanim.dogrulama == "url":
+        if not temiz.startswith("https://"):
+            raise AyarHatasi(
+                f"{tanim.etiket}: adres https:// ile başlamalı. "
+                f"Örnek: {tanim.ornek}"
+            )
+        if " " in temiz:
+            raise AyarHatasi(f"{tanim.etiket}: adreste boşluk olamaz.")
+    elif tanim.dogrulama == "kapsam":
+        sade = temiz.replace(" ", "")
+        if not _KAPSAM.match(sade):
+            raise AyarHatasi(
+                f"{tanim.etiket}: izinler virgülle ayrılmalı, boşluk ve "
+                f"büyük harf olmamalı. Örnek: {tanim.ornek}"
+            )
+        # YAYIN IZNI ENGELLENIR.
+        #
+        # Bu surumde sistem hicbir seyi kendisi paylasmaz. Yayin izni
+        # istemek, kullanmadigimiz bir yetkiyi hesap sahibinden istemek
+        # olurdu; ayrica ileride bir hata yayina donusebilirdi.
+        yasakli = [p for p in sade.split(",") if "publish" in p or "content_publish" in p]
+        if yasakli:
+            raise AyarHatasi(
+                "Yayın izni istenemez: bu sürümde sistem hiçbir şeyi kendisi "
+                f"paylaşmaz. Kaldırın: {', '.join(yasakli)}"
+            )
+        return sade
+
+    return temiz

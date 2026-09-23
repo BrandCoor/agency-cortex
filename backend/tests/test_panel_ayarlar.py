@@ -178,46 +178,93 @@ def test_cozulemeyen_deger_none_donuyor(db, yonetici):
     assert deger_oku(db, "MANUS_API_KEY") is None
 
 
-# --- Panelden kaldirilan ayarlar ---------------------------------------------
+def test_meta_baglanti_alanlari_panelde_var():
+    """Meta ayrintilarini KULLANICI girer; dokumana erisimi olan odur.
 
-def test_kullanilmayan_ayarlar_panelde_gosterilmiyor():
-    """Calismayan bir alan gostermek, olmayan bir yetenek sunmaktir.
-
-    Gemini saglayicisi henuz gelistirilmedi; Meta'nin surum/adres sabitleri
-    ise kullanicinin dolduracagi degerler degil, dogrulanmis sabitler.
+    Bu alanlar bir sure panelden kaldirilmisti ("dogrulanmis sabit, kullanici
+    girmez" diye). YANLISTI: Instagram baglama hata verdiginde kullanicinin
+    duzeltecek yeri kalmiyordu ve gelistiriciye bagimli hale geliyordu.
     """
-    from app.services.sistem_ayarlari import AYAR_ANAHTARLARI, KALDIRILAN_AYARLAR
+    from app.services.sistem_ayarlari import AYAR_ANAHTARLARI
 
-    for anahtar in KALDIRILAN_AYARLAR:
-        assert anahtar not in AYAR_ANAHTARLARI, anahtar
-
-    # Kullanicinin gercekten girecegi ayarlar bunlar.
-    assert AYAR_ANAHTARLARI == {
-        "ANTHROPIC_API_KEY", "MANUS_API_KEY", "META_APP_ID", "META_APP_SECRET",
-    }
+    for anahtar in (
+        "META_API_VERSION", "META_AUTHORIZE_URL", "META_TOKEN_URL",
+        "META_GRAPH_BASE_URL", "META_SCOPES", "GEMINI_API_KEY",
+    ):
+        assert anahtar in AYAR_ANAHTARLARI, anahtar
 
 
-def test_kaldirilan_ayar_kaydedilemiyor(client, db, yonetici):
-    yanit = client.post(
-        "/panel/ayarlar", data={"anahtar": "GEMINI_API_KEY", "deger": "x"}
-    )
-    assert yanit.status_code == 400
-
-
-def test_eski_meta_surum_degeri_sabiti_ezmiyor(db, yonetici):
-    """Daha once kaydedilmis yanlis bir deger baglantiyi bozmamali."""
+def test_panelden_girilen_meta_surumu_gercekten_gecerli(db, yonetici):
+    """Girilen deger devreye GIRMELI; yoksa alan calismayan bir alan olur."""
     from app.core.security import encrypt_secret
     from app.models.ops import SystemSetting
     from app.platforms.meta_ayar import meta_ayarlarini_oku
 
-    # Panelden kaldirilmadan once kaydedilmis, YANLIS bir surum.
     db.add(SystemSetting(
         anahtar="META_API_VERSION",
-        sifreli_deger=encrypt_secret("v1.0-yanlis"),
-        son_dort="anlis",
+        sifreli_deger=encrypt_secret("v99.0"),
+        son_dort="99.0",
     ))
     db.flush()
 
-    ayar = meta_ayarlarini_oku()
-    assert ayar.api_version != "v1.0-yanlis"
-    assert ayar.api_version.startswith("v")
+    assert meta_ayarlarini_oku().api_version == "v99.0"
+
+
+def test_bozuk_bicimli_deger_kaydedilmiyor(client, db, yonetici):
+    """Yanlis deger sessizce kabul edilirse baglanti bozulur."""
+    yanit = client.post(
+        "/panel/ayarlar", data={"anahtar": "META_API_VERSION", "deger": "23"}
+    )
+    assert yanit.status_code == 400
+    assert "sürüm" in yanit.text
+
+
+def test_gecersiz_adres_kaydedilmiyor(client, db, yonetici):
+    yanit = client.post(
+        "/panel/ayarlar",
+        data={"anahtar": "META_AUTHORIZE_URL", "deger": "http://guvensiz.example"},
+    )
+    assert yanit.status_code == 400
+    assert "https://" in yanit.text
+
+
+def test_yayin_izni_istenemiyor(client, db, yonetici):
+    """Bu surumde sistem hicbir seyi kendisi paylasmaz.
+
+    Kullanmadigimiz bir yetkiyi hesap sahibinden istemek yanlis olurdu;
+    ayrica ileride bir hata gercek bir yayina donusebilirdi.
+    """
+    yanit = client.post(
+        "/panel/ayarlar",
+        data={
+            "anahtar": "META_SCOPES",
+            "deger": "instagram_business_basic,instagram_content_publish",
+        },
+    )
+    assert yanit.status_code == 400
+    assert "Yayın izni istenemez" in yanit.text
+
+
+def test_izinlerdeki_bosluklar_temizleniyor(client, db, yonetici):
+    """Kullanici virgulden sonra bosluk birakir; bu hata sayilmamali."""
+    from app.services.sistem_ayarlari import deger_oku
+
+    yanit = client.post(
+        "/panel/ayarlar",
+        data={
+            "anahtar": "META_SCOPES",
+            "deger": "instagram_business_basic, instagram_business_manage_insights",
+        },
+    )
+    assert yanit.status_code == 200
+    assert deger_oku(db, "META_SCOPES") == (
+        "instagram_business_basic,instagram_business_manage_insights"
+    )
+
+
+def test_panelde_su_an_gecerli_deger_gosteriliyor(client, db, yonetici):
+    """'Girdim ama gecerli mi?' sorusu tahminle yanitlanmamali."""
+    sayfa = client.get("/panel/ayarlar")
+    assert sayfa.status_code == 200
+    assert "Şu an geçerli" in sayfa.text
+    assert "Meta bağlantı ayrıntıları" in sayfa.text

@@ -138,3 +138,34 @@ class TrendResearchBatch(BaseModel):
     research_note: str = Field(
         description="Arastirmanin kapsami ve sinirlari; neye bakilmadi"
     )
+
+
+class CompetitorFinding(BaseModel):
+    """Tek bir rakip hesap hakkinda bulgu.
+
+    `claim_type` ve `uncertainties` ZORUNLUDUR: rakip hakkinda yanlis bir
+    "kesin bilgi", strateji kararini yanlis yone cevirir.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    username: str = Field(description="Hangi rakip hesap (@ olmadan)")
+    observation: str = Field(description="Ne gozlemlendi; somut ve kisa")
+    why_it_matters: str = Field(
+        description="Bu markayi neden ilgilendirir veya neden ilgilendirmez"
+    )
+    claim_type: str = Field(description="'fact' veya 'hypothesis'")
+    confidence: str = Field(description="'low', 'medium' veya 'high'")
+    source_urls: list[str] = Field(description="Gercekten bakilan adresler")
+    uncertainties: list[str] = Field(description="Neleri bilmiyoruz")
+
+
+class CompetitorResearchBatch(BaseModel):
+    """Bir rakip arastirmasinin sonucu."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    findings: list[CompetitorFinding]
+    research_note: str = Field(
+        description="Arastirmanin kapsami ve sinirlari; neye bakilmadi"
+    )

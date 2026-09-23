@@ -34,7 +34,7 @@ from app.models.otomasyon import (
     AutomationSetting,
 )
 from app.models.reporting import Report, ReportSection
-from app.models.research import CompetitorAccount, CompetitorObservation, TrendObservation
+from app.models.research import CompetitorObservation, TrendObservation
 from app.models.social import (
     AccountMetrics,
     MediaMetricsNormalized,
@@ -50,7 +50,7 @@ __all__ = [
     "AccountMetrics", "ApiClient", "ApiClientWorkspace", "Approval",
     "AuditLog", "AutomationRun", "AutomationSetting", "AutomationStatus",
     "AutomationTrigger", "Brand", "BrandGuideline",
-    "Campaign", "CompetitorAccount", "CompetitorObservation", "ContentCalendar",
+    "Campaign", "CompetitorObservation", "ContentCalendar",
     "ContentIdea", "ContentScript", "ContentStatus", "MediaMetricsNormalized",
     "MediaMetricsRaw", "MediaType", "Notification", "OAuthCredential",
     "Platform", "PlatformMedia", "Report", "ReportPeriod", "ReportSection", "UserPermission", "TrackedAccount", "IzlemeTuru",

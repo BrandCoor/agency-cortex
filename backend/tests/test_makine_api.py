@@ -86,7 +86,9 @@ def test_dogru_anahtar_kendi_kapsamini_goruyor(client, db, kimlik):
     donen = {m["workspace_id"] for m in veri["musteriler"]}
     assert donen == {str(w.id) for w in musteriler}
     # Tanimli tum akislar bildiriliyor ki n8n neyi calistiracagini bilsin.
-    assert len(veri["tanimli_akislar"]) == 5
+    from app.services.otomasyon import IS_AKISLARI
+
+    assert len(veri["tanimli_akislar"]) == len(IS_AKISLARI)
 
 
 def test_iptal_edilen_anahtar_calismiyor(client, db, kimlik):

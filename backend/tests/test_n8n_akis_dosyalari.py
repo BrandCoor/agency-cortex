@@ -32,7 +32,14 @@ def _dosyalar() -> list[Path]:
 
 def test_akis_dosyalari_mevcut():
     assert AKIS_DIZINI.is_dir(), f"Akis dizini yok: {AKIS_DIZINI}"
-    assert len(_dosyalar()) == 5, "Bes is akisi dosyasi bekleniyor."
+    # Sayi SABIT YAZILMAZ: katalogdan turetilir. Sabit yazilsaydi yeni bir
+    # akis eklendiginde bu test, gercek bir sorun olmadigi halde duserdi.
+    from app.services.otomasyon import IS_AKISLARI
+
+    assert len(_dosyalar()) == len(IS_AKISLARI), (
+        f"Her is akisi icin bir n8n dosyasi olmali. "
+        f"Katalog: {len(IS_AKISLARI)}, dosya: {len(_dosyalar())}"
+    )
 
 
 @pytest.mark.parametrize("yol", _dosyalar(), ids=lambda p: p.name)

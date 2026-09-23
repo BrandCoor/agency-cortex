@@ -1019,3 +1019,81 @@ Format: Karar / Seçenekler / Neden / Risk / Geri alma
   geçiştirilmiyor.
 - **Açılması gereken:** Ortam ayarlarındaki ağ erişim listesine
   `developers.facebook.com` eklenmesi.
+
+---
+
+## K-053 — Meta bağlantı alanları panele geri getirildi (K-044'ün düzeltmesi)
+
+- **Hata:** K-044 ile `META_API_VERSION`, `META_AUTHORIZE_URL`,
+  `META_TOKEN_URL`, `META_GRAPH_BASE_URL`, `META_SCOPES` panelden
+  **kaldırılmıştı**. Gerekçe "bunlar kullanıcının dolduracağı değerler
+  değil, doğrulanmış sabitler" idi.
+- **Neden yanlıştı:** Meta bu değerleri değiştirebiliyor ve resmî
+  dokümana erişimi olan kişi **kullanıcının kendisi**; bu geliştirme
+  ortamından `developers.facebook.com` engelli. Alanları kaldırmak,
+  Instagram bağlama hata verdiğinde kullanıcıyı **düzeltecek yerden
+  mahrum** bıraktı ve geliştiriciye bağımlı hale getirdi.
+- **Karar:** Alanlar geri getirildi, "Meta bağlantı ayrıntıları" başlığı
+  altında toplandı.
+- **Kaldırma gerekçesi nasıl karşılandı:** Endişe "yanlış değer sessizce
+  bağlantıyı bozar" idi. Bu, alanı **gizleyerek** değil şunlarla çözülür:
+  - **Biçim doğrulaması:** sürüm `v0.0` kalıbında, adres `https://` ile,
+    izinler virgülle ayrılmış olmalı.
+  - **Yayın izni reddedilir:** `*publish*` içeren bir izin kaydedilemez.
+    Bu sürümde sistem hiçbir şeyi kendisi paylaşmaz; kullanmadığımız bir
+    yetkiyi hesap sahibinden istemek yanlış olurdu.
+  - **"Şu an geçerli" göstergesi:** her alanın altında sistemin gerçekten
+    kullandığı değer ve kaynağı (panel/sunucu/varsayılan) yazar.
+  - Boş bırakılırsa varsayılan kullanılır; alan zorunlu değildir.
+- **Ders:** Bir alanı kaldırmak, o alanın yanlış doldurulma riskini
+  ortadan kaldırmaz; yalnızca **düzeltme imkânını** ortadan kaldırır.
+
+---
+
+## K-054 — Gemini sağlayıcısı resmî API tanımından yazıldı
+
+- **Karar:** `GeminiProviderStub` kaldırıldı; gerçek sağlayıcı yazıldı.
+- **Kaynak:** Google'ın makine-okunur API tanımı (discovery document),
+  `generativelanguage.googleapis.com/$discovery/rest?version=v1beta`,
+  23 Eylül 2026'da okundu. Uç adresi, istek/yanıt alan adları ve model
+  listesi ucu oradan alındı — **tahmin yok**.
+- **Neden mümkün oldu:** Meta dokümanının aksine bu adrese ağ erişimi
+  **açık**. Erişim olmasaydı yine yazılmazdı.
+- **Sağlık kontrolü `GET /v1beta/models`:** salt okumadır, **jeton
+  harcamaz**. Mesaj göndererek sınamak her denemede para harcardı.
+- **Kırpılmış çıktı başarılı sayılmaz:** `finishReason=MAX_TOKENS`
+  geldiğinde açık hata verilir. Eksik JSON'u ayrıştırmaya çalışmak,
+  eksik veriyi tam saymak olurdu.
+- **Hata ayrımı:** 401/403, 429, 5xx ve ağ hatası **ayrı** mesajlar.
+  Hepsine "anahtar hatalı" demek, kesintide kullanıcıya doğru anahtarını
+  sildirtirdi.
+- **Şema sadeleştirme:** Gemini'nin `Schema` tipi JSON Schema'nın
+  tamamını kabul etmez; desteklenmeyen alanlar (`$defs`, `title`)
+  ayıklanır. İlk yazımda `properties` altındaki **alan adları** da şema
+  kelimesi sanılıp siliniyordu — test yakaladı.
+- **Bilinmeyen fiyat = `None`, 0 değil:** 0 saymak bütçe kilidini
+  sessizce etkisiz kılardı.
+
+---
+
+## K-055 — Rakip modülü izlenen hesaplar üzerine kuruldu (Aşama 8)
+
+- **Bulgu:** `competitor_accounts` ve `competitor_observations` tabloları
+  vardı ama **hiçbir kod yolu onlara yazmıyordu**. `competitor_research`
+  görev türü tanımlıydı ama hiç çağrılmıyordu.
+- **Karar:** `competitor_accounts` kaldırıldı; rakip hesaplar
+  `tracked_accounts` (tur=RAKİP) tablosunda tutuluyor. Aynı şeyi iki
+  tabloda tutmak, hangisinin geçerli olduğu sorusunu doğururdu.
+- **WF-06 "Rakip araştırması"** (haftada 2 gün 11:00): izlenen rakipleri
+  araştırır, bulguları hesaba bağlayarak yazar.
+- **İzlenmeyen hesap bulgusu kaydedilmez:** AI, listede olmayan bir hesap
+  hakkında yazarsa o bulgu atılır ve notlarda belirtilir. Kime ait olduğu
+  belirsiz veri, rapora girdiğinde **yanlış hesaba atfedilirdi**.
+- **Rakip sayısı sınırlı (8):** her rakip AI maliyetidir. Sınırsız
+  bırakmak, bir müşteriye 50 rakip eklendiğinde bütçeyi tek çalışmada
+  bitirebilirdi.
+- **Özel veri alınmaz:** rakibin erişim, kaydetme, demografi verisi
+  yalnızca hesap sahibine açıktır; istem bunu açıkça yasaklar.
+- **Boşluk açıklanır:** Rakip/trend ekranında bulgu yoksa **sebebi**
+  yazılır (rakip eklenmemiş mi, akış kapalı mı). "Boş" demek, kullanıcıya
+  "bozuk mu?" dedirtirdi.

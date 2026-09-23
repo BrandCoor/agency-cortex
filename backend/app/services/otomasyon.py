@@ -86,6 +86,16 @@ IS_AKISLARI: tuple[IsAkisi, ...] = (
         ),
         zamanlama="Her gün 06:00",
     ),
+    IsAkisi(
+        anahtar="wf06_rakip",
+        ad="Rakip araştırması",
+        aciklama=(
+            "İzlenen RAKİP hesapların son dönemdeki hareketlerini araştırır "
+            "ve markayı ilgilendiren yanlarını yazar. Yalnızca kamuya açık "
+            "bilgi kullanılır; rakibin özel içgörü verisi sisteme girmez."
+        ),
+        zamanlama="Haftada 2 gün 11:00",
+    ),
 )
 
 IS_AKISI_ANAHTARLARI = frozenset(a.anahtar for a in IS_AKISLARI)

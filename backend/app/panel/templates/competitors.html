@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% block title %}Rakip ve trend — {{ workspace.name }}{% endblock %}
+{% block content %}
+
+<h1>Rakip ve trend</h1>
+<p class="alt-yazi">
+  Son {{ pencere_gun }} günün bulguları. Her bulgunun <strong>kaynağı</strong> ve
+  <strong>güvenilirliği</strong> yazılıdır. Kanıtı zayıf olan bulgu
+  <em>hipotez</em> diye işaretlenir; kesin bilgi gibi gösterilmez.
+</p>
+
+<div class="bilgi">
+  Rakiplerin <strong>özel</strong> verisi (erişim, kaydetme sayısı, demografi)
+  burada yer almaz — o veri yalnızca hesap sahibine açıktır. Burada yalnızca
+  kamuya açık bilgiden çıkarılan gözlemler bulunur.
+</div>
+
+<h2>Trend bulguları</h2>
+{% if trendler %}
+  {% for t in trendler %}
+  <div class="card sikisik">
+    <div class="row">
+      <strong style="flex:1">{{ t.topic }}</strong>
+      <span class="pill p-notr">{{ t.platform }}</span>
+      <span class="pill {% if t.hipotez %}p-acc{% endif %}">{{ t.guven }}</span>
+    </div>
+    {% if t.summary %}<div style="margin-top:6px">{{ t.summary }}</div>{% endif %}
+    {% if t.relevance %}
+    <div class="alt-yazi" style="margin-top:6px">
+      <strong>Bu marka için:</strong> {{ t.relevance }}
+    </div>
+    {% endif %}
+    {% if t.belirsizlikler %}
+    <div class="warn" style="margin-top:8px">
+      <b>Bilinmeyenler</b>
+      <ul style="margin:4px 0 0 18px">
+        {% for b in t.belirsizlikler %}<li>{{ b }}</li>{% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+    <div class="sessiz" style="margin-top:8px">
+      {{ t.tarih.strftime('%d.%m.%Y %H:%M') }}
+      {% if t.kaynaklar %}
+        · Kaynak:
+        {% for k in t.kaynaklar %}<a href="{{ k }}" rel="noopener noreferrer nofollow" target="_blank">bağlantı</a>{% if not loop.last %}, {% endif %}{% endfor %}
+      {% else %}
+        · <em>kaynak adresi bildirilmedi</em>
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+{% else %}
+<div class="bos">
+  Son {{ pencere_gun }} günde trend bulgusu yok.
+  {% if not trend_akisi_acik %}
+    <br><strong>Sebebi:</strong> "Trend araştırması" iş akışı bu müşteride
+    <strong>kapalı</strong>.
+    <a href="/panel/otomasyon">Otomasyon</a> sayfasından açabilirsiniz.
+  {% else %}
+    <br>İş akışı açık; bir sonraki çalışmasında bulgular burada görünecek.
+  {% endif %}
+</div>
+{% endif %}
+
+<h2>Rakip bulguları</h2>
+{% if rakip_bulgulari %}
+  {% for r in rakip_bulgulari %}
+  <div class="card sikisik">
+    <div class="row">
+      <strong style="flex:1">@{{ r.username }}</strong>
+      <span class="pill p-notr">{{ r.platform }}</span>
+      <span class="pill {% if r.hipotez %}p-acc{% endif %}">{{ r.guven }}</span>
+    </div>
+    {% if r.summary %}<div style="margin-top:6px">{{ r.summary }}</div>{% endif %}
+    {% if r.onem %}
+    <div class="alt-yazi" style="margin-top:6px">
+      <strong>Neden önemli:</strong> {{ r.onem }}
+    </div>
+    {% endif %}
+    {% if r.belirsizlikler %}
+    <div class="warn" style="margin-top:8px">
+      <b>Bilinmeyenler</b>
+      <ul style="margin:4px 0 0 18px">
+        {% for b in r.belirsizlikler %}<li>{{ b }}</li>{% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+    <div class="sessiz" style="margin-top:8px">
+      {{ r.tarih.strftime('%d.%m.%Y %H:%M') }} · veri kaynağı: {{ r.kaynak_turu }}
+      {% if r.kaynaklar %}
+        · Kaynak:
+        {% for k in r.kaynaklar %}<a href="{{ k }}" rel="noopener noreferrer nofollow" target="_blank">bağlantı</a>{% if not loop.last %}, {% endif %}{% endfor %}
+      {% else %}
+        · <em>kaynak adresi bildirilmedi</em>
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+{% else %}
+<div class="bos">
+  Son {{ pencere_gun }} günde rakip bulgusu yok.
+  {% if rakip_sayisi == 0 %}
+    <br><strong>Sebebi:</strong> Bu müşteride izlenen <strong>rakip hesap
+    yok</strong>.
+    <a href="/panel/musteri/{{ workspace.id }}/hesaplar">Bağlı hesaplar</a>
+    sayfasından "İzlenen hesaplar" bölümüne ekleyin.
+  {% elif not rakip_akisi_acik %}
+    <br><strong>Sebebi:</strong> {{ rakip_sayisi }} rakip izleniyor ama
+    "Rakip araştırması" iş akışı bu müşteride <strong>kapalı</strong>.
+    <a href="/panel/otomasyon">Otomasyon</a> sayfasından açabilirsiniz.
+  {% else %}
+    <br>{{ rakip_sayisi }} rakip izleniyor ve iş akışı açık; bir sonraki
+    çalışmasında bulgular burada görünecek.
+  {% endif %}
+</div>
+{% endif %}
+
+{% endblock %}

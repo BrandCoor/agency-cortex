@@ -19,7 +19,19 @@
   Değeri unuttuysanız yenisini girin.
 </div>
 
-{% for a in ayarlar %}
+{% for grup in gruplar %}
+<h2>{{ grup }}</h2>
+{% if grup == "Meta bağlantı ayrıntıları" %}
+<div class="bilgi">
+  Bu değerler Meta'nın kendi dokümanından gelir ve Meta zaman zaman
+  değiştirir. <strong>Boş bırakırsanız sistemdeki varsayılan kullanılır.</strong>
+  Bir değer girdiğinizde aşağıda "şu an geçerli" satırında görürsünüz —
+  böylece girdiğiniz değerin gerçekten devreye girip girmediğini
+  tahmin etmek zorunda kalmazsınız.
+</div>
+{% endif %}
+
+{% for a in ayarlar %}{% if a.grup == grup %}
 <div class="card">
   <div class="row">
     <strong style="flex:1">{{ a.etiket }}</strong>
@@ -31,6 +43,13 @@
   </div>
 
   <div class="muted" style="margin-top:6px">{{ a.aciklama }}</div>
+
+  {% if a.gecerli_deger %}
+  <div class="muted" style="margin-top:6px">
+    Şu an geçerli: <code>{{ a.gecerli_deger }}</code>
+    {% if a.kaynak == 'panel' %}(panelden){% elif a.kaynak == 'sunucu' %}(sunucudan){% else %}(varsayılan){% endif %}
+  </div>
+  {% endif %}
 
   {% if a.acar %}
   <div class="{% if a.tanimli %}ok{% else %}warn{% endif %}" style="margin-top:10px">
@@ -76,7 +95,10 @@
     <input id="d-{{ a.anahtar }}" name="deger"
            type="{% if a.gizli %}password{% else %}text{% endif %}"
            autocomplete="off" spellcheck="false"
-           placeholder="{% if a.tanimli %}değiştirmek için yeni değeri yazın{% else %}henüz girilmedi{% endif %}">
+           placeholder="{% if a.ornek %}{{ a.ornek }}{% elif a.tanimli %}değiştirmek için yeni değeri yazın{% else %}henüz girilmedi{% endif %}">
+    {% if a.ornek %}
+    <div class="sessiz" style="margin-top:5px">Örnek biçim: <code>{{ a.ornek }}</code></div>
+    {% endif %}
     <div class="row" style="margin-top:12px">
       <button type="submit" class="birincil">Kaydet</button>
     </div>
@@ -89,5 +111,6 @@
   </form>
   {% endif %}
 </div>
+{% endif %}{% endfor %}
 {% endfor %}
 {% endblock %}

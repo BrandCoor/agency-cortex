@@ -1160,3 +1160,49 @@ görünüyor (izin adresi, uygulama kimliği, dönüş adresi, izinler).
 - **598/598 test geçti.**
 - `ruff check app tests` temiz, `alembic check` temiz.
 - Her iki migration gerçek veriyle ileri → geri → ileri sınandı.
+
+## [0.15.0] - 2026-09-23 — Meta alanları geri, Gemini ve rakip modülü
+
+### Düzeltildi — Meta bağlantı alanları panele geri getirildi
+Bir önceki sürümde bu alanlar "kullanıcının dolduracağı değerler değil"
+gerekçesiyle kaldırılmıştı. **Yanlıştı:** Meta dokümanına erişimi olan
+kişi kullanıcının kendisi ve Instagram bağlama hata verdiğinde düzeltecek
+yer kalmıyordu.
+
+`Sistem ayarları → Meta bağlantı ayrıntıları` altında geri geldiler.
+Yanlış değer riski gizlemeyle değil şunlarla karşılanıyor:
+- **Biçim doğrulaması** (sürüm, adres, izin listesi)
+- **Yayın izni reddediliyor** — bu sürümde sistem hiçbir şeyi kendisi
+  paylaşmaz
+- Her alanın altında **"şu an geçerli"** değeri ve kaynağı yazıyor
+- Boş bırakılırsa varsayılan kullanılıyor
+
+### Eklendi — Gemini sağlayıcısı (Aşama 9)
+Taslak kaldırıldı, gerçek sağlayıcı yazıldı. Uç adresi ve alan adları
+Google'ın **makine-okunur resmî API tanımından** alındı; tahmin yok.
+- Sağlık kontrolü `GET /v1beta/models` — **jeton harcamaz**
+- Kırpılmış çıktı (`MAX_TOKENS`) başarılı sayılmıyor
+- 401/403, 429, 5xx ve ağ hatası ayrı ayrı açıklanıyor
+- `GEMINI_API_KEY` ayarlara geri geldi (artık gerçekten çalışıyor)
+
+### Eklendi — Rakip ve trend modülü (Aşama 8)
+- **WF-06 "Rakip araştırması"** (haftada 2 gün 11:00)
+- **Rakip ve trend** ekranı: son 30 günün bulguları, her birinin kaynağı
+  ve güvenilirliğiyle. Zayıf kanıtlı bulgu *hipotez* diye işaretleniyor.
+- Bulgu yoksa **sebebi** yazıyor: rakip mi eklenmemiş, akış mı kapalı.
+- İzlenmeyen bir hesap hakkındaki bulgu **kaydedilmiyor** (yanlış hesaba
+  atfedilirdi).
+- Rakip sayısı 8 ile sınırlı — her rakip AI maliyeti.
+- Kullanılmayan `competitor_accounts` tablosu kaldırıldı.
+
+### Düzeltildi — Aşama 6 durumu yanlıştı
+Manus entegrasyonu aslında tamamlanmış ve API v2 dokümanından
+doğrulanmıştı; `claude.py` içinde ölü bir `ManusProviderStub` kalmıştı.
+Kaldırıldı, durum tablosu düzeltildi.
+
+### Doğrulandı
+- **636/636 test geçti** (598 + 38 yeni).
+- `ruff check app tests` temiz, `alembic check` temiz.
+- Yeni migration gerçek veriyle ileri → geri → ileri sınandı.
+- İş akışı sayısı artık testlerde **sabit yazılmıyor**, katalogdan
+  türetiliyor — yeni akış eklenince test boşuna düşmüyor.

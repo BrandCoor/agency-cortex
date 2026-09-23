@@ -321,6 +321,10 @@
       <a class="bag {% if aktif == 'takvim' %}aktif{% endif %}"
          href="/panel/musteri/{{ workspace.id }}/takvim">{{ ikon('kampanya') }} Takvim</a>
       {% endif %}
+      {% if 'rapor.gor' in izinler %}
+      <a class="bag {% if aktif == 'rakip' %}aktif{% endif %}"
+         href="/panel/musteri/{{ workspace.id }}/rakip-trend">{{ ikon('ozet') }} Rakip ve trend</a>
+      {% endif %}
       <a class="bag {% if aktif == 'kampanya' %}aktif{% endif %}"
          href="/panel/musteri/{{ workspace.id }}/kampanya">{{ ikon('ozet') }} Kampanyalar</a>
       {% if 'hesap.gor' in izinler %}

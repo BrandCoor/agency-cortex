@@ -434,10 +434,157 @@ def wf04_haftalik_rapor(
     )
 
 
+
+
+# --- WF-06: Rakip arastirmasi ------------------------------------------------
+
+RAKIP_ISTEM_SURUMU = "rakip-v1"
+
+RAKIP_SISTEM_ISTEMI = """Sen bir sosyal medya rakip analistisin.
+
+GOREVIN: verilen rakip hesaplarin SON DONEMDEKI hareketlerini arastirip
+markayi ilgilendiren yanlarini yazmak.
+
+KESIN KURALLAR:
+1. Kanit olmadan "kesin" konusma. Yeterli kanitin yoksa claim_type'i
+   'hypothesis' yaz ve neyi bilmedigini uncertainties'e koy.
+2. Kaynak adresi UYDURMA. Gercekten baktigin adresleri yaz; bakmadiysan
+   listeyi bos birak.
+3. Yalnizca KAMUYA ACIK bilgi kullan. Rakibin erisim, kaydetme sayisi,
+   demografi gibi ozel icgoru verileri yalnizca hesap sahibine aciktir;
+   bunlari tahmin etme ve yazma.
+4. Sayi uydurma. Takipci veya etkilesim sayisi gordugunden eminsen yaz,
+   degilse yazma.
+5. Bulgu bulamadiysan bos liste don. Liste doldurmak icin zayif bulgu
+   yazma.
+"""
+
+#: Tek bir calismada en fazla kac rakip incelenir.
+#
+# Her rakip AI maliyeti demektir. Sinirsiz birakmak, bir musteriye 50
+# rakip eklendiginde butceyi tek calismada bitirebilirdi.
+AZAMI_RAKIP = 8
+
+
+def wf06_rakip_arastirmasi(db: Session, workspace: Workspace) -> AkisSonucu:
+    """Izlenen RAKIP hesaplar hakkinda arastirma yapar ve gozlem yazar."""
+    from app.ai.schemas import CompetitorResearchBatch
+    from app.models.izlenen import IzlemeTuru, TrackedAccount
+    from app.models.research import CompetitorObservation
+
+    rakipler = list(db.execute(
+        select(TrackedAccount).where(
+            TrackedAccount.workspace_id == workspace.id,
+            TrackedAccount.tur == IzlemeTuru.RAKIP,
+            TrackedAccount.is_active.is_(True),
+        ).order_by(TrackedAccount.username).limit(AZAMI_RAKIP)
+    ).scalars().all())
+
+    if not rakipler:
+        return AkisSonucu(
+            ozet={"rakip": 0, "bulgu": 0},
+            notlar=[
+                "Bu müşteride izlenen rakip hesap yok. "
+                "Bağlı hesaplar sayfasından ekleyebilirsiniz."
+            ],
+            yapilacak_is_yoktu=True,
+        )
+
+    marka = _tek_marka(db, workspace.id)
+    if marka is None:
+        return AkisSonucu(
+            ozet={"rakip": len(rakipler), "bulgu": 0},
+            notlar=["Marka bilgisi girilmemiş. Bulgular markaya göre yorumlanır."],
+            yapilacak_is_yoktu=True,
+        )
+
+    baglam = build_context(db, workspace_id=workspace.id, brand=marka)
+    liste = "\n".join(
+        f"- @{r.username} ({r.platform.value})"
+        + (f" — not: {r.notlar}" if r.notlar else "")
+        for r in rakipler
+    )
+    istem = "\n\n".join([
+        baglam.to_prompt(),
+        "RAKIP HESAPLAR:\n" + liste,
+        "GOREV: Bu hesaplarin son donemdeki hareketlerini arastir. "
+        "Her bulgu HANGI hesaba ait oldugunu username alaninda belirtsin.",
+        f"En fazla {AZAMI_RAKIP * 2} bulgu don.",
+    ])
+
+    try:
+        sonuc = run_ai_task(
+            db,
+            workspace=workspace,
+            task_type="competitor_research",
+            prompt_version=RAKIP_ISTEM_SURUMU,
+            system=RAKIP_SISTEM_ISTEMI,
+            user_content=istem,
+            output_model=CompetitorResearchBatch,
+            metadata={
+                "brand": marka.name,
+                "rakip_sayisi": len(rakipler),
+                # Ornek veri modunda bulgunun bir hesaba eslesebilmesi icin.
+                "ilk_rakip": rakipler[0].username,
+            },
+        )
+    except AIProviderError as hata:
+        raise IsAkisiHatasi(str(hata)) from hata
+
+    veri = CompetitorResearchBatch.model_validate(sonuc.parsed)
+    simdi = datetime.now(UTC)
+    ada_gore = {r.username.lower(): r for r in rakipler}
+    yazilan = 0
+    eslenmeyen: list[str] = []
+
+    for bulgu in veri.findings:
+        hedef = ada_gore.get(bulgu.username.lstrip("@").lower())
+        if hedef is None:
+            # AI izlemedigimiz bir hesap hakkinda yazmissa SESSIZCE
+            # kaydetmeyiz: kime ait oldugu belirsiz veri, rapora
+            # girdiginde yanlis hesaba atfedilirdi.
+            eslenmeyen.append(bulgu.username)
+            continue
+
+        db.add(CompetitorObservation(
+            workspace_id=workspace.id,
+            tracked_account_id=hedef.id,
+            observed_at=simdi,
+            source_type="research",
+            source_urls=list(bulgu.source_urls),
+            summary=bulgu.observation,
+            data={"why_it_matters": bulgu.why_it_matters},
+            # Kanit zayifsa bulgu "kesin" diye kaydedilmez.
+            confidence=("low" if bulgu.claim_type == "hypothesis" else bulgu.confidence),
+            uncertainties=list(bulgu.uncertainties),
+        ))
+        yazilan += 1
+
+    for r in rakipler:
+        r.last_checked_at = simdi
+        r.veri_durumu = None if yazilan else "Bu çalışmada bulgu üretilmedi."
+
+    db.flush()
+
+    notlar = [veri.research_note] if veri.research_note else []
+    if eslenmeyen:
+        notlar.append(
+            "İzlenmeyen hesaplar hakkındaki bulgular kaydedilmedi: "
+            + ", ".join(sorted(set(eslenmeyen)))
+        )
+    return AkisSonucu(
+        ozet={"rakip": len(rakipler), "bulgu": yazilan},
+        notlar=notlar,
+        yapilacak_is_yoktu=(yazilan == 0),
+    )
+
+
+# Akis haritasi EN SONDA: her fonksiyon tanimlandiktan sonra.
 AKISLAR = {
     "wf01_gunluk_zeka": wf01_gunluk_zeka,
     "wf02_trend": wf02_trend_arastirmasi,
     "wf03_icerik": wf03_icerik_zekasi,
     "wf04_haftalik_rapor": wf04_haftalik_rapor,
     "wf05_baglanti_sagligi": wf05_baglanti_sagligi,
+    "wf06_rakip": wf06_rakip_arastirmasi,
 }
