@@ -727,13 +727,16 @@ def _ayarlar_sayfasi(
     request, db, user, *, error=None, ok=None, kod=200, sinama=None
 ):
     """`sinama`: (anahtar, basarili, mesaj) — sinama sonucunu gosterir."""
+    satirlar = durum_listesi(db)
     return templates.TemplateResponse(
         request, "settings.html",
         {
             "user": user,
             "aktif": "ayarlar",
-            "ayarlar": durum_listesi(db),
+            "ayarlar": satirlar,
             "gruplar": AYAR_GRUPLARI,
+            # "Neyi girmedim?" en cok sorulan soru; cevabi ilk ekranda.
+            "eksik_sayisi": sum(1 for a in satirlar if not a["tanimli"]),
             "sinanabilir": set(SINAYICILAR),
             "sinama": sinama,
             "error": error,

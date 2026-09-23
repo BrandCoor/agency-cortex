@@ -1,12 +1,32 @@
 {% extends "base.html" %}
 {% block title %}Sistem ayarları{% endblock %}
 {% block content %}
-<div class="sayfa-ust">
-  <div class="metin">
-    <h1>Sistem ayarları</h1>
-    <p class="sub">API anahtarları. <strong>Tüm müşteriler için ortaktır</strong> —
-      her müşteri için ayrı anahtar girmenize gerek yok.</p>
+<h1>Sistem ayarları</h1>
+<p class="alt-yazi">
+  API anahtarları ve bağlantı değerleri. <strong>Tüm müşteriler için
+  ortaktır</strong> — her müşteri için ayrı anahtar girmenize gerek yok.
+</p>
+
+{# DURUM OZETI EN USTTE.
+   Onceden kullanici hangi anahtarin girili oldugunu gormek icin butun
+   sayfayi asagi kaydirmak zorundaydi. En cok sorulan soru "neyi
+   girmedim?" oldugu icin cevabi ilk ekranda duruyor. #}
+<div class="olculer" style="margin-bottom:18px">
+  <div class="kutu {% if eksik_sayisi == 0 %}vurgulu{% else %}uyari{% endif %}">
+    <div class="etiket">Girilen</div>
+    <div class="deger">{{ ayarlar|length - eksik_sayisi }}<span class="sessiz" style="font-size:16px"> / {{ ayarlar|length }}</span></div>
+    <div class="ek">
+      {% if eksik_sayisi == 0 %}hepsi tanımlı
+      {% else %}{{ eksik_sayisi }} değer eksik{% endif %}
+    </div>
   </div>
+  {% for a in ayarlar %}{% if not a.tanimli and a.acar %}
+  <div class="kutu uyari">
+    <div class="etiket">Eksik</div>
+    <div class="deger kucukce">{{ a.etiket }}</div>
+    <div class="ek">{{ a.acar }}</div>
+  </div>
+  {% endif %}{% endfor %}
 </div>
 
 {% if error %}<div class="err">{{ error }}</div>{% endif %}
