@@ -1210,3 +1210,82 @@ Format: Karar / Seçenekler / Neden / Risk / Geri alma
 - **Neden değerli:** Bu hata sınıfı sessizdir. Kullanıcı izin ekranını
   gördüğü için "çalışıyor" sanır; kırılma en son adımda ve anlaşılmaz bir
   mesajla gelir.
+
+---
+
+## K-060 — Panel arayüzü baştan yazıldı; tema ve vurgu rengi hesaba bağlı
+
+- **Karar:** Panelin görsel katmanı (`base.html`) sıfırdan yazıldı. Renkler
+  CSS değişkeni (custom property — tek yerde tanımlanıp her yerde kullanılan
+  renk adı) olarak tutuluyor; tema `<html data-tema="...">`, vurgu rengi
+  `<html data-vurgu="...">` ile belirleniyor.
+- **Seçenekler:**
+  1. Hazır bir arayüz kütüphanesi (Bootstrap, Tailwind) eklemek.
+  2. Temayı yalnızca tarayıcı hafızasında (localStorage) tutmak.
+  3. Renkleri CSS değişkeni yapıp tercihi kullanıcı kaydında tutmak.
+- **Neden 3:** (1) dışarıdan yeni bir bağımlılık ve yeni bir güncelleme
+  yükü getirirdi; panelin ihtiyacı olan şey birkaç yüz satır CSS. (2) ise
+  kullanıcı başka bir bilgisayardan girdiğinde tercihi kaybederdi ve
+  "ayarım neden gitti?" sorusunu doğururdu. Tercih hesapta durduğu için
+  her cihazda aynı.
+- **Risk:** Tercih sunucudan geldiği için sayfa `data-tema` niteliğiyle
+  **boyanmadan önce** işaretlenmeli; aksi halde koyu temada bir an beyaz
+  parlama olur. Bu yüzden nitelik `<html>` etiketinin kendisinde.
+- **Geri alma:** `data-tema`/`data-vurgu` nitelikleri kaldırılırsa sistem
+  varsayılan (koyu) temaya döner; hiçbir sayfa kırılmaz.
+
+---
+
+## K-061 — "Sayfa açılıyor" ile "sayfa doğru görünüyor" aynı şey değil
+
+- **Olay:** `base.html` baştan yazıldığında **19 sınıf adı** stil tanımı
+  olmadan kaldı: `sayfa-ust`, `sub`, `lock`, `kutular`, `kod`, `ipucu`,
+  `aksiyonlar`, `ayirac`, `kirinti`, `satirici`, `spacer`, `empty`,
+  `blok`, `metin`, `not` ve diğerleri. 12 şablon bu adları kullanmaya
+  devam ediyordu.
+- **Neden fark edilmedi:** Bütün sayfalar HTTP 200 dönüyordu ve 703 testin
+  tamamı geçiyordu. Ben de "hepsi 200 döndü, sorun yok" diye rapor
+  ettim. Oysa ekranda başlıklar hizasız, ölçü kutuları düz metin,
+  "yayınlama kapalı" uyarısı sıradan bir paragraf halindeydi.
+- **Karar:** Şablonlarda kullanılan **her** CSS sınıfının ve her CSS
+  değişkeninin bir yerde tanımlı olduğunu doğrulayan bir test eklendi
+  (`tests/test_panel_stilleri.py`). Eksik tanımlar artık testte patlar.
+- **Ders:** Durum kodu, görünümün kanıtı değildir. Bir arayüz değişikliğini
+  "doğruladım" demek için, değişikliğin **kendi başarısızlık biçimine**
+  bakan bir kontrol gerekir. Stil kaybı sessiz bir başarısızlıktır: hiçbir
+  hata üretmez, yalnızca kötü görünür.
+- **Geri alma:** Test dosyası silinirse sistem çalışmaya devam eder; yalnızca
+  bu hata sınıfına karşı koruma kalkar.
+
+---
+
+## K-062 — Kısayol düğmeleri de izin kontrolünden geçer
+
+- **Olay:** Müşteri özet sayfasının başlığına "Takvim" ve "Hesaplar"
+  kısayolları eklendim. Mevcut bir test hemen patladı: `takvim.gor` izni
+  olmayan bir kullanıcıya takvim bağlantısı görünüyordu.
+- **Karar:** Kısayollar, yan menüyle **aynı** izin listesinden
+  (`request.state.izinler`) geçiriliyor.
+- **Neden:** Açılamayan bir sayfaya bağlantı göstermek kullanıcıya "yetkin
+  yok" ekranından başka bir şey kazandırmaz; üstelik olmayan bir yetkinin
+  var olduğunu ima eder.
+- **Not:** Bu hatayı ben bulmadım, var olan test buldu. Yeni bir arayüz
+  öğesi eklerken izin kontrolünü unutmak kolay; testin bunu yakalaması
+  kuralın kodda **tek bir yerde** tanımlı olmasının karşılığı.
+
+---
+
+## K-063 — Telegram botu yazılmadı: ortam Telegram'a çıkamıyor
+
+- **Durum:** Yapılmadı. Yarım bırakıldı ve arayüzde "hazır" gösterilmiyor.
+- **Neden:** Bu çalışma ortamının ağ politikası `api.telegram.org` ve
+  `core.telegram.org` adreslerine çıkışı reddediyor (`connect_rejected`).
+  Resmî Bot API dokümanına erişemiyorum ve yazdığım kodu **çalıştırıp
+  doğrulayamam**.
+- **Neden ezberden yazmadım:** Talimatınız açık: *"Endpoint, istek gövdesi,
+  authentication ... tahmin etme."* Ezberden yazılmış, hiç çağrılmamış bir
+  entegrasyon "hazır" görünür ama ilk gerçek kullanımda kırılır — ve o
+  anda neyin yanlış olduğu belli olmaz.
+- **Açılması için gereken:** Oturumun bulut ortamı ayarlarında **Network
+  access** (ağ erişimi) listesine bu iki alan adının eklenmesi. Eklendikten
+  sonra dokümanı okuyup botu yazar, gerçek bir mesaj göndererek doğrularım.

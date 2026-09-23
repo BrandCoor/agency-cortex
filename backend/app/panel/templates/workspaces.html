@@ -1,30 +1,62 @@
 {% extends "base.html" %}
 {% block title %}Müşteriler{% endblock %}
 {% block content %}
-<h1>Müşteriler</h1>
-<p class="sub">Yalnızca yetkili olduğunuz müşteriler görünür.</p>
+
+<div class="sayfa-ust">
+  <div class="metin">
+    <h1>Müşteriler</h1>
+    <p class="sub">Yalnızca ekip üyesi olduğunuz müşteriler listelenir.</p>
+  </div>
+  {% if memberships %}
+  <div class="aksiyonlar">
+    <a class="btn" href="#yeni-musteri">Yeni müşteri ekle</a>
+  </div>
+  {% endif %}
+</div>
 
 {% if error %}<div class="err">{{ error }}</div>{% endif %}
 
 {% if not memberships %}
-  <div class="card empty">
-    Henüz bir müşteriniz yok. Aşağıdan ilk müşterinizi ekleyerek başlayabilirsiniz.
+  <div class="bos">
+    Henüz bir müşteriniz yok. Aşağıdaki formdan ilk müşterinizi ekleyerek
+    başlayabilirsiniz.
+  </div>
+{% else %}
+  {# Kart izgarasi: her musteri tek tiklamayla acilir. Liste uzadiginda
+     satir satir okumak yerine gozle taranabilsin diye izgara kullanildi. #}
+  <div class="izgara">
+    {% for m in memberships %}
+    <a class="card musteri-kart" href="/panel/musteri/{{ m.workspace.id }}">
+      <div class="row">
+        <span class="harf">{{ m.workspace.name[0]|upper }}</span>
+        <div style="min-width:0;flex:1">
+          <strong>{{ m.workspace.name }}</strong>
+          <div class="sessiz">{{ m.workspace.slug }}</div>
+        </div>
+      </div>
+      <div class="row" style="margin-top:12px">
+        {% if m.workspace.is_active %}
+          <span class="pill p-ok">Etkin</span>
+        {% else %}
+          <span class="pill p-warn">Pasif</span>
+        {% endif %}
+        <span class="sessiz">{{ m.workspace.timezone }}</span>
+      </div>
+    </a>
+    {% endfor %}
   </div>
 {% endif %}
 
+<h2 id="yeni-musteri">Yeni müşteri</h2>
 <form method="post" action="/panel/musteri-ekle" class="card">
-  <label for="ad">Yeni müşteri adı</label>
+  <label for="ad">Müşteri adı</label>
   <input id="ad" name="ad" type="text" required minlength="2" maxlength="200"
          placeholder="Örn: Gaziantepli Taha Usta">
-  <div style="margin-top:12px"><button type="submit">Müşteri ekle</button></div>
-</form>
-
-{% for m in memberships %}
-<div class="card row">
-  <div style="flex:1">
-    <strong><a href="/panel/musteri/{{ m.workspace.id }}">{{ m.workspace.name }}</a></strong>
+  <p class="ipucu">
+    Müşteri eklendiğinde siz otomatik olarak ekibine dâhil edilirsiniz.
+  </p>
+  <div style="margin-top:12px">
+    <button type="submit" class="birincil">Müşteri ekle</button>
   </div>
-  <a class="btn" href="/panel/musteri/{{ m.workspace.id }}">Aç</a>
-</div>
-{% endfor %}
+</form>
 {% endblock %}

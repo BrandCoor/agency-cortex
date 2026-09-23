@@ -1281,3 +1281,50 @@ Hangi akışın doğru olduğunu söylemiyoruz (o Meta'nın dokümanında); yaln
 değerlerin birbiriyle tutarlı olup olmadığını söylüyoruz.
 
 **644/644 test geçiyor.**
+
+## [0.16.0] - 2026-09-23 — Panel baştan tasarlandı, tema seçimi, gösterge paneli
+
+### Eklendi
+- **Yeni panel arayüzü.** Renkler tek yerde tanımlı CSS değişkenleri oldu;
+  yan menü, üst çubuk, kartlar, ölçü kutuları, tablolar ve mesaj kutuları
+  baştan yazıldı. Mobil genişlikte yan menü üste taşınıyor.
+- **Koyu / açık tema ve 6 vurgu rengi.** `Görünüm` sayfasından seçilir,
+  üst çubuktaki düğmeyle tek tıkla değiştirilir. Tercih **hesaba** kaydedilir,
+  yani her cihazda aynı. "Sistemi izle" seçeneği işletim sisteminin
+  tercihini takip eder.
+- **Gösterge paneli** (`/panel/gosterge`): bekleyen onaylar, yaklaşan ve
+  geciken planlar, bağlı hesap sayısı, son 24 saatteki başarısız otomasyon
+  çalışmaları ve erişebildiğiniz müşteriler tek ekranda.
+- **Yetkiler ekranı** (`/panel/yetkiler`): tüm kullanıcılar ve yetki
+  kategorileri tek listede; kategori buradan değiştirilir. Özelleştirilmiş
+  yetkisi olan kullanıcılar ayrıca işaretleniyor.
+- **Kampanyalarda platform bazında bütçe:** Meta, Google Ads, TikTok Ads,
+  LinkedIn Ads, X Ads, YouTube Ads ve organik için ayrı bütçe, hedef ve not.
+- **Sistem ayarları sayfasında durum özeti:** "kaç ayardan kaçı girildi"
+  sorusu artık sayfanın ilk ekranında cevaplanıyor.
+- **Stil koruma testi** (`tests/test_panel_stilleri.py`): şablonlarda
+  kullanılan her CSS sınıfının ve değişkeninin tanımlı olduğunu doğrular.
+
+### Düzeltildi
+- **19 CSS sınıfı stilsiz kalmıştı.** Panel baştan yazılırken `sayfa-ust`,
+  `sub`, `lock`, `kutular`, `kod`, `ipucu`, `aksiyonlar`, `ayirac`,
+  `kirinti`, `satirici`, `spacer`, `empty` ve diğerleri tanımsız kaldı;
+  12 şablon bunları kullanmaya devam ediyordu. Sayfalar açılıyordu ama
+  biçimsiz görünüyordu. Tamamı geri getirildi.
+- **Müşteri özetindeki kısayollar izin kontrolünden geçmiyordu.** `takvim.gor`
+  izni olmayan kullanıcıya takvim bağlantısı görünüyordu.
+- `_ayarlar_sayfasi` içinde `satirlar` değişkeni tanımlanmadan kullanılıyordu.
+
+### Yapılmadı (ortam kısıtı)
+- **Telegram botu.** Bu ortamın ağ politikası `api.telegram.org` ve
+  `core.telegram.org` adreslerine çıkışı reddediyor. Resmî dokümana
+  erişilemediği ve yazılan kod çalıştırılıp doğrulanamayacağı için
+  ezberden yazılmadı. Ayrıntı: DECISIONS K-063.
+
+### Doğrulandı
+- 705/705 test geçti
+- `ruff check app tests` temiz
+- `alembic check` temiz — model ile migration arasında fark yok
+- 12 panel sayfası gerçek istemciyle çizdirildi; hepsi HTTP 200
+- Stil testi kasten bozularak (bir sınıf tanımı silinerek) gerçekten
+  patladığı doğrulandı

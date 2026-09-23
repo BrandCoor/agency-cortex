@@ -112,10 +112,14 @@
   }
   a { color:var(--accent); text-decoration:none; }
   a:hover { text-decoration:underline; }
-  code {
+  code, .kod {
     font:13px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     background:var(--card-ust); border:1px solid var(--line);
     padding:2px 6px; border-radius:var(--r-xs); word-break:break-all;
+  }
+  .kod.blok {
+    display:block; padding:11px 13px; overflow-x:auto;
+    white-space:pre-wrap; overflow-wrap:anywhere; line-height:1.55;
   }
 
   /* ---------------- Kabuk ---------------- */
@@ -200,6 +204,15 @@
   .alt-yazi, .muted { color:var(--muted); font-size:13.5px; }
   .sessiz { color:var(--sessiz); font-size:12.5px; }
 
+  {# Sayfa basligi: solda baslik + aciklama, sagda o sayfanin aksiyonlari.
+     Her sayfa ayni iskeleti kullanir, boylece basliklar hizali durur. #}
+  .sayfa-ust { display:flex; align-items:flex-start; gap:16px;
+               flex-wrap:wrap; margin-bottom:20px; }
+  .sayfa-ust .metin { min-width:0; flex:1; }
+  .sub { color:var(--muted); font-size:14px; margin:0; }
+  .kirinti { color:var(--muted); font-size:13px; margin:0 0 12px; }
+  .ipucu { color:var(--sessiz); font-size:12.5px; margin-top:4px; }
+
   /* ---------------- Kartlar ---------------- */
   .card {
     background:var(--card); border:1px solid var(--line);
@@ -215,11 +228,32 @@
   .card.sikisik > *:not(table):not(.tablo-sar):not(h3):not(.card-bas) { padding:0 18px; }
   .card.sikisik > *:last-child { padding-bottom:16px; }
 
-  .row { display:flex; align-items:center; gap:10px; }
+  .row { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  {# Bas harf rozeti: hem yan menudeki kisi hem de musteri kartlari kullanir. #}
+  .harf {
+    width:34px; height:34px; flex:0 0 34px; border-radius:9px;
+    background:var(--accent-soft); color:var(--accent);
+    display:flex; align-items:center; justify-content:center;
+    font-weight:660; font-size:14px;
+  }
+  {# Tumu tiklanabilir musteri karti. Baglanti oldugu icin alti cizilmemeli. #}
+  a.musteri-kart { display:block; color:inherit; margin:0; }
+  a.musteri-kart:hover {
+    text-decoration:none; border-color:var(--accent-line);
+    background:var(--card-ust);
+  }
+  {# Giris ekrani: yan menu yokken formu ortalar. #}
+  .giris-kutu { max-width:370px; margin:9vh auto; }
+  .giris-kutu h1 { text-align:center; }
+  .giris-kutu .sub { text-align:center; margin-bottom:18px; }
+  .spacer { flex:1; }
+  .ayirac { height:1px; background:var(--line); border:0; margin:16px 0; }
+  .aksiyonlar { display:flex; gap:7px; flex-wrap:wrap; align-items:center; }
   .izgara { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:14px; }
 
   /* ---------------- Olcu kutulari (dashboard) ---------------- */
-  .olculer { display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:12px; }
+  .olculer, .kutular { display:grid; gap:12px;
+                       grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); }
   .kutu {
     background:var(--card); border:1px solid var(--line);
     border-radius:var(--r); padding:15px 16px;
@@ -230,7 +264,7 @@
   }
   .kutu .deger { font-size:26px; font-weight:660; letter-spacing:-.6px; line-height:1.15; }
   .kutu .deger.kucukce { font-size:17px; }
-  .kutu .ek { font-size:12.5px; color:var(--muted); margin-top:3px; }
+  .kutu .ek, .kutu .not { font-size:12.5px; color:var(--muted); margin-top:3px; }
   .kutu.vurgulu { border-color:var(--accent-line); background:var(--accent-soft); }
   .kutu.uyari { border-color:color-mix(in srgb,var(--warn) 40%,transparent); }
   .kutu.kotu  { border-color:color-mix(in srgb,var(--bad) 45%,transparent); }
@@ -304,11 +338,16 @@
   }
   input[type=checkbox], input[type=radio] { width:auto; accent-color:var(--accent); }
   textarea { min-height:90px; resize:vertical; }
+  {# Onay kutusu ile etiketi yan yana: "label" varsayilani blok oldugu icin
+     ayri bir sinif gerekiyor. #}
+  label.satirici { display:flex; align-items:center; gap:8px;
+                   margin:10px 0; font-size:13.5px; color:var(--text); }
+  label.satirici input { width:auto; }
   .satir-form { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
   .satir-form select, .satir-form input { width:auto; }
 
   /* ---------------- Mesaj kutulari ---------------- */
-  .err, .ok, .warn, .bilgi, .hata, .basari, .uyari {
+  .err, .ok, .warn, .bilgi, .hata, .basari, .uyari, .lock {
     padding:11px 14px; border-radius:var(--r-sm);
     font-size:13.5px; margin-bottom:12px; border:1px solid;
   }
@@ -316,9 +355,10 @@
   .ok, .basari { background:var(--ok-soft);   border-color:color-mix(in srgb,var(--ok) 30%,transparent);   color:var(--ok); }
   .warn, .uyari{ background:var(--warn-soft); border-color:color-mix(in srgb,var(--warn) 30%,transparent); color:var(--warn); }
   .bilgi       { background:var(--accent-soft); border-color:var(--accent-line); color:var(--text); }
-  .err b, .ok b, .warn b, .bilgi b, .hata b { display:block; margin-bottom:3px; }
+  .lock { background:var(--card-ust); border-color:var(--line-2); color:var(--text); }
+  .err b, .ok b, .warn b, .bilgi b, .hata b, .lock b { display:block; margin-bottom:3px; }
 
-  .bos {
+  .bos, .card.empty {
     border:1px dashed var(--line-2); border-radius:var(--r);
     padding:26px 20px; text-align:center; color:var(--muted);
     font-size:13.5px; background:var(--card);

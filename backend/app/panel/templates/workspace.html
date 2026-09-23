@@ -1,9 +1,28 @@
 {% extends "base.html" %}
 {% block title %}{{ workspace.name }}{% endblock %}
 {% block content %}
-<h1>{{ workspace.name }}</h1>
+<div class="sayfa-ust">
+  <div class="metin">
+    <h1>{{ workspace.name }}</h1>
+    <p class="sub">Müşteri özeti: onay bekleyenler, bağlı hesaplar ve yapay zekâ bütçesi.</p>
+  </div>
+  {# Kisayollar da yan menu ile AYNI izin kontrolunden gecer. Acilamayan
+     bir sayfaya baglanti gostermek, kullaniciya "yetkin yok" ekrani
+     disinda hicbir sey kazandirmaz. #}
+  {% set izinler = request.state.izinler or [] %}
+  {% if 'takvim.gor' in izinler or 'hesap.gor' in izinler %}
+  <div class="aksiyonlar">
+    {% if 'takvim.gor' in izinler %}
+      <a class="btn" href="/panel/musteri/{{ workspace.id }}/takvim">Takvim</a>
+    {% endif %}
+    {% if 'hesap.gor' in izinler %}
+      <a class="btn" href="/panel/musteri/{{ workspace.id }}/hesaplar">Hesaplar</a>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
 
-<div class="kutular">
+<div class="olculer">
   <div class="kutu">
     <div class="etiket">Onay bekleyen</div>
     <div class="deger">{{ pending_scripts|length + pending_reports|length }}</div>
