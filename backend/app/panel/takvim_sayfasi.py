@@ -72,7 +72,7 @@ def _sayfa(
             "onceki": {"yil": onceki.year, "ay": onceki.month},
             "sonraki": {"yil": sonraki.year, "ay": sonraki.month},
             "bekleyenler": planlanabilir_icerikler(db, workspace.id),
-            "planlayabilir": izin_var_mi(db, workspace.id, uyelik.role, "takvim.planla"),
+            "planlayabilir": izin_var_mi(db, user, "takvim.planla"),
             "son_gun": son_gun,
             "error": error,
             "ok": ok,
@@ -92,7 +92,7 @@ def takvim_sayfasi(
     uyelik = uyelik_bul(request, db, user, workspace_id)
     if uyelik is None:
         return HTMLResponse("Bulunamadı.", status_code=404)
-    if not izin_var_mi(db, workspace_id, uyelik.role, "takvim.gor"):
+    if not izin_var_mi(db, user, "takvim.gor"):
         return HTMLResponse("Bulunamadı.", status_code=404)
 
     if ay and not 1 <= ay <= 12:
@@ -112,7 +112,7 @@ def _yetki_gerek(request, db, workspace_id, izin: str):
     if uyelik is None:
         return None, None, None, HTMLResponse("Bulunamadı.", status_code=404)
     workspace = db.get(Workspace, workspace_id)
-    if not izin_var_mi(db, workspace_id, uyelik.role, izin):
+    if not izin_var_mi(db, user, izin):
         return user, uyelik, workspace, None
     return user, uyelik, workspace, "izinli"
 

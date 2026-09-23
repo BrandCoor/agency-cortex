@@ -48,7 +48,7 @@ from app.core.config import get_settings  # noqa: E402
 from app.core.db import get_db  # noqa: E402
 from app.core.security import create_token, hash_password  # noqa: E402
 from app.main import app as fastapi_app  # noqa: E402
-from app.models.enums import WorkspaceRole  # noqa: E402
+from app.models.enums import PermissionPackage, WorkspaceRole  # noqa: E402
 from app.models.identity import User, Workspace, WorkspaceMember  # noqa: E402
 from app.platforms import meta_ayar  # noqa: E402
 from app.services import ai_butce  # noqa: E402
@@ -155,10 +155,32 @@ def make_workspace(db: Session):
     return _make
 
 
+#: Eski musteri rolu -> kullanici yetki paketi.
+#
+# Uyelik artik YETKI TASIMAZ. Testlerin cogu "bu kisi bu musteride
+# editor" demek icin yazilmisti; yeni anlami "bu kisi editor".
+_ROL_PAKET = {
+    WorkspaceRole.OWNER: PermissionPackage.ADMIN,
+    WorkspaceRole.ADMIN: PermissionPackage.ADMIN,
+    WorkspaceRole.STRATEGIST: PermissionPackage.STRATEGIST,
+    WorkspaceRole.EDITOR: PermissionPackage.EDITOR,
+    WorkspaceRole.VIEWER: PermissionPackage.VIEWER,
+}
+
+
 @pytest.fixture
 def add_member(db: Session):
-    def _add(workspace: Workspace, user: User, role: WorkspaceRole) -> WorkspaceMember:
-        member = WorkspaceMember(workspace_id=workspace.id, user_id=user.id, role=role)
+    """Kullaniciyi musteriye atar ve yetki paketini ayarlar.
+
+    Uyelik yalnizca ERISIMI belirler; ne yapabilecegi kullanicinin
+    kendi paketinde/izinlerinde yazar.
+    """
+    def _add(workspace: Workspace, user: User, role=None) -> WorkspaceMember:
+        if role is not None:
+            user.permission_package = (
+                role if isinstance(role, PermissionPackage) else _ROL_PAKET[role]
+            )
+        member = WorkspaceMember(workspace_id=workspace.id, user_id=user.id)
         db.add(member)
         db.flush()
         return member

@@ -17,14 +17,13 @@ import uuid
 
 from sqlalchemy import select
 
-from app.models.enums import WorkspaceRole
-from app.services.yetkiler import rol_izinleri
+from app.services.yetkiler import kullanici_izinleri
 
 
-def izinleri_hatirla(request, db, workspace_id: uuid.UUID, rol: WorkspaceRole) -> None:
+def izinleri_hatirla(request, db, user) -> None:
     """Bu istegin menusu icin gecerli izinleri saklar."""
     try:
-        request.state.izinler = rol_izinleri(db, workspace_id, rol)
+        request.state.izinler = kullanici_izinleri(db, user)
     except Exception:  # noqa: BLE001 - menu, sayfayi ASLA dusurmemeli
         # Izinler okunamazsa menu eksik gorunur; sayfa yine acilir.
         request.state.izinler = frozenset()
@@ -47,5 +46,5 @@ def uyelik_bul(request, db, user, workspace_id: uuid.UUID):
     ).scalar_one_or_none()
     if uyelik is not None:
         # Kenar menu, yapilamayacak isleri GOSTERMEZ.
-        izinleri_hatirla(request, db, workspace_id, uyelik.role)
+        izinleri_hatirla(request, db, user)
     return uyelik

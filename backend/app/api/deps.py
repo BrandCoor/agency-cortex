@@ -17,7 +17,6 @@ from sqlalchemy.orm import Session
 
 from app.core.db import get_db
 from app.core.security import TokenError, decode_token
-from app.models.enums import WorkspaceRole
 from app.models.identity import User, WorkspaceMember
 
 bearer_scheme = HTTPBearer(auto_error=False)
@@ -73,20 +72,12 @@ class WorkspaceContext:
     icin olusturulabilir. Sorgular `context.workspace_id` ile sinirlandirilir.
     """
 
-    __slots__ = ("workspace_id", "role", "user")
+    __slots__ = ("workspace_id", "user")
 
-    def __init__(self, workspace_id: uuid.UUID, role: WorkspaceRole, user: User) -> None:
+    def __init__(self, workspace_id: uuid.UUID, user: User) -> None:
         self.workspace_id = workspace_id
-        self.role = role
         self.user = user
 
-    def require_role(self, minimum: WorkspaceRole) -> None:
-        """Yetki yetersizse istegi reddeder."""
-        if not self.role.covers(minimum):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=f"Bu islem icin en az '{minimum.value}' yetkisi gerekir.",
-            )
 
 
 def require_workspace(
@@ -110,31 +101,22 @@ def require_workspace(
     if membership is None:
         raise _FORBIDDEN
 
-    return WorkspaceContext(workspace_id=workspace_id, role=membership.role, user=user)
+    # Uyelik YETKI tasimaz; yalnizca erisimi belirler. Ne yapabilecegi
+    # kullanicinin kendi izinlerinde yazar (services/yetkiler.py).
+    return WorkspaceContext(workspace_id=workspace_id, user=user)
 
 
 Workspace_ = Annotated[WorkspaceContext, Depends(require_workspace)]
 
 
-def require_role(minimum: WorkspaceRole):
-    """Belirli bir yetki seviyesi isteyen uclar icin bagimlilik uretir.
-
-    Kullanimi:  ctx: Annotated[WorkspaceContext, Depends(require_role(WorkspaceRole.ADMIN))]
-    """
-
-    def _dependency(ctx: Workspace_) -> WorkspaceContext:
-        ctx.require_role(minimum)
-        return ctx
-
-    return _dependency
 
 
 def require_permission(izin: str):
     """Belirli bir IZIN isteyen uclar icin bagimlilik uretir.
 
-    `require_role`den farki: izinler musteri basina panelden
-    ayarlanabilir. Sabit bir rol beklemek, yetki ekraninda yapilan
-    ayarin bu ucta ISE YARAMAMASI demekti.
+    Izinler kullanici bazinda panelden ayarlanabilir. Sabit bir rol
+    beklemek, yetki ekraninda yapilan ayarin bu ucta ISE YARAMAMASI
+    demekti.
 
     Kullanimi:
         ctx: Annotated[WorkspaceContext, Depends(require_permission("icerik.uret"))]
@@ -143,7 +125,7 @@ def require_permission(izin: str):
     def _dependency(ctx: Workspace_, db: DbSession) -> WorkspaceContext:
         from app.services.yetkiler import izin_var_mi
 
-        if not izin_var_mi(db, ctx.workspace_id, ctx.role, izin):
+        if not izin_var_mi(db, ctx.user, izin):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=f"Bu islem icin '{izin}' izni gerekir.",

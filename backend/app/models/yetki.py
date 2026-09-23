@@ -1,32 +1,41 @@
-"""Rol bazli izin ozellestirmeleri.
+"""Kullanici bazli izin ozellestirmeleri.
 
-Her musteri icin, her rolun hangi izne sahip oldugu burada tutulur.
-YALNIZCA VARSAYILANDAN FARKLI olanlar saklanir; boylece varsayilan
-degistiginde ozellestirilmemis roller yeni varsayilani alir.
+ONCEDEN: izinler (musteri, rol) ciftine baglilydi. Ayni kisi bir
+musteride editor, digerinde stratejist olabiliyordu ve "bu kullanici
+neyi yapabilir?" sorusunun TEK bir cevabi yoktu. Yetki ekrani da her
+musterinin altinda ayri ayri duruyordu.
+
+SIMDI: izinler KULLANICIYA aittir. Musteri uyeligi yalnizca "bu kisi
+hangi musterilerde calisiyor" sorusunu yanitlar.
+
+Burada YALNIZCA pakete gore varsayilandan FARKLI olan satirlar tutulur.
+Boylece bir paketin varsayilani ileride degisirse, ozellestirilmemis
+kullanicilar yeni varsayilani alir.
 """
 
 from __future__ import annotations
 
-from sqlalchemy import Boolean, Enum, String, UniqueConstraint
+import uuid
+
+from sqlalchemy import Boolean, ForeignKey, String, UniqueConstraint
+from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.db import Base
-from app.models.base import Timestamps, UUIDPrimaryKey, WorkspaceScoped
-from app.models.enums import WorkspaceRole
+from app.models.base import Timestamps, UUIDPrimaryKey
 
 
-class RoleGrant(UUIDPrimaryKey, WorkspaceScoped, Timestamps, Base):
-    """Bir musteride bir rolun bir izne sahip olup olmadigi."""
+class UserPermission(UUIDPrimaryKey, Timestamps, Base):
+    """Bir kullanicinin paketinden farklilasan tek bir izni."""
 
-    __tablename__ = "role_grants"
+    __tablename__ = "user_permissions"
     __table_args__ = (
-        UniqueConstraint(
-            "workspace_id", "role", "permission", name="uq_role_grant"
-        ),
+        UniqueConstraint("user_id", "permission", name="uq_user_permission"),
     )
 
-    role: Mapped[WorkspaceRole] = mapped_column(
-        Enum(WorkspaceRole, name="workspace_role"), nullable=False, index=True
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False, index=True,
     )
     permission: Mapped[str] = mapped_column(String(60), nullable=False, index=True)
     allowed: Mapped[bool] = mapped_column(Boolean, nullable=False)

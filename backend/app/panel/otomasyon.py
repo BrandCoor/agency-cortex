@@ -73,8 +73,8 @@ def _sayfa(request, db, user, *, error=None, ok=None, anahtar=None, kod=200):
         {
             "id": str(w.id),
             "ad": w.name,
-            "yonetebilir": izin_var_mi(db, w.id, m.role, "otomasyon.ayar"),
-            "calistirabilir": izin_var_mi(db, w.id, m.role, "otomasyon.calistir"),
+            "yonetebilir": izin_var_mi(db, user, "otomasyon.ayar"),
+            "calistirabilir": izin_var_mi(db, user, "otomasyon.calistir"),
             "akislar": akis_durumlari(db, w.id),
             "son_calistirmalar": [
                 {
@@ -224,7 +224,7 @@ def akis_degistir(
     # Uye degilse 404: musterinin varligi ele verilmez.
     if uyelik is None:
         return HTMLResponse("Bulunamadı.", status_code=404)
-    if not izin_var_mi(db, workspace_id, uyelik.role, "otomasyon.ayar"):
+    if not izin_var_mi(db, user, "otomasyon.ayar"):
         return _sayfa(
             request, db, user,
             error="İş akışını açıp kapatma yetkiniz yok.",
@@ -387,7 +387,7 @@ def elle_calistir(
     uyelik = uyelik_bul(request, db, user, workspace_id)
     if uyelik is None:
         return HTMLResponse("Bulunamadı.", status_code=404)
-    if not izin_var_mi(db, workspace_id, uyelik.role, "otomasyon.calistir"):
+    if not izin_var_mi(db, user, "otomasyon.calistir"):
         return _sayfa(
             request, db, user,
             error="İş akışını elle çalıştırma yetkiniz yok.",

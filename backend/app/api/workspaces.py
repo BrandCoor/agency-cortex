@@ -13,9 +13,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
-from app.api.deps import CurrentUser, DbSession, Workspace_, WorkspaceContext, require_role
+from app.api.deps import CurrentUser, DbSession, Workspace_, WorkspaceContext, require_permission
 from app.core.logging_config import get_logger
-from app.models.enums import WorkspaceRole
 from app.models.identity import User, Workspace, WorkspaceMember
 from app.schemas import (
     MemberCreate,
@@ -36,15 +35,15 @@ def list_my_workspaces(user: CurrentUser, db: DbSession) -> list[WorkspaceMember
     Sistemdeki tum calisma alanlarini listeleyen bir uc bilerek yoktur.
     """
     rows = db.execute(
-        select(Workspace, WorkspaceMember.role)
+        select(Workspace)
         .join(WorkspaceMember, WorkspaceMember.workspace_id == Workspace.id)
         .where(WorkspaceMember.user_id == user.id)
         .order_by(Workspace.name)
     ).all()
 
     return [
-        WorkspaceMembershipOut(workspace=WorkspaceOut.model_validate(ws), role=role)
-        for ws, role in rows
+        WorkspaceMembershipOut(workspace=WorkspaceOut.model_validate(ws))
+        for (ws,) in rows
     ]
 
 
@@ -60,7 +59,7 @@ def create_workspace(payload: WorkspaceCreate, user: CurrentUser, db: DbSession)
 
     db.add(
         WorkspaceMember(
-            workspace_id=workspace.id, user_id=user.id, role=WorkspaceRole.OWNER
+            workspace_id=workspace.id, user_id=user.id
         )
     )
 
@@ -101,10 +100,10 @@ def list_members(ctx: Workspace_, db: DbSession) -> list[WorkspaceMember]:
 )
 def add_member(
     payload: MemberCreate,
-    ctx: Annotated[WorkspaceContext, Depends(require_role(WorkspaceRole.ADMIN))],
+    ctx: Annotated[WorkspaceContext, Depends(require_permission("ekip.yonet"))],
     db: DbSession,
 ) -> WorkspaceMember:
-    """Calisma alanina uye ekler. En az yonetici (admin) yetkisi gerekir."""
+    """Calisma alanina uye ekler. 'ekip.yonet' izni gerekir."""
     user = db.execute(
         select(User).where(User.email == payload.email.lower())
     ).scalar_one_or_none()
@@ -113,7 +112,7 @@ def add_member(
             status_code=status.HTTP_404_NOT_FOUND, detail="Bu e-posta ile kullanici bulunamadi."
         )
 
-    member = WorkspaceMember(workspace_id=ctx.workspace_id, user_id=user.id, role=payload.role)
+    member = WorkspaceMember(workspace_id=ctx.workspace_id, user_id=user.id)
     db.add(member)
     try:
         db.commit()
@@ -129,7 +128,6 @@ def add_member(
         "uye_eklendi",
         workspace_id=str(ctx.workspace_id),
         added_user_id=str(user.id),
-        role=payload.role.value,
     )
     return member
 
@@ -140,7 +138,7 @@ def add_member(
 )
 def remove_member(
     member_id: uuid.UUID,
-    ctx: Annotated[WorkspaceContext, Depends(require_role(WorkspaceRole.ADMIN))],
+    ctx: Annotated[WorkspaceContext, Depends(require_permission("ekip.yonet"))],
     db: DbSession,
 ) -> None:
     member = db.execute(
@@ -154,18 +152,20 @@ def remove_member(
     if member is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Uye bulunamadi.")
 
-    if member.role == WorkspaceRole.OWNER:
-        owners = db.execute(
-            select(WorkspaceMember).where(
-                WorkspaceMember.workspace_id == ctx.workspace_id,
-                WorkspaceMember.role == WorkspaceRole.OWNER,
-            )
-        ).scalars().all()
-        if len(owners) <= 1:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="Son sahip cikarilamaz. Once baska bir sahip atayin.",
-            )
+    # SON UYE CIKARILAMAZ.
+    #
+    # Uyesi kalmayan bir musteriyi kimse goremez; geri eklemek icin bile
+    # uyelik gerektigi icin musteri erisilemez hale gelirdi.
+    uyeler = db.execute(
+        select(WorkspaceMember).where(
+            WorkspaceMember.workspace_id == ctx.workspace_id,
+        )
+    ).scalars().all()
+    if len(uyeler) <= 1:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Son uye cikarilamaz. Once baska birini ekleyin.",
+        )
 
     db.delete(member)
     db.commit()

@@ -26,7 +26,7 @@ from app.cli.hesap import MIN_SIFRE_UZUNLUGU
 from app.core.security import create_token, hash_password, verify_password
 from app.models.brand import Brand, BrandGuideline, Campaign
 from app.models.content import ContentScript
-from app.models.enums import ContentStatus, Platform, WorkspaceRole
+from app.models.enums import ContentStatus, Platform
 from app.models.identity import User, Workspace, WorkspaceMember
 from app.models.reporting import Report, ReportSection
 from app.models.social import SocialAccount
@@ -54,7 +54,7 @@ from app.services.sistem_ayarlari import (
     deger_yaz,
     durum_listesi,
 )
-from app.services.yetkiler import izin_var_mi
+from app.services.yetkiler import PAKET_ADLARI, izin_var_mi
 
 router = APIRouter(prefix="/panel", tags=["panel"])
 templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
@@ -70,23 +70,12 @@ STATUS_LABELS = {
     "archived": "Arşivlendi",
 }
 
-ROLE_LABELS = {
-    "owner": "Sahip",
-    "admin": "Yönetici",
-    "strategist": "Stratejist",
-    "editor": "Editör",
-    "viewer": "İzleyici",
-}
-
 
 def _giris_yonlendir() -> RedirectResponse:
     return RedirectResponse("/panel/giris", status_code=status.HTTP_303_SEE_OTHER)
 
 
-def _izinli_hedefler(
-    db, workspace_id: uuid.UUID, mevcut: ContentStatus,
-    rol: WorkspaceRole, tur: str,
-) -> list[str]:
+def _izinli_hedefler(db, user, mevcut: ContentStatus, tur: str) -> list[str]:
     """Kullanicinin bu durumdan gidebilecegi durumlar.
 
     Yetkisi yetmeyen secenekler listede GOSTERILMEZ; kullanici
@@ -101,7 +90,7 @@ def _izinli_hedefler(
         # Yayinlama kilidi kapali oldugu icin bu secenek hic sunulmaz.
         if hedef is ContentStatus.PUBLISHED:
             continue
-        if izin_var_mi(db, workspace_id, rol, gerekli_izin(tur, hedef)):
+        if izin_var_mi(db, user, gerekli_izin(tur, hedef)):
             sonuc.append(hedef.value)
     return sorted(sonuc)
 
@@ -283,7 +272,7 @@ def password_submit(
 def _musteri_listesi(request, db, user, *, error=None, kod=200):
     """Musteri listesi sayfasini cizer. Liste her zaman kullaniciya gore filtrelidir."""
     satirlar = db.execute(
-        select(Workspace, WorkspaceMember.role)
+        select(Workspace)
         .join(WorkspaceMember, WorkspaceMember.workspace_id == Workspace.id)
         .where(WorkspaceMember.user_id == user.id)
         .order_by(Workspace.name)
@@ -296,8 +285,8 @@ def _musteri_listesi(request, db, user, *, error=None, kod=200):
             "aktif": "musteriler",
             "error": error,
             "memberships": [
-                {"workspace": ws, "role_label": ROLE_LABELS.get(rol.value, rol.value)}
-                for ws, rol in satirlar
+                {"workspace": ws}
+                for (ws,) in satirlar
             ],
         },
         status_code=kod,
@@ -345,7 +334,7 @@ def workspace_create(request: Request, db: DbSession, ad: Annotated[str, Form()]
     # Musteriyi ekleyen kisi otomatik olarak sahibi (owner) olur.
     db.add(
         WorkspaceMember(
-            workspace_id=workspace.id, user_id=user.id, role=WorkspaceRole.OWNER
+            workspace_id=workspace.id, user_id=user.id
         )
     )
     try:
@@ -382,7 +371,6 @@ def workspace_page(workspace_id: uuid.UUID, request: Request, db: DbSession):
             "user": user,
             "aktif": "ozet",
             "workspace": ws,
-            "role_label": ROLE_LABELS.get(uyelik.role.value, uyelik.role.value),
             "status_labels": STATUS_LABELS,
             "pending_scripts": db.execute(
                 select(ContentScript).where(
@@ -426,13 +414,6 @@ def workspace_page(workspace_id: uuid.UUID, request: Request, db: DbSession):
 # Yapay zeka icerik uretirken bu kayitlari temel alir. Bos birakilirsa uretilen
 # icerik genel gecer olur; bu yuzden panelden doldurulabilmesi gerekir.
 
-ROL_ACIKLAMALARI = [
-    ("admin", "Yönetici", "her şey + ekip yönetimi"),
-    ("strategist", "Stratejist", "içerik/rapor üretir, onaya sunar"),
-    ("editor", "Editör", "içerik düzenler, onaya sunamaz"),
-    ("viewer", "İzleyici", "yalnızca okur"),
-]
-
 
 def _satirlara_bol(metin: str) -> list[str]:
     """Her satiri ayri bir ifade sayar. Bos satirlar atilir."""
@@ -459,7 +440,7 @@ def _marka_sayfasi(request, db, user, uyelik, workspace, *, error=None, ok=None,
             "kilavuz": kilavuz,
             "yasakli_metin": "\n".join(kilavuz.forbidden_phrases) if kilavuz else "",
             "tercih_metin": "\n".join(kilavuz.preferred_phrases) if kilavuz else "",
-            "duzenleyebilir": izin_var_mi(db, workspace.id, uyelik.role, "marka.duzenle"),
+            "duzenleyebilir": izin_var_mi(db, user, "marka.duzenle"),
             "error": error,
             "ok": ok,
         },
@@ -502,7 +483,7 @@ def brand_submit(
 
     workspace = db.get(Workspace, workspace_id)
     # Yetki sunucuda dogrulanir; formun kapali olmasi tek basina yeterli degil.
-    if not izin_var_mi(db, workspace_id, uyelik.role, "marka.duzenle"):
+    if not izin_var_mi(db, user, "marka.duzenle"):
         return _marka_sayfasi(
             request, db, user, uyelik, workspace,
             error="Bu işlem için en az stratejist yetkisi gerekir.",
@@ -550,6 +531,10 @@ def brand_submit(
 
 
 # --- Ekip --------------------------------------------------------------------
+#
+# Ekip sayfasi ATAMA yapar, YETKI VERMEZ. Bir kisinin neyi yapabilecegi
+# kullanicinin kendisinde tutulur (Yonetim -> Kullanicilar -> Yetkiler).
+# Burada yalnizca "bu kisi bu musteride calisiyor mu" belirlenir.
 
 def _ekip_sayfasi(request, db, user, uyelik, workspace, *, error=None, ok=None, kod=200):
     satirlar = db.execute(
@@ -570,16 +555,15 @@ def _ekip_sayfasi(request, db, user, uyelik, workspace, *, error=None, ok=None, 
                     "id": str(u.id),
                     "email": u.email,
                     "full_name": u.full_name,
-                    "role": m.role.value,
-                    "role_label": ROLE_LABELS.get(m.role.value, m.role.value),
+                    "paket": PAKET_ADLARI.get(
+                        u.permission_package, u.permission_package.value
+                    ),
+                    "sistem_yoneticisi": u.is_superuser,
                     "kendisi": u.id == user.id,
-                    # Kendinden yuksek yetkilinin ayarlari degistirilemez.
-                    "degistirilebilir": uyelik.role.covers(m.role) and u.id != user.id,
                 }
-                for m, u in satirlar
+                for _m, u in satirlar
             ],
-            "yonetebilir": izin_var_mi(db, workspace.id, uyelik.role, "ekip.yonet"),
-            "rol_secenekleri": ROL_ACIKLAMALARI,
+            "yonetebilir": izin_var_mi(db, user, "ekip.yonet"),
             "yol": "Ekip",
             "error": error,
             "ok": ok,
@@ -596,7 +580,7 @@ def members_page(workspace_id: uuid.UUID, request: Request, db: DbSession):
     uyelik = uyelik_bul(request, db, user, workspace_id)
     if uyelik is None:
         return HTMLResponse("Bulunamadı.", status_code=404)
-    if not izin_var_mi(db, workspace_id, uyelik.role, "ekip.gor"):
+    if not izin_var_mi(db, user, "ekip.gor"):
         # 404, 403 degil: yetkisi olmayan kisiye sayfanin VARLIGI bile
         # bilgi verir. "Yok" demek en az bilgi sizdiran cevaptir.
         return HTMLResponse("Bulunamadı.", status_code=404)
@@ -609,8 +593,11 @@ def member_add(
     request: Request,
     db: DbSession,
     email: Annotated[str, Form()],
-    rol: Annotated[str, Form()],
 ):
+    """Var olan bir kullaniciyi bu musteriye atar.
+
+    Yetki SORULMAZ: kisinin yetkileri zaten kendisinde tanimlidir.
+    """
     user = current_user_from_cookie(request, db)
     if user is None:
         return _giris_yonlendir()
@@ -619,26 +606,10 @@ def member_add(
         return HTMLResponse("Bulunamadı.", status_code=404)
 
     workspace = db.get(Workspace, workspace_id)
-    if not izin_var_mi(db, workspace_id, uyelik.role, "ekip.yonet"):
+    if not izin_var_mi(db, user, "ekip.yonet"):
         return _ekip_sayfasi(
             request, db, user, uyelik, workspace,
-            error="Ekip yönetimi için en az yönetici yetkisi gerekir.",
-            kod=status.HTTP_403_FORBIDDEN,
-        )
-
-    # Kimse kendinden yuksek yetki veremez; aksi halde yonetici kendini
-    # sahip yapabilirdi.
-    try:
-        yeni_rol = WorkspaceRole(rol)
-    except ValueError:
-        return _ekip_sayfasi(
-            request, db, user, uyelik, workspace,
-            error="Geçersiz yetki.", kod=status.HTTP_400_BAD_REQUEST,
-        )
-    if not uyelik.role.covers(yeni_rol):
-        return _ekip_sayfasi(
-            request, db, user, uyelik, workspace,
-            error="Kendi yetkinizden yüksek bir yetki veremezsiniz.",
+            error="Ekibi yönetme yetkiniz yok.",
             kod=status.HTTP_403_FORBIDDEN,
         )
 
@@ -652,11 +623,11 @@ def member_add(
             kod=status.HTTP_404_NOT_FOUND,
         )
 
-    db.add(WorkspaceMember(workspace_id=workspace_id, user_id=hedef.id, role=yeni_rol))
+    db.add(WorkspaceMember(workspace_id=workspace_id, user_id=hedef.id))
     kaydet(
         db, action="ekip.ekle", actor_user_id=user.id, workspace_id=workspace_id,
         subject_type="user", subject_id=hedef.id, request=request,
-        details={"email": hedef.email, "rol": yeni_rol.value},
+        details={"email": hedef.email},
     )
     try:
         db.commit()
@@ -669,88 +640,6 @@ def member_add(
 
     return _ekip_sayfasi(
         request, db, user, uyelik, workspace, ok=f"{hedef.email} ekibe eklendi."
-    )
-
-
-@router.post("/musteri/{workspace_id}/ekip/rol")
-def member_role_change(
-    workspace_id: uuid.UUID,
-    request: Request,
-    db: DbSession,
-    user_id: Annotated[uuid.UUID, Form()],
-    rol: Annotated[str, Form()],
-):
-    """Bir ekip uyesinin yetkisini degistirir.
-
-    Iki sinir: kimse kendi yetkisini degistiremez (kendini sahip yapardi)
-    ve kimse kendinden yuksek yetkiliye dokunamaz.
-    """
-    user = current_user_from_cookie(request, db)
-    if user is None:
-        return _giris_yonlendir()
-    uyelik = uyelik_bul(request, db, user, workspace_id)
-    if uyelik is None:
-        return HTMLResponse("Bulunamadı.", status_code=404)
-
-    workspace = db.get(Workspace, workspace_id)
-    if not izin_var_mi(db, workspace_id, uyelik.role, "ekip.yonet"):
-        return _ekip_sayfasi(
-            request, db, user, uyelik, workspace,
-            error="Ekip yönetimi için en az yönetici yetkisi gerekir.",
-            kod=status.HTTP_403_FORBIDDEN,
-        )
-    if user_id == user.id:
-        return _ekip_sayfasi(
-            request, db, user, uyelik, workspace,
-            error="Kendi yetkinizi değiştiremezsiniz. Bunu başka bir yönetici yapmalıdır.",
-            kod=status.HTTP_400_BAD_REQUEST,
-        )
-
-    try:
-        yeni_rol = WorkspaceRole(rol)
-    except ValueError:
-        return _ekip_sayfasi(
-            request, db, user, uyelik, workspace,
-            error="Geçersiz yetki.", kod=status.HTTP_400_BAD_REQUEST,
-        )
-    if not uyelik.role.covers(yeni_rol):
-        return _ekip_sayfasi(
-            request, db, user, uyelik, workspace,
-            error="Kendi yetkinizden yüksek bir yetki veremezsiniz.",
-            kod=status.HTTP_403_FORBIDDEN,
-        )
-
-    hedef_uyelik = db.execute(
-        select(WorkspaceMember).where(
-            WorkspaceMember.workspace_id == workspace_id,
-            WorkspaceMember.user_id == user_id,
-        )
-    ).scalar_one_or_none()
-    if hedef_uyelik is None:
-        return _ekip_sayfasi(
-            request, db, user, uyelik, workspace,
-            error="Bu kişi ekipte değil.", kod=status.HTTP_404_NOT_FOUND,
-        )
-    if not uyelik.role.covers(hedef_uyelik.role):
-        return _ekip_sayfasi(
-            request, db, user, uyelik, workspace,
-            error="Kendi yetkinizden yüksek birinin yetkisini değiştiremezsiniz.",
-            kod=status.HTTP_403_FORBIDDEN,
-        )
-    if hedef_uyelik.role is yeni_rol:
-        return _ekip_sayfasi(request, db, user, uyelik, workspace, ok="Değişiklik yok.")
-
-    eski_rol = hedef_uyelik.role.value
-    hedef_uyelik.role = yeni_rol
-    kaydet(
-        db, action="ekip.yetki_degistir", actor_user_id=user.id,
-        workspace_id=workspace_id, subject_type="user", subject_id=user_id,
-        request=request, details={"eski": eski_rol, "yeni": yeni_rol.value},
-    )
-    db.commit()
-    return _ekip_sayfasi(
-        request, db, user, uyelik, workspace,
-        ok=f"Yetki güncellendi: {ROLE_LABELS.get(yeni_rol.value, yeni_rol.value)}",
     )
 
 
@@ -769,13 +658,14 @@ def member_remove(
         return HTMLResponse("Bulunamadı.", status_code=404)
 
     workspace = db.get(Workspace, workspace_id)
-    if not izin_var_mi(db, workspace_id, uyelik.role, "ekip.yonet"):
+    if not izin_var_mi(db, user, "ekip.yonet"):
         return _ekip_sayfasi(
             request, db, user, uyelik, workspace,
-            error="Ekip yönetimi için en az yönetici yetkisi gerekir.",
+            error="Ekibi yönetme yetkiniz yok.",
             kod=status.HTTP_403_FORBIDDEN,
         )
     if user_id == user.id:
+        # Kendini cikarmak, o musteriye erisimi aninda keserdi.
         return _ekip_sayfasi(
             request, db, user, uyelik, workspace,
             error="Kendinizi çıkaramazsınız.", kod=status.HTTP_400_BAD_REQUEST,
@@ -792,33 +682,18 @@ def member_remove(
             request, db, user, uyelik, workspace,
             error="Bu kişi ekipte değil.", kod=status.HTTP_404_NOT_FOUND,
         )
-    # Kendinden yuksek yetkilinin cikarilmasi engellenir.
-    if not uyelik.role.covers(hedef_uyelik.role):
-        return _ekip_sayfasi(
-            request, db, user, uyelik, workspace,
-            error="Kendi yetkinizden yüksek birini çıkaramazsınız.",
-            kod=status.HTTP_403_FORBIDDEN,
-        )
 
+    db.delete(hedef_uyelik)
     kaydet(
         db, action="ekip.cikar", actor_user_id=user.id, workspace_id=workspace_id,
         subject_type="user", subject_id=user_id, request=request,
-        details={"rol": hedef_uyelik.role.value},
     )
-    db.delete(hedef_uyelik)
     db.commit()
-    return _ekip_sayfasi(request, db, user, uyelik, workspace, ok="Kişi ekipten çıkarıldı.")
+    return _ekip_sayfasi(
+        request, db, user, uyelik, workspace, ok="Kişi ekipten çıkarıldı."
+    )
 
 
-# --- Sistem ayarlari ---------------------------------------------------------
-#
-# API anahtarlari buradan girilir. Uc kural:
-# 1. Deger sifrelenerek saklanir (Fernet).
-# 2. Deger EKRANA GERI YAZILMAZ; yalnizca son dort karakter gosterilir.
-# 3. Deger loglanmaz; yalnizca HANGI ayarin degistigi kaydedilir.
-#
-# Sayfa yalnizca sistem yoneticisine (superuser) aciktir: bu anahtarlar tum
-# musterileri ilgilendirir, tek bir musterinin yoneticisine ait degildir.
 
 def _ayarlar_sayfasi(
     request, db, user, *, error=None, ok=None, kod=200, sinama=None
@@ -968,7 +843,7 @@ def _kampanya_sayfasi(request, db, user, uyelik, workspace, *, error=None, ok=No
             "marka": marka,
             "kampanyalar": kampanyalar,
             "status_labels": STATUS_LABELS,
-            "duzenleyebilir": izin_var_mi(db, workspace.id, uyelik.role, "kampanya.yonet"),
+            "duzenleyebilir": izin_var_mi(db, user, "kampanya.yonet"),
             "error": error,
             "ok": ok,
         },
@@ -1005,7 +880,7 @@ def campaign_create(
         return HTMLResponse("Bulunamadı.", status_code=404)
 
     workspace = db.get(Workspace, workspace_id)
-    if not izin_var_mi(db, workspace_id, uyelik.role, "kampanya.yonet"):
+    if not izin_var_mi(db, user, "kampanya.yonet"):
         return _kampanya_sayfasi(
             request, db, user, uyelik, workspace,
             error="Bu işlem için en az stratejist yetkisi gerekir.",
@@ -1066,7 +941,7 @@ def campaign_delete(
         return HTMLResponse("Bulunamadı.", status_code=404)
 
     workspace = db.get(Workspace, workspace_id)
-    if not izin_var_mi(db, workspace_id, uyelik.role, "kampanya.yonet"):
+    if not izin_var_mi(db, user, "kampanya.yonet"):
         return _kampanya_sayfasi(
             request, db, user, uyelik, workspace,
             error="Bu işlem için en az stratejist yetkisi gerekir.",
@@ -1172,7 +1047,7 @@ def _hesaplar_sayfasi(
                 .order_by(SocialAccount.created_at)
             ).scalars().all(),
             "platformlar": platformlar,
-            "baglayabilir": izin_var_mi(db, workspace.id, uyelik.role, "hesap.bagla"),
+            "baglayabilir": izin_var_mi(db, user, "hesap.bagla"),
             # Sahte modda "Bagla" dugmesi GOSTERILMEZ: basilsa gercek bir
             # hesap baglanmaz, yalnizca ornek veri uretilir. Calisiyormus
             # gibi gostermek yaniltici olur.
@@ -1212,7 +1087,7 @@ def accounts_page(
     if uyelik is None:
         return HTMLResponse("Bulunamadı.", status_code=404)
 
-    if not izin_var_mi(db, workspace_id, uyelik.role, "hesap.gor"):
+    if not izin_var_mi(db, user, "hesap.gor"):
         # 404, 403 degil: yetkisi olmayan kisiye sayfanin VARLIGI bile
         # bilgi verir. "Yok" demek en az bilgi sizdiran cevaptir.
         return HTMLResponse("Bulunamadı.", status_code=404)
@@ -1245,7 +1120,7 @@ def account_connect(
         return HTMLResponse("Bulunamadı.", status_code=404)
 
     workspace = db.get(Workspace, workspace_id)
-    if not izin_var_mi(db, workspace_id, uyelik.role, "hesap.bagla"):
+    if not izin_var_mi(db, user, "hesap.bagla"):
         return _hesaplar_sayfasi(
             request, db, user, uyelik, workspace,
             error="Hesap bağlamak için en az yönetici yetkisi gerekir.",
@@ -1371,7 +1246,7 @@ def script_page(
             "script": s,
             "status_labels": STATUS_LABELS,
             "allowed_targets": _izinli_hedefler(
-                db, workspace_id, s.status, uyelik.role, "content_script",
+                db, user, s.status, "content_script",
             ),
             "publish_reason": gerekce,
             "history": approval_history(
@@ -1410,8 +1285,7 @@ def script_decision(
     temel = f"/panel/musteri/{workspace_id}/senaryo/{script_id}"
     try:
         transition(
-            db, workspace_id=workspace_id, actor_user_id=user.id,
-            actor_role=uyelik.role, subject=s,
+            db, workspace_id=workspace_id, actor=user, subject=s,
             target=ContentStatus(target), comment=comment or None,
         )
         db.commit()
@@ -1439,7 +1313,7 @@ def report_page(
     if uyelik is None:
         return HTMLResponse("Bulunamadı.", status_code=404)
 
-    if not izin_var_mi(db, workspace_id, uyelik.role, "rapor.gor"):
+    if not izin_var_mi(db, user, "rapor.gor"):
         # 404, 403 degil: yetkisi olmayan kisiye sayfanin VARLIGI bile
         # bilgi verir. "Yok" demek en az bilgi sizdiran cevaptir.
         return HTMLResponse("Bulunamadı.", status_code=404)
@@ -1462,7 +1336,7 @@ def report_page(
             ).scalars().all(),
             "status_labels": STATUS_LABELS,
             "allowed_targets": _izinli_hedefler(
-                db, workspace_id, r.status, uyelik.role, "report",
+                db, user, r.status, "report",
             ),
             "error": error,
         },
@@ -1492,8 +1366,7 @@ def report_decision(
     temel = f"/panel/musteri/{workspace_id}/rapor/{report_id}"
     try:
         transition(
-            db, workspace_id=workspace_id, actor_user_id=user.id,
-            actor_role=uyelik.role, subject=r,
+            db, workspace_id=workspace_id, actor=user, subject=r,
             target=ContentStatus(target), comment=comment or None,
         )
         db.commit()

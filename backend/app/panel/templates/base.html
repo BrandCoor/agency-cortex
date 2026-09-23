@@ -331,10 +331,6 @@
       <a class="bag {% if aktif == 'ekip' %}aktif{% endif %}"
          href="/panel/musteri/{{ workspace.id }}/ekip">{{ ikon('ekip') }} Ekip</a>
       {% endif %}
-      {% if 'yetki.duzenle' in izinler %}
-      <a class="bag {% if aktif == 'yetkiler' %}aktif{% endif %}"
-         href="/panel/musteri/{{ workspace.id }}/yetkiler">{{ ikon('sifre') }} Yetkiler</a>
-      {% endif %}
     {% endif %}
 
     {% if user.is_superuser %}

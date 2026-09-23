@@ -128,10 +128,8 @@ from app.panel.kullanicilar import router as panel_kullanici_router  # noqa: E40
 from app.panel.otomasyon import router as panel_otomasyon_router  # noqa: E402
 from app.panel.routes import router as panel_router  # noqa: E402
 from app.panel.takvim_sayfasi import router as panel_takvim_router  # noqa: E402
-from app.panel.yetki_sayfasi import router as panel_yetki_router  # noqa: E402
 
 app.include_router(panel_router)
 app.include_router(panel_kullanici_router)
 app.include_router(panel_otomasyon_router)
-app.include_router(panel_yetki_router)
 app.include_router(panel_takvim_router)

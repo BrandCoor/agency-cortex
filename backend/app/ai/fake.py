@@ -81,7 +81,48 @@ class FakeProvider(AIProvider):
                 "confidence": "low",
             }
 
-        return {"result": f"sahte-cikti-{tohum}"}
+        if request.task_type == "trend_research":
+            return {
+                "findings": [
+                    {
+                        "topic": f"Ornek trend ({tohum})",
+                        "summary": (
+                            "Sahte saglayici tarafindan uretildi - gercek "
+                            "arastirma DEGIL."
+                        ),
+                        "relevance_to_brand": (
+                            "Ornek veridir; bu markayla ilgisi yoktur."
+                        ),
+                        "platform": "genel",
+                        # Sahte veri ASLA 'fact' degildir.
+                        "claim_type": "hypothesis",
+                        "confidence": "low",
+                        "source_urls": [],
+                        "uncertainties": [
+                            "Gercek kaynak taranmadi; ornek veridir.",
+                        ],
+                    }
+                ],
+                "research_note": (
+                    "Ornek veri modu: hicbir kaynak taranmadi. Gercek "
+                    "arastirma icin AI saglayicisini baglayin."
+                ),
+            }
+
+        # BURAYA DUSMEK BIR HATADIR.
+        #
+        # Onceden burasi {"result": "sahte-cikti-..."} donuyordu. Bu deger
+        # HICBIR semaya uymaz; is akisi "AI ciktisi beklenen yapiya uymadi"
+        # diye iki kez deneyip HATA veriyordu. Yani ornek veri modunda o is
+        # akisi HIC calismiyordu ve sebebi anlasilmiyordu.
+        #
+        # Sessizce uydurma bir sozluk dondurmek daha da kotu olurdu: hata
+        # gecikir ve baska yerde ortaya cikardi. Bu yuzden ACIKCA hata.
+        raise NotImplementedError(
+            f"Ornek veri saglayicisi '{request.task_type}' gorev turu icin "
+            "cikti uretmiyor. Bu gorev turu eklendiginde fake.py de "
+            "guncellenmelidir."
+        )
 
     def _script(self, tohum: str, platform: str) -> dict[str, Any]:
         sure = _stable_int(tohum, platform, low=15, high=45)

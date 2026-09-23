@@ -15,7 +15,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.db import Base
 from app.models.base import Timestamps, UUIDPrimaryKey
-from app.models.enums import WorkspaceRole
+from app.models.enums import PermissionPackage
 
 
 class User(UUIDPrimaryKey, Timestamps, Base):
@@ -31,6 +31,12 @@ class User(UUIDPrimaryKey, Timestamps, Base):
     # Sistem yoneticisi. Calisma alani verisine otomatik erisim VERMEZ.
     is_superuser: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Hazir yetki paketi. Yalnizca BASLANGIC noktasidir; her izin kullanici
+    # bazinda tek tek acilip kapatilabilir (bkz. models/yetki.py).
+    permission_package: Mapped[PermissionPackage] = mapped_column(
+        Enum(PermissionPackage, name="permission_package"),
+        default=PermissionPackage.VIEWER, nullable=False,
+    )
 
     memberships: Mapped[list[WorkspaceMember]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
@@ -55,7 +61,16 @@ class Workspace(UUIDPrimaryKey, Timestamps, Base):
 
 
 class WorkspaceMember(UUIDPrimaryKey, Timestamps, Base):
-    """Hangi kullanicinin hangi musteride hangi yetkiye sahip oldugu."""
+    """Hangi kullanicinin hangi musteride calistigi.
+
+    YETKI BILGISI TASIMAZ. Bir kisinin neyi yapabilecegi kullanicinin
+    kendisinde tutulur (users.permission_package + user_permissions).
+    Burasi yalnizca ERISIMI belirler: uyelik varsa o musteri gorunur.
+
+    Onceden burada bir `role` sutunu vardi. Ayni kisi iki musteride iki
+    farkli yetkide olabiliyordu ve "bu kullanici neyi yapabilir?"
+    sorusunun tek bir cevabi yoktu.
+    """
 
     __tablename__ = "workspace_members"
     __table_args__ = (
@@ -70,9 +85,6 @@ class WorkspaceMember(UUIDPrimaryKey, Timestamps, Base):
     user_id: Mapped[uuid.UUID] = mapped_column(
         PGUUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False, index=True,
-    )
-    role: Mapped[WorkspaceRole] = mapped_column(
-        Enum(WorkspaceRole, name="workspace_role"), nullable=False
     )
 
     workspace: Mapped[Workspace] = relationship(back_populates="members")

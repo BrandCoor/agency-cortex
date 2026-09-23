@@ -23,6 +23,7 @@ from sqlalchemy.exc import IntegrityError
 
 from app.api.deps import DbSession
 from app.core.config import get_settings
+from app.models.enums import PermissionPackage
 from app.models.identity import User, Workspace, WorkspaceMember
 from app.panel.auth import current_user_from_cookie
 from app.services.denetim import kaydet
@@ -33,6 +34,17 @@ from app.services.kullanicilar import (
     kullanici_sil,
 )
 from app.services.sifre_sifirlama import jeton_uret
+from app.services.yetkiler import (
+    GRUPLAR,
+    IZINLER,
+    PAKET_ADLARI,
+    PAKET_VARSAYILANI,
+    YetkiHatasi,
+    izinleri_yaz,
+    kullanici_izinleri,
+    paketi_degistir,
+    varsayilana_don,
+)
 
 router = APIRouter(prefix="/panel/kullanicilar", tags=["panel"])
 templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
@@ -41,15 +53,6 @@ templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 #: Kisa tutmak kullaniciyi magdur ediyordu; asil koruma bagin TEK
 #: KULLANIMLIK olmasidir, suresinin kisaligi degil.
 BAG_OMUR_SAAT = 24
-
-ROL_ETIKETLERI = {
-    "owner": "Sahip",
-    "admin": "Yönetici",
-    "strategist": "Stratejist",
-    "editor": "Editör",
-    "viewer": "İzleyici",
-}
-
 
 def _giris_yonlendir() -> RedirectResponse:
     return RedirectResponse("/panel/giris", status_code=status.HTTP_303_SEE_OTHER)
@@ -313,12 +316,147 @@ def kullanici_detay(user_id: uuid.UUID, request: Request, db: DbSession):
             "yol": hedef.full_name,
             "hedef": hedef,
             "uyelikler": [
-                {
-                    "workspace_id": str(w.id),
-                    "workspace_name": w.name,
-                    "rol": ROL_ETIKETLERI.get(m.role.value, m.role.value),
-                }
-                for m, w in satirlar
+                {"workspace_id": str(w.id), "workspace_name": w.name}
+                for _m, w in satirlar
             ],
+            **_yetki_baglami(db, hedef),
         },
+    )
+
+
+def _yetki_baglami(db, hedef: User) -> dict:
+    """Kullanici yetki matrisi icin sablon verisi."""
+    gecerli = kullanici_izinleri(db, hedef)
+    varsayilan = PAKET_VARSAYILANI.get(hedef.permission_package, frozenset())
+    return {
+        "paketler": [
+            {
+                "deger": p.value,
+                "etiket": PAKET_ADLARI.get(p, p.value),
+                "secili": p is hedef.permission_package,
+            }
+            for p in PermissionPackage
+        ],
+        "izin_gruplari": [
+            {
+                "ad": grup,
+                "izinler": [
+                    {
+                        "anahtar": i.anahtar,
+                        "ad": i.ad,
+                        "aciklama": i.aciklama,
+                        "acik": i.anahtar in gecerli,
+                        # Paket varsayilanindan farkliysa kullaniciya soyle.
+                        "degistirilmis": (i.anahtar in gecerli)
+                        != (i.anahtar in varsayilan),
+                    }
+                    for i in IZINLER
+                    if i.grup == grup
+                ],
+            }
+            for grup in GRUPLAR
+        ],
+        # Sistem yoneticisinin izinleri kisitlanamaz.
+        "yetki_kilitli": hedef.is_superuser,
+    }
+
+
+# --- Yetkiler ----------------------------------------------------------------
+#
+# Yetkiler KULLANICIYA aittir, musteriye degil. Bir kisinin neyi
+# yapabilecegi o kisinin isiyle ilgilidir; hangi musteride calistigiyla
+# degil. Musteri uyeligi yalnizca ERISIMI belirler.
+
+def _hedef_veya_hata(request, db, user_id: uuid.UUID):
+    """(yonetici, hedef) veya hata yaniti doner."""
+    user = _yonetici_mi(request, db)
+    if user is None:
+        if current_user_from_cookie(request, db) is None:
+            return None, _giris_yonlendir()
+        return None, HTMLResponse("Bulunamadı.", status_code=404)
+
+    hedef = db.get(User, user_id)
+    if hedef is None:
+        return None, HTMLResponse("Bulunamadı.", status_code=404)
+    return (user, hedef), None
+
+
+@router.post("/{user_id}/paket")
+def yetki_paketi_degistir(
+    user_id: uuid.UUID,
+    request: Request,
+    db: DbSession,
+    paket: Annotated[str, Form()],
+):
+    """Hazir yetki paketini degistirir; ozellestirmeleri sifirlar."""
+    ikili, hata = _hedef_veya_hata(request, db, user_id)
+    if hata is not None:
+        return hata
+    user, hedef = ikili
+
+    try:
+        yeni = PermissionPackage(paket)
+    except ValueError:
+        return HTMLResponse("Geçersiz paket.", status_code=400)
+
+    try:
+        paketi_degistir(db, hedef, yeni)
+    except YetkiHatasi as exc:
+        return HTMLResponse(str(exc), status_code=400)
+
+    kaydet(
+        db, action="yetki.paket_degisti", actor_user_id=user.id,
+        subject_type="user", subject_id=hedef.id, request=request,
+        details={"paket": yeni.value},
+    )
+    db.commit()
+    return RedirectResponse(
+        f"/panel/kullanicilar/{user_id}", status_code=status.HTTP_303_SEE_OTHER
+    )
+
+
+@router.post("/{user_id}/yetkiler")
+def yetkileri_kaydet(
+    user_id: uuid.UUID,
+    request: Request,
+    db: DbSession,
+    izin: Annotated[list[str], Form()] = None,
+):
+    """Kullanicinin izinlerini yeniden yazar."""
+    ikili, hata = _hedef_veya_hata(request, db, user_id)
+    if hata is not None:
+        return hata
+    user, hedef = ikili
+
+    try:
+        izinleri_yaz(db, hedef, set(izin or []))
+    except YetkiHatasi as exc:
+        return HTMLResponse(str(exc), status_code=400)
+
+    kaydet(
+        db, action="yetki.degisti", actor_user_id=user.id,
+        subject_type="user", subject_id=hedef.id, request=request,
+        details={"izin_sayisi": len(izin or [])},
+    )
+    db.commit()
+    return RedirectResponse(
+        f"/panel/kullanicilar/{user_id}", status_code=status.HTTP_303_SEE_OTHER
+    )
+
+
+@router.post("/{user_id}/yetkiler/varsayilan")
+def yetkileri_varsayilana_dondur(user_id: uuid.UUID, request: Request, db: DbSession):
+    ikili, hata = _hedef_veya_hata(request, db, user_id)
+    if hata is not None:
+        return hata
+    user, hedef = ikili
+
+    varsayilana_don(db, hedef)
+    kaydet(
+        db, action="yetki.varsayilana_don", actor_user_id=user.id,
+        subject_type="user", subject_id=hedef.id, request=request,
+    )
+    db.commit()
+    return RedirectResponse(
+        f"/panel/kullanicilar/{user_id}", status_code=status.HTTP_303_SEE_OTHER
     )

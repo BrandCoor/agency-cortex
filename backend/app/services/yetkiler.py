@@ -1,16 +1,19 @@
-"""Ayrintili yetki sistemi.
+"""Ayrintili yetki sistemi. Izinler KULLANICIYA aittir.
 
-ONCEDEN: bes sabit rol vardi ve "kim neyi yapabilir" koda gomuluydu.
-Kullanici bir rolun neyi yapip yapamayacagini degistiremiyordu.
+ONCEDEN: izinler (musteri, rol) ciftine bagliydi. Yetki ekrani her
+musterinin altinda ayri ayri duruyordu; ayni kisi iki musteride iki
+farkli yetkide olabiliyordu ve "bu kullanici neyi yapabilir?"
+sorusunun TEK bir cevabi yoktu.
 
-SIMDI: her is ayri bir IZIN. Her musteri icin, her rolun hangi izinlere
-sahip oldugu panelden ayarlanabilir.
+SIMDI: her kullanicinin kendi izin kumesi vardir. Musteri uyeligi
+yalnizca ERISIMI belirler: uyelik varsa o musteri gorunur.
 
-IKI KURAL DEGISMEZ:
-1. SAHIP her seyi yapar. Sahibin izni kisitlanamaz; aksi halde musteri
-   yonetilemez hale gelir ve kurtarmak icin sunucuya girmek gerekirdi.
-2. Ozellestirme YAPILMAMISSA varsayilan roller aynen calisir. Yetki
-   sistemi acilmasi gereken bir sey degil; zaten calisiyor.
+IKI KURAL:
+1. SISTEM YONETICISI (is_superuser) her seyi yapar. Izni kisitlanamaz;
+   aksi halde sistem yonetilemez hale gelir ve kurtarmak icin sunucuya
+   girmek gerekirdi.
+2. Ozellestirme yapilmamissa kullanicinin PAKETI gecerlidir. Paket
+   yalnizca baslangic noktasidir; her izin tek tek degistirilebilir.
 """
 
 from __future__ import annotations
@@ -21,8 +24,8 @@ from dataclasses import dataclass
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models.enums import WorkspaceRole
-from app.models.yetki import RoleGrant
+from app.models.enums import PermissionPackage
+from app.models.yetki import UserPermission
 
 
 @dataclass(frozen=True)
@@ -83,8 +86,6 @@ IZINLER: tuple[Izin, ...] = (
     Izin("ekip.gor", "Ekip", "Ekibi gör", "Kimin hangi yetkide olduğunu görür."),
     Izin("ekip.yonet", "Ekip", "Ekibi yönet",
          "Kişi ekler, çıkarır, yetkisini değiştirir."),
-    Izin("yetki.duzenle", "Ekip", "Yetki ayarlarını düzenle",
-         "Bu sayfadaki izinleri değiştirir. Dikkatli verin."),
 )
 
 IZIN_ANAHTARLARI = frozenset(i.anahtar for i in IZINLER)
@@ -94,55 +95,59 @@ IZIN_SOZLUGU = {i.anahtar: i for i in IZINLER}
 GRUPLAR = tuple(dict.fromkeys(i.grup for i in IZINLER))
 
 
-# VARSAYILAN DAGILIM
+# PAKET VARSAYILANLARI
 #
-# Bugunku davranisin BIREBIR ayni kalmasi icin hazirlandi: hicbir
-# ozellestirme yapilmadiginda sistem eskisi gibi calisir.
-VARSAYILAN: dict[WorkspaceRole, frozenset[str]] = {
-    WorkspaceRole.OWNER: IZIN_ANAHTARLARI,
-    WorkspaceRole.ADMIN: IZIN_ANAHTARLARI,
-    WorkspaceRole.STRATEGIST: frozenset({
+# Bir paketin, hicbir ozellestirme yapilmamisken verdigi izinler.
+# Eski rol tablosunun karsiligidir: kimsenin yetkisi bu gecisle
+# artmadi veya azalmadi.
+PAKET_VARSAYILANI: dict[PermissionPackage, frozenset[str]] = {
+    PermissionPackage.ADMIN: IZIN_ANAHTARLARI,
+    PermissionPackage.STRATEGIST: frozenset({
         "marka.duzenle", "kampanya.yonet", "hesap.gor",
         "icerik.uret", "icerik.duzenle", "icerik.onaya_sun",
         "takvim.gor", "takvim.planla",
         "rapor.gor", "rapor.hazirla", "rapor.sun",
         "otomasyon.calistir", "ekip.gor",
     }),
-    WorkspaceRole.EDITOR: frozenset({
+    PermissionPackage.EDITOR: frozenset({
         "hesap.gor", "icerik.duzenle", "takvim.gor",
         "rapor.gor", "rapor.hazirla", "ekip.gor",
     }),
-    WorkspaceRole.VIEWER: frozenset({
+    PermissionPackage.VIEWER: frozenset({
         "hesap.gor", "takvim.gor", "rapor.gor", "ekip.gor",
     }),
 }
 
-#: Sahibin izinleri KISITLANAMAZ. Aksi halde musteri yonetilemez hale
-#: gelir ve duzeltmek icin sunucuya girmek gerekirdi.
-KISITLANAMAZ_ROL = WorkspaceRole.OWNER
+#: Paketlerin panelde gosterilecek adlari.
+PAKET_ADLARI: dict[PermissionPackage, str] = {
+    PermissionPackage.ADMIN: "Yönetici",
+    PermissionPackage.STRATEGIST: "Stratejist",
+    PermissionPackage.EDITOR: "Editör",
+    PermissionPackage.VIEWER: "İzleyici",
+}
 
 
 class YetkiHatasi(Exception):
     """Yetki ayarinda kurala takilan islem."""
 
 
-def _ozellestirmeler(db: Session, workspace_id: uuid.UUID) -> dict[tuple[str, str], bool]:
+def _ozellestirmeler(db: Session, user_id: uuid.UUID) -> dict[str, bool]:
     satirlar = db.execute(
-        select(RoleGrant).where(RoleGrant.workspace_id == workspace_id)
+        select(UserPermission).where(UserPermission.user_id == user_id)
     ).scalars().all()
-    return {(s.role.value, s.permission): s.allowed for s in satirlar}
+    return {s.permission: s.allowed for s in satirlar}
 
 
-def rol_izinleri(
-    db: Session, workspace_id: uuid.UUID, rol: WorkspaceRole
-) -> frozenset[str]:
-    """Bir rolun bu musterideki GECERLI izinleri."""
-    if rol is KISITLANAMAZ_ROL:
+def kullanici_izinleri(db: Session, user) -> frozenset[str]:
+    """Bu kullanicinin GECERLI izinleri."""
+    # Sistem yoneticisi kisitlanamaz: kendini disari kilitleyen bir
+    # sistem, duzeltmek icin sunucuya girmeyi gerektirirdi.
+    if user.is_superuser:
         return IZIN_ANAHTARLARI
 
-    temel = set(VARSAYILAN.get(rol, frozenset()))
-    for (rol_degeri, izin), acik in _ozellestirmeler(db, workspace_id).items():
-        if rol_degeri != rol.value or izin not in IZIN_ANAHTARLARI:
+    temel = set(PAKET_VARSAYILANI.get(user.permission_package, frozenset()))
+    for izin, acik in _ozellestirmeler(db, user.id).items():
+        if izin not in IZIN_ANAHTARLARI:
             continue
         if acik:
             temel.add(izin)
@@ -151,45 +156,36 @@ def rol_izinleri(
     return frozenset(temel)
 
 
-def izin_var_mi(
-    db: Session, workspace_id: uuid.UUID, rol: WorkspaceRole, izin: str
-) -> bool:
-    """Bu rol, bu musteride bu isi yapabilir mi?"""
+def izin_var_mi(db: Session, user, izin: str) -> bool:
+    """Bu kullanici bu isi yapabilir mi?"""
     if izin not in IZIN_ANAHTARLARI:
         # Tanimsiz izin ASLA verilmez: yazim hatasi sessizce kapi acmasin.
         raise YetkiHatasi(f"Tanımsız izin: {izin}")
-    return izin in rol_izinleri(db, workspace_id, rol)
+    return izin in kullanici_izinleri(db, user)
 
 
-def izinleri_yaz(
-    db: Session,
-    workspace_id: uuid.UUID,
-    rol: WorkspaceRole,
-    izinler: set[str],
-) -> None:
-    """Bir rolun izinlerini YENIDEN yazar.
+def izinleri_yaz(db: Session, user, izinler: set[str]) -> None:
+    """Bir kullanicinin izinlerini YENIDEN yazar.
 
-    Varsayilanla ayni olan satirlar SAKLANMAZ: boylece varsayilan
-    degistiginde ozellestirilmemis roller yeni varsayilani alir.
+    Paket varsayilaniyla ayni olan satirlar SAKLANMAZ: boylece bir
+    paketin varsayilani ileride degisirse, ozellestirilmemis kullanicilar
+    yeni varsayilani alir.
     """
-    if rol is KISITLANAMAZ_ROL:
+    if user.is_superuser:
         raise YetkiHatasi(
-            "Sahip rolünün izinleri kısıtlanamaz. Müşteriyi yönetebilecek "
-            "en az bir rol her zaman kalmalıdır."
+            "Sistem yöneticisinin izinleri kısıtlanamaz. Sistemi "
+            "yönetebilecek en az bir kişi her zaman kalmalıdır."
         )
 
     bilinmeyen = izinler - IZIN_ANAHTARLARI
     if bilinmeyen:
         raise YetkiHatasi(f"Tanımsız izin: {', '.join(sorted(bilinmeyen))}")
 
-    varsayilan = VARSAYILAN.get(rol, frozenset())
+    varsayilan = PAKET_VARSAYILANI.get(user.permission_package, frozenset())
     mevcut = {
         s.permission: s
         for s in db.execute(
-            select(RoleGrant).where(
-                RoleGrant.workspace_id == workspace_id,
-                RoleGrant.role == rol,
-            )
+            select(UserPermission).where(UserPermission.user_id == user.id)
         ).scalars().all()
     }
 
@@ -204,46 +200,30 @@ def izinleri_yaz(
         if izin in mevcut:
             mevcut[izin].allowed = istenen
         else:
-            db.add(RoleGrant(
-                workspace_id=workspace_id, role=rol,
-                permission=izin, allowed=istenen,
+            db.add(UserPermission(
+                user_id=user.id, permission=izin, allowed=istenen,
             ))
     db.flush()
 
 
-def varsayilana_don(db: Session, workspace_id: uuid.UUID, rol: WorkspaceRole) -> None:
-    """Bu rolun ozellestirmelerini siler."""
-    for satir in db.execute(
-        select(RoleGrant).where(
-            RoleGrant.workspace_id == workspace_id,
-            RoleGrant.role == rol,
-        )
-    ).scalars().all():
-        db.delete(satir)
+def paketi_degistir(db: Session, user, paket: PermissionPackage) -> None:
+    """Kullanicinin hazir paketini degistirir ve ozellestirmeleri siler.
+
+    Ozellestirmeler NEDEN siliniyor: eski pakete gore yapilmis "sunu
+    kapat" ayarlari yeni pakette anlamsiz, hatta tehlikeli olurdu.
+    Paket secmek "temiz sayfa" demektir.
+    """
+    if user.is_superuser:
+        raise YetkiHatasi("Sistem yöneticisinin paketi değiştirilemez.")
+    user.permission_package = paket
+    varsayilana_don(db, user)
     db.flush()
 
 
-def matris(db: Session, workspace_id: uuid.UUID) -> list[dict]:
-    """Panel icin: her izin x her rol tablosu."""
-    roller = list(WorkspaceRole)
-    gecerli = {r: rol_izinleri(db, workspace_id, r) for r in roller}
-    ozel = _ozellestirmeler(db, workspace_id)
-
-    satirlar = []
-    for izin in IZINLER:
-        satirlar.append({
-            "anahtar": izin.anahtar,
-            "grup": izin.grup,
-            "ad": izin.ad,
-            "aciklama": izin.aciklama,
-            "roller": [
-                {
-                    "rol": r.value,
-                    "var": izin.anahtar in gecerli[r],
-                    "kilitli": r is KISITLANAMAZ_ROL,
-                    "ozellestirilmis": (r.value, izin.anahtar) in ozel,
-                }
-                for r in roller
-            ],
-        })
-    return satirlar
+def varsayilana_don(db: Session, user) -> None:
+    """Bu kullanicinin ozellestirmelerini siler; paket varsayilanina doner."""
+    for satir in db.execute(
+        select(UserPermission).where(UserPermission.user_id == user.id)
+    ).scalars().all():
+        db.delete(satir)
+    db.flush()

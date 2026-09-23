@@ -50,10 +50,11 @@ def test_yonetici_ve_sahip_uye_ekleyebilir(client, auth_headers, musteri_ve_uyel
     r = client.post(
         f"/api/v1/workspaces/{ws.id}/members",
         headers=auth_headers(users[role]),
-        json={"email": yeni.email, "role": "viewer"},
+        json={"email": yeni.email},
     )
+    # Uyelik artik YETKI TASIMAZ; yalnizca erisimi belirler.
     assert r.status_code == 201
-    assert r.json()["role"] == "viewer"
+    assert r.json()["user_id"] == str(yeni.id)
 
 
 def test_her_rol_musteriyi_okuyabilir(client, auth_headers, musteri_ve_uyeler):
@@ -68,7 +69,7 @@ def test_ayni_kullanici_iki_kez_uye_olamaz(client, auth_headers, musteri_ve_uyel
     r = client.post(
         f"/api/v1/workspaces/{ws.id}/members",
         headers=auth_headers(users[WorkspaceRole.OWNER]),
-        json={"email": users[WorkspaceRole.VIEWER].email, "role": "editor"},
+        json={"email": users[WorkspaceRole.VIEWER].email},
     )
     assert r.status_code == 409
 

@@ -139,8 +139,7 @@ def change_status(
         sonuc = transition(
             db,
             workspace_id=ctx.workspace_id,
-            actor_user_id=ctx.user.id,
-            actor_role=ctx.role,
+            actor=ctx.user,
             subject=nesne,
             target=payload.target,
             comment=payload.comment,

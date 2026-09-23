@@ -12,9 +12,9 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 
-from app.api.deps import CurrentUser, DbSession, Workspace_, WorkspaceContext, require_role
+from app.api.deps import CurrentUser, DbSession, Workspace_, WorkspaceContext, require_permission
 from app.core.logging_config import get_logger
-from app.models.enums import Platform, WorkspaceRole
+from app.models.enums import Platform
 from app.models.social import SocialAccount
 from app.platforms.registry import get_adapter, platform_status
 from app.services.sync import sync_social_account
@@ -58,7 +58,7 @@ def list_social_accounts(ctx: Workspace_, db: DbSession) -> list[dict]:
 )
 def sync_account(
     account_id: uuid.UUID,
-    ctx: Annotated[WorkspaceContext, Depends(require_role(WorkspaceRole.STRATEGIST))],
+    ctx: Annotated[WorkspaceContext, Depends(require_permission("otomasyon.calistir"))],
     db: DbSession,
 ) -> dict:
     """Hesabin icerik ve metriklerini ceker.

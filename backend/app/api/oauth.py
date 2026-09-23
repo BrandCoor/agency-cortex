@@ -18,10 +18,10 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import RedirectResponse
 from sqlalchemy import select
 
-from app.api.deps import DbSession, WorkspaceContext, require_role
+from app.api.deps import DbSession, WorkspaceContext, require_permission
 from app.core.config import get_settings
 from app.core.logging_config import get_logger
-from app.models.enums import Platform, WorkspaceRole
+from app.models.enums import Platform
 from app.models.ops import AuditLog
 from app.models.social import SocialAccount
 from app.platforms.base import PlatformError
@@ -39,7 +39,7 @@ log = get_logger("oauth")
 )
 def start_authorization(
     platform: Platform,
-    ctx: Annotated[WorkspaceContext, Depends(require_role(WorkspaceRole.ADMIN))],
+    ctx: Annotated[WorkspaceContext, Depends(require_permission("hesap.bagla"))],
 ) -> dict:
     """Izin ekraninin adresini uretir.
 

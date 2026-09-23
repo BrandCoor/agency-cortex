@@ -9,8 +9,8 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 
-from app.api.deps import DbSession, Workspace_, WorkspaceContext, require_role
-from app.models.enums import ReportPeriod, WorkspaceRole
+from app.api.deps import DbSession, Workspace_, WorkspaceContext, require_permission
+from app.models.enums import ReportPeriod
 from app.models.reporting import Report, ReportSection
 from app.services.reports import generate_report
 
@@ -89,7 +89,7 @@ def get_report(report_id: uuid.UUID, ctx: Workspace_, db: DbSession) -> dict:
 
 @router.post("/generate", summary="Raporu simdi uret")
 def create_report(
-    ctx: Annotated[WorkspaceContext, Depends(require_role(WorkspaceRole.STRATEGIST))],
+    ctx: Annotated[WorkspaceContext, Depends(require_permission("otomasyon.calistir"))],
     db: DbSession,
     period: Annotated[ReportPeriod, Query()] = ReportPeriod.DAILY,
     force: Annotated[bool, Query(description="Mevcut raporu yenile")] = False,

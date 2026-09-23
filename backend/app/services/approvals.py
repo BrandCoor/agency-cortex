@@ -31,7 +31,7 @@ from app.ai.base import canonical_hash
 from app.core.config import get_settings
 from app.core.logging_config import get_logger
 from app.models.content import ContentScript
-from app.models.enums import ContentStatus, WorkspaceRole
+from app.models.enums import ContentStatus
 from app.models.ops import Approval, AuditLog
 from app.models.reporting import Report
 
@@ -61,7 +61,7 @@ class InsufficientRole(ApprovalError):
     def __init__(self, required: str, target: ContentStatus) -> None:
         super().__init__(
             f"'{target.value}' durumuna gecirmek icin '{required}' "
-            f"izni gerekir. Bu izin bu musteride rolunuze verilmemis."
+            f"izni gerekir. Bu izin hesabiniza verilmemis."
         )
         self.required = required
 
@@ -202,18 +202,12 @@ class TransitionResult:
     approval_id: uuid.UUID
 
 
-def _check_izin(
-    db: Session,
-    workspace_id: uuid.UUID,
-    actor_role: WorkspaceRole,
-    tur: str,
-    target: ContentStatus,
-) -> None:
-    """Bu rol, bu musteride bu gecisi yapabilir mi?"""
+def _check_izin(db: Session, actor, tur: str, target: ContentStatus) -> None:
+    """Bu KULLANICI bu gecisi yapabilir mi?"""
     from app.services.yetkiler import izin_var_mi
 
     izin = gerekli_izin(tur, target)
-    if not izin_var_mi(db, workspace_id, actor_role, izin):
+    if not izin_var_mi(db, actor, izin):
         raise InsufficientRole(izin, target)
 
 
@@ -221,8 +215,7 @@ def transition(
     db: Session,
     *,
     workspace_id: uuid.UUID,
-    actor_user_id: uuid.UUID,
-    actor_role: WorkspaceRole,
+    actor,
     subject: ContentScript | Report,
     target: ContentStatus,
     comment: str | None = None,
@@ -242,8 +235,8 @@ def transition(
 
     tur = "content_script" if isinstance(subject, ContentScript) else "report"
 
-    # 2) Yetki yeterli mi? (musteriye ozel izin ayarina bakar)
-    _check_izin(db, workspace_id, actor_role, tur, target)
+    # 2) Yetki yeterli mi? (kullanicinin kendi izinlerine bakar)
+    _check_izin(db, actor, tur, target)
 
     anlik = (
         script_snapshot(subject) if isinstance(subject, ContentScript)
@@ -258,7 +251,7 @@ def transition(
                 workspace_id=str(workspace_id),
                 subject_type=tur,
                 subject_id=str(subject.id),
-                actor_user_id=str(actor_user_id),
+                actor_user_id=str(actor.id),
             )
             raise PublishingLocked(
                 "Yayinlama kapali. Ilk surumde icerik sistem tarafindan "
@@ -293,7 +286,7 @@ def transition(
         subject_type=tur,
         subject_id=subject.id,
         status=target,
-        decided_by_user_id=actor_user_id,
+        decided_by_user_id=actor.id,
         decided_at=simdi,
         comment=comment,
         snapshot=anlik,
@@ -303,7 +296,7 @@ def transition(
     db.add(
         AuditLog(
             workspace_id=workspace_id,
-            actor_user_id=actor_user_id,
+            actor_user_id=actor.id,
             action=f"{tur}.status_changed",
             subject_type=tur,
             subject_id=subject.id,
@@ -325,7 +318,7 @@ def transition(
         subject_id=str(subject.id),
         from_status=onceki.value,
         to_status=target.value,
-        actor_user_id=str(actor_user_id),
+        actor_user_id=str(actor.id),
     )
 
     return TransitionResult(

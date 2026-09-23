@@ -249,9 +249,10 @@ def test_musteri_eklenebiliyor(client, db, make_user):
     # Turkce harfler ve bosluklar URL'ye uygun hale gelmeli.
     assert ws.slug.startswith("gaziantepli-taha-usta-")
 
+    # Musteriyi olusturan kisi otomatik olarak ekibine atanir.
+    # Uyelik YETKI TASIMAZ; ne yapabilecegi kendi hesabinda yazar.
     uyelik = db.execute(select(WorkspaceMember)).scalars().one()
     assert uyelik.user_id == kullanici.id
-    assert uyelik.role == WorkspaceRole.OWNER
 
 
 def test_ayni_isimli_iki_musteri_eklenebiliyor(client, db, make_user):

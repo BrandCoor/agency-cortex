@@ -35,6 +35,25 @@ _ROLE_LEVELS: dict[WorkspaceRole, int] = {
 }
 
 
+class PermissionPackage(str, enum.Enum):
+    """Bir KULLANICININ hazir yetki paketi.
+
+    NEDEN KULLANICIDA, MUSTERIDE DEGIL:
+    Bir kisinin neyi yapabilecegi o kisinin isiyle ilgilidir, hangi
+    musteride calistigiyla degil. Once yetkiler musteri basina rol olarak
+    tutuluyordu; ayni kisi iki musteride iki farkli sey yapabiliyordu ve
+    "bu kullanici neyi yapabilir?" sorusunun tek bir cevabi yoktu.
+
+    Paket yalnizca BASLANGIC noktasidir: paket secildikten sonra her izin
+    kullanici bazinda tek tek acilip kapatilabilir.
+    """
+
+    ADMIN = "admin"            # Her sey
+    STRATEGIST = "strategist"  # Icerik/rapor uretir, musteri onayina sunar
+    EDITOR = "editor"          # Icerik duzenler, ic incelemeye gonderir
+    VIEWER = "viewer"          # Yalnizca okur
+
+
 class Platform(str, enum.Enum):
     INSTAGRAM = "instagram"
     FACEBOOK = "facebook"

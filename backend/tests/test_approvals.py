@@ -14,7 +14,14 @@ from sqlalchemy import select
 
 from app.models.brand import Brand
 from app.models.content import ContentIdea, ContentScript
-from app.models.enums import ContentStatus, MediaType, Platform, ReportPeriod, WorkspaceRole
+from app.models.enums import (
+    ContentStatus,
+    MediaType,
+    PermissionPackage,
+    Platform,
+    ReportPeriod,
+    WorkspaceRole,
+)
 from app.models.ops import Approval, AuditLog
 from app.models.reporting import Report
 from app.services.approvals import (
@@ -27,6 +34,7 @@ from app.services.approvals import (
     can_publish,
     transition,
 )
+from tests.conftest import _ROL_PAKET
 
 
 @pytest.fixture
@@ -55,10 +63,15 @@ def senaryo(db, make_workspace, make_user):
 
 
 def gecir(db, ws, user, s, hedef, rol=WorkspaceRole.OWNER, **kw):
-    return transition(
-        db, workspace_id=ws.id, actor_user_id=user.id, actor_role=rol,
-        subject=s, target=hedef, **kw,
-    )
+    """Gecisi yapar.
+
+    `rol`: geriye donuk uyumluluk. Yetki artik KULLANICIDA oldugu icin
+    verilen rol, kullanicinin yetki paketine yazilir.
+    """
+    if rol is not None:
+        user.permission_package = _ROL_PAKET[rol]
+        db.flush()
+    return transition(db, workspace_id=ws.id, actor=user, subject=s, target=hedef, **kw)
 
 
 # ===========================================================================
@@ -312,6 +325,7 @@ def test_onay_kayitlari_dogru_musteriye_yazilir(db, senaryo, make_workspace):
 def test_rapor_da_onay_akisindan_gecer(db, make_workspace, make_user):
     ws = make_workspace(name="Rapor Onayi")
     user = make_user(email="rapor@ajans.com")
+    user.permission_package = PermissionPackage.ADMIN
     r = Report(
         workspace_id=ws.id, period=ReportPeriod.DAILY,
         period_start=datetime.now(UTC).date(), period_end=datetime.now(UTC).date(),
@@ -321,8 +335,7 @@ def test_rapor_da_onay_akisindan_gecer(db, make_workspace, make_user):
     db.flush()
 
     sonuc = transition(
-        db, workspace_id=ws.id, actor_user_id=user.id,
-        actor_role=WorkspaceRole.OWNER, subject=r,
+        db, workspace_id=ws.id, actor=user, subject=r,
         target=ContentStatus.INTERNAL_REVIEW,
     )
     assert sonuc.subject_type == "report"

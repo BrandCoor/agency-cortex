@@ -112,6 +112,9 @@ def test_uye_olunmayan_musterinin_markasi_404(client, make_user, make_workspace)
 
 
 # --- Ekip --------------------------------------------------------------------
+#
+# Ekip sayfasi ATAMA yapar, YETKI VERMEZ. Rol secimi kaldirildi: bir
+# kisinin neyi yapabilecegi kendi hesabinda tanimlidir (Kullanicilar).
 
 def test_ekip_sayfasi_uyeleri_gosteriyor(client, ortam):
     kullanici, ws = ortam()
@@ -120,218 +123,94 @@ def test_ekip_sayfasi_uyeleri_gosteriyor(client, ortam):
     assert kullanici.email in yanit.text
 
 
-def test_ekibe_kisi_eklenebiliyor(client, db, ortam, make_user):
+def test_ekip_sayfasinda_rol_secimi_yok(client, ortam):
+    """Rol secmek yaniltirdi: yetki musteriye gore degismiyor."""
     _, ws = ortam()
-    yeni = make_user(email="editor@ornek.com")
+    yanit = client.get(f"/panel/musteri/{ws.id}/ekip")
+    assert 'name="rol"' not in yanit.text
+    assert "yetki vermez" in yanit.text
+
+
+def test_ekibe_kisi_atanabiliyor(client, db, ortam, make_user):
+    _, ws = ortam()
+    yeni = make_user(email="yeni@ajans.com")
+    db.commit()
 
     yanit = client.post(
-        f"/panel/musteri/{ws.id}/ekip/ekle",
-        data={"email": "Editor@Ornek.com", "rol": "editor"},
+        f"/panel/musteri/{ws.id}/ekip/ekle", data={"email": "yeni@ajans.com"}
     )
-
     assert yanit.status_code == 200
     uyelik = db.execute(
         select(WorkspaceMember).where(
-            WorkspaceMember.workspace_id == ws.id, WorkspaceMember.user_id == yeni.id
+            WorkspaceMember.workspace_id == ws.id,
+            WorkspaceMember.user_id == yeni.id,
         )
-    ).scalars().one()
-    assert uyelik.role == WorkspaceRole.EDITOR
+    ).scalar_one_or_none()
+    assert uyelik is not None
 
 
-def test_olmayan_kullanici_eklenemiyor(client, ortam):
+def test_olmayan_kullanici_atanamiyor(client, ortam):
     _, ws = ortam()
     yanit = client.post(
-        f"/panel/musteri/{ws.id}/ekip/ekle",
-        data={"email": "yok@ornek.com", "rol": "editor"},
+        f"/panel/musteri/{ws.id}/ekip/ekle", data={"email": "yok@ajans.com"}
     )
     assert yanit.status_code == 404
     assert "kayıtlı bir kullanıcı yok" in yanit.text
 
 
-def test_ayni_kisi_iki_kez_eklenemiyor(client, ortam, make_user):
+def test_ayni_kisi_iki_kez_atanamiyor(client, db, ortam, make_user):
     _, ws = ortam()
-    make_user(email="editor@ornek.com")
-    veri = {"email": "editor@ornek.com", "rol": "editor"}
-
-    assert client.post(f"/panel/musteri/{ws.id}/ekip/ekle", data=veri).status_code == 200
-    ikinci = client.post(f"/panel/musteri/{ws.id}/ekip/ekle", data=veri)
-    assert ikinci.status_code == 409
-    assert "zaten ekipte" in ikinci.text
-
-
-def test_kendinden_yuksek_yetki_verilemiyor(client, db, ortam, make_user):
-    """Yonetici, birini sahip yapip kendini asamaz."""
-    _, ws = ortam(rol=WorkspaceRole.ADMIN)
-    make_user(email="hedef@ornek.com")
-
-    yanit = client.post(
-        f"/panel/musteri/{ws.id}/ekip/ekle",
-        data={"email": "hedef@ornek.com", "rol": "owner"},
+    make_user(email="tekrar@ajans.com")
+    db.commit()
+    client.post(f"/panel/musteri/{ws.id}/ekip/ekle", data={"email": "tekrar@ajans.com"})
+    ikinci = client.post(
+        f"/panel/musteri/{ws.id}/ekip/ekle", data={"email": "tekrar@ajans.com"}
     )
-
-    assert yanit.status_code == 403
-    assert "yüksek bir yetki veremezsiniz" in yanit.text
+    assert ikinci.status_code == 409
 
 
-def test_stratejist_ekip_yonetemiyor(client, ortam, make_user):
-    _, ws = ortam(rol=WorkspaceRole.STRATEGIST)
-    make_user(email="hedef@ornek.com")
-
+def test_yetkisiz_kisi_ekip_yonetemiyor(client, db, ortam, make_user):
+    """Izleyicinin 'ekip.yonet' izni yok; sunucu reddetmeli."""
+    _, ws = ortam(WorkspaceRole.VIEWER)
+    make_user(email="baskasi@ajans.com")
+    db.commit()
     yanit = client.post(
-        f"/panel/musteri/{ws.id}/ekip/ekle",
-        data={"email": "hedef@ornek.com", "rol": "viewer"},
+        f"/panel/musteri/{ws.id}/ekip/ekle", data={"email": "baskasi@ajans.com"}
     )
     assert yanit.status_code == 403
 
 
 def test_kisi_ekipten_cikarilabiliyor(client, db, ortam, make_user, add_member):
     _, ws = ortam()
-    hedef = make_user(email="cikacak@ornek.com")
-    add_member(ws, hedef, WorkspaceRole.EDITOR)
+    baskasi = make_user(email="cikacak@ajans.com")
+    add_member(ws, baskasi, WorkspaceRole.EDITOR)
+    db.commit()
 
     yanit = client.post(
-        f"/panel/musteri/{ws.id}/ekip/cikar", data={"user_id": str(hedef.id)}
+        f"/panel/musteri/{ws.id}/ekip/cikar", data={"user_id": str(baskasi.id)}
     )
-
     assert yanit.status_code == 200
-    assert db.execute(
+    kalan = db.execute(
         select(WorkspaceMember).where(
-            WorkspaceMember.workspace_id == ws.id, WorkspaceMember.user_id == hedef.id
+            WorkspaceMember.workspace_id == ws.id,
+            WorkspaceMember.user_id == baskasi.id,
         )
-    ).scalars().all() == []
+    ).scalar_one_or_none()
+    assert kalan is None
 
 
 def test_kendini_cikaramiyor(client, db, ortam):
+    """Kendini cikarmak o musteriye erisimi aninda keserdi."""
     kullanici, ws = ortam()
-
     yanit = client.post(
         f"/panel/musteri/{ws.id}/ekip/cikar", data={"user_id": str(kullanici.id)}
     )
-
     assert yanit.status_code == 400
-    assert db.execute(
-        select(WorkspaceMember).where(WorkspaceMember.user_id == kullanici.id)
-    ).scalars().all() != []
-
-
-def test_kendinden_yuksek_yetkili_cikarilamiyor(client, db, ortam, make_user, add_member):
-    _, ws = ortam(rol=WorkspaceRole.ADMIN)
-    sahip = make_user(email="sahip@ornek.com")
-    add_member(ws, sahip, WorkspaceRole.OWNER)
-
-    yanit = client.post(
-        f"/panel/musteri/{ws.id}/ekip/cikar", data={"user_id": str(sahip.id)}
-    )
-
-    assert yanit.status_code == 403
-    assert db.execute(
-        select(WorkspaceMember).where(WorkspaceMember.user_id == sahip.id)
-    ).scalars().all() != []
+    assert "Kendinizi çıkaramazsınız" in yanit.text
 
 
 def test_uye_olunmayan_musterinin_ekibi_404(client, make_user, make_workspace):
     kullanici = make_user(password=SIFRE)
-    baskasinin = make_workspace(name="Baskasinin")
+    baskasi = make_workspace(name="Baskasinin Musterisi")
     _giris(client, kullanici)
-
-    assert client.get(f"/panel/musteri/{baskasinin.id}/ekip").status_code == 404
-    assert client.post(
-        f"/panel/musteri/{baskasinin.id}/ekip/ekle",
-        data={"email": "x@y.com", "rol": "viewer"},
-    ).status_code == 404
-
-
-# --- Yetki degistirme --------------------------------------------------------
-
-def test_uyenin_yetkisi_degistirilebiliyor(client, db, ortam, make_user, add_member):
-    _, ws = ortam(WorkspaceRole.OWNER)
-    baskasi = make_user()
-    add_member(ws, baskasi, WorkspaceRole.VIEWER)
-    db.commit()
-
-    yanit = client.post(
-        f"/panel/musteri/{ws.id}/ekip/rol",
-        data={"user_id": str(baskasi.id), "rol": "strategist"},
-    )
-    assert yanit.status_code == 200
-
-    uyelik = db.execute(
-        select(WorkspaceMember).where(
-            WorkspaceMember.workspace_id == ws.id,
-            WorkspaceMember.user_id == baskasi.id,
-        )
-    ).scalar_one()
-    db.refresh(uyelik)
-    assert uyelik.role is WorkspaceRole.STRATEGIST
-
-
-def test_kendi_yetkisini_degistiremiyor(client, db, ortam):
-    """Aksi halde yonetici kendini sahip yapardi."""
-    kullanici, ws = ortam(WorkspaceRole.ADMIN)
-    db.commit()
-
-    yanit = client.post(
-        f"/panel/musteri/{ws.id}/ekip/rol",
-        data={"user_id": str(kullanici.id), "rol": "owner"},
-    )
-    assert yanit.status_code == 400
-    assert "Kendi yetkinizi değiştiremezsiniz" in yanit.text
-
-    uyelik = db.execute(
-        select(WorkspaceMember).where(
-            WorkspaceMember.workspace_id == ws.id,
-            WorkspaceMember.user_id == kullanici.id,
-        )
-    ).scalar_one()
-    db.refresh(uyelik)
-    assert uyelik.role is WorkspaceRole.ADMIN
-
-
-def test_kendinden_yuksek_yetki_atanamiyor(client, db, ortam, make_user, add_member):
-    _, ws = ortam(WorkspaceRole.ADMIN)
-    baskasi = make_user()
-    add_member(ws, baskasi, WorkspaceRole.VIEWER)
-    db.commit()
-
-    yanit = client.post(
-        f"/panel/musteri/{ws.id}/ekip/rol",
-        data={"user_id": str(baskasi.id), "rol": "owner"},
-    )
-    assert yanit.status_code == 403
-
-    uyelik = db.execute(
-        select(WorkspaceMember).where(
-            WorkspaceMember.workspace_id == ws.id,
-            WorkspaceMember.user_id == baskasi.id,
-        )
-    ).scalar_one()
-    db.refresh(uyelik)
-    assert uyelik.role is WorkspaceRole.VIEWER
-
-
-def test_kendinden_yuksek_yetkilinin_rolu_degistirilemiyor(
-    client, db, ortam, make_user, add_member
-):
-    _, ws = ortam(WorkspaceRole.ADMIN)
-    sahip = make_user()
-    add_member(ws, sahip, WorkspaceRole.OWNER)
-    db.commit()
-
-    yanit = client.post(
-        f"/panel/musteri/{ws.id}/ekip/rol",
-        data={"user_id": str(sahip.id), "rol": "viewer"},
-    )
-    assert yanit.status_code == 403
-
-
-def test_stratejist_yetki_degistiremiyor(client, db, ortam, make_user, add_member):
-    _, ws = ortam(WorkspaceRole.STRATEGIST)
-    baskasi = make_user()
-    add_member(ws, baskasi, WorkspaceRole.VIEWER)
-    db.commit()
-
-    yanit = client.post(
-        f"/panel/musteri/{ws.id}/ekip/rol",
-        data={"user_id": str(baskasi.id), "rol": "editor"},
-    )
-    assert yanit.status_code == 403
+    assert client.get(f"/panel/musteri/{baskasi.id}/ekip").status_code == 404

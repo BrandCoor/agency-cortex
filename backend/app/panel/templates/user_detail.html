@@ -34,18 +34,85 @@
   </div>
 </div>
 
-<h2>Müşteri yetkileri</h2>
+<h2>Yetkiler</h2>
+<p class="alt-yazi">
+  Bu kişinin <strong>neyi yapabileceği</strong> burada belirlenir ve tüm
+  müşterilerde geçerlidir. Hangi müşterilerde çalışacağı ise aşağıdaki
+  <strong>Çalıştığı müşteriler</strong> bölümünden atanır.
+</p>
+
+{% if yetki_kilitli %}
+<div class="uyari">
+  Bu kişi <strong>sistem yöneticisi</strong>. Sistem yöneticisinin yetkileri
+  kısıtlanamaz — aksi halde sistemi yönetebilecek kimse kalmayabilir.
+  Kısıtlamak için önce sistem yöneticiliğini kaldırın.
+</div>
+{% else %}
+
+<div class="card sikisik">
+  <form method="post" action="/panel/kullanicilar/{{ hedef.id }}/paket" class="satir-form">
+    <label for="paket"><strong>Hazır paket</strong></label>
+    <select name="paket" id="paket">
+      {% for p in paketler %}
+        <option value="{{ p.deger }}" {% if p.secili %}selected{% endif %}>{{ p.etiket }}</option>
+      {% endfor %}
+    </select>
+    <button class="btn kucuk" type="submit">Paketi uygula</button>
+    <span class="alt-yazi">
+      Paket bir <em>başlangıç noktasıdır</em>. Uyguladığınızda önceki tek tek
+      ayarlar silinir; sonra aşağıdan istediğinizi değiştirebilirsiniz.
+    </span>
+  </form>
+</div>
+
+<form method="post" action="/panel/kullanicilar/{{ hedef.id }}/yetkiler">
+  {% for grup in izin_gruplari %}
+  <div class="card sikisik">
+    <h3>{{ grup.ad }}</h3>
+    <table class="izin-tablo">
+      <tbody>
+      {% for i in grup.izinler %}
+        <tr>
+          <td class="daralt">
+            <input type="checkbox" name="izin" value="{{ i.anahtar }}"
+                   id="iz-{{ i.anahtar }}" {% if i.acik %}checked{% endif %}>
+          </td>
+          <td>
+            <label for="iz-{{ i.anahtar }}"><strong>{{ i.ad }}</strong></label>
+            {% if i.degistirilmis %}
+              <span class="pill p-acc">pakete göre değiştirildi</span>
+            {% endif %}
+            <div class="alt-yazi">{{ i.aciklama }}</div>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endfor %}
+
+  <div class="satir-form">
+    <button class="btn" type="submit">Yetkileri kaydet</button>
+  </div>
+</form>
+
+<form method="post" action="/panel/kullanicilar/{{ hedef.id }}/yetkiler/varsayilan"
+      style="margin-top:10px">
+  <button class="btn kucuk" type="submit">Paket varsayılanına döndür</button>
+</form>
+{% endif %}
+
+<h2>Çalıştığı müşteriler</h2>
 {% if uyelikler %}
 <div class="card sikisik"><div class="tablo-sar">
   <table>
-    <thead><tr><th>Müşteri</th><th>Yetki</th><th class="sag"></th></tr></thead>
+    <thead><tr><th>Müşteri</th><th class="sag"></th></tr></thead>
     <tbody>
     {% for u in uyelikler %}
       <tr>
         <td><a href="/panel/musteri/{{ u.workspace_id }}">{{ u.workspace_name }}</a></td>
-        <td><span class="pill p-notr">{{ u.rol }}</span></td>
         <td class="sag daralt">
-          <a class="btn kucuk" href="/panel/musteri/{{ u.workspace_id }}/ekip">Ekibi yönet</a>
+          <a class="btn kucuk" href="/panel/musteri/{{ u.workspace_id }}/ekip">Ekibi görüntüle</a>
         </td>
       </tr>
     {% endfor %}
@@ -54,9 +121,9 @@
 </div></div>
 {% else %}
 <div class="bos">
-  Bu kullanıcı hiçbir müşteriye eklenmemiş. Bu haliyle giriş yapabilir ama
-  hiçbir müşteri verisini göremez.<br>
-  Yetki vermek için ilgili müşterinin <strong>Ekip</strong> sayfasını kullanın.
+  Bu kullanıcı hiçbir müşteriye atanmamış. Giriş yapabilir ama hiçbir
+  müşteri verisini göremez.<br>
+  Atamak için ilgili müşterinin <strong>Ekip</strong> sayfasını kullanın.
 </div>
 {% endif %}
 {% endblock %}

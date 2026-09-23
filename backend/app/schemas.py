@@ -7,8 +7,6 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
-from app.models.enums import WorkspaceRole
-
 
 class LoginRequest(BaseModel):
     email: EmailStr
@@ -46,10 +44,12 @@ class WorkspaceOut(BaseModel):
 
 
 class WorkspaceMembershipOut(BaseModel):
-    """Kullanicinin erisebildigi bir calisma alani ve oradaki yetkisi."""
+    """Kullanicinin erisebildigi bir calisma alani.
+
+    Yetki TASIMAZ: ne yapabilecegi kullanicinin kendi izinlerinde yazar.
+    """
 
     workspace: WorkspaceOut
-    role: WorkspaceRole
 
 
 class WorkspaceCreate(BaseModel):
@@ -63,9 +63,7 @@ class MemberOut(BaseModel):
 
     id: uuid.UUID
     user_id: uuid.UUID
-    role: WorkspaceRole
 
 
 class MemberCreate(BaseModel):
     email: EmailStr
-    role: WorkspaceRole
