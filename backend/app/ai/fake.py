@@ -57,7 +57,7 @@ class FakeProvider(AIProvider):
             return {
                 "idea_title": f"Test fikri ({tohum})",
                 "idea_rationale": (
-                    "Sahte saglayici tarafindan uretildi - gercek analiz DEGIL."
+                    "Örnek veri sağlayıcısı üretti — gerçek analiz DEĞİL."
                 ),
                 "scripts": [self._script(tohum, p) for p in platformlar],
             }
@@ -65,19 +65,19 @@ class FakeProvider(AIProvider):
         if request.task_type == "strategic_commentary":
             return {
                 "overall_assessment": (
-                    "Sahte saglayici yorumu - gercek stratejik degerlendirme DEGIL."
+                    "Örnek veri yorumu — gerçek stratejik değerlendirme DEĞİL."
                 ),
                 "insights": [
                     {
-                        "heading": "Ornek bulgu",
+                        "heading": "Örnek bulgu",
                         "summary": "Bu bir yer tutucudur.",
                         # Sahte veri her zaman hipotezdir; olgu gibi sunulmaz.
                         "claim_type": "hypothesis",
-                        "evidence": ["sahte veri"],
-                        "uncertainties": ["Gercek veri kullanilmadi."],
+                        "evidence": ["örnek veri"],
+                        "uncertainties": ["Gerçek veri kullanılmadı."],
                     }
                 ],
-                "next_period_tests": ["Gercek AI saglayicisini baglayin."],
+                "next_period_tests": ["Gerçek yapay zekâ sağlayıcısını bağlayın."],
                 "confidence": "low",
             }
 
@@ -85,13 +85,13 @@ class FakeProvider(AIProvider):
             return {
                 "findings": [
                     {
-                        "topic": f"Ornek trend ({tohum})",
+                        "topic": f"Örnek trend ({tohum})",
                         "summary": (
-                            "Sahte saglayici tarafindan uretildi - gercek "
-                            "arastirma DEGIL."
+                            "Örnek veri sağlayıcısı üretti — gerçek "
+                            "araştırma DEĞİL."
                         ),
                         "relevance_to_brand": (
-                            "Ornek veridir; bu markayla ilgisi yoktur."
+                            "Örnek veridir; bu markayla ilgisi yoktur."
                         ),
                         "platform": "genel",
                         # Sahte veri ASLA 'fact' degildir.
@@ -99,13 +99,13 @@ class FakeProvider(AIProvider):
                         "confidence": "low",
                         "source_urls": [],
                         "uncertainties": [
-                            "Gercek kaynak taranmadi; ornek veridir.",
+                            "Gerçek kaynak taranmadı; örnek veridir.",
                         ],
                     }
                 ],
                 "research_note": (
-                    "Ornek veri modu: hicbir kaynak taranmadi. Gercek "
-                    "arastirma icin AI saglayicisini baglayin."
+                    "Örnek veri modu: hiçbir kaynak taranmadı. Gerçek "
+                    "araştırma için yapay zekâ sağlayıcısını bağlayın."
                 ),
             }
 
@@ -115,22 +115,22 @@ class FakeProvider(AIProvider):
                     {
                         "username": request.metadata.get("ilk_rakip", "rakip0"),
                         "observation": (
-                            "Sahte saglayici tarafindan uretildi - gercek "
-                            "gozlem DEGIL."
+                            "Örnek veri sağlayıcısı üretti — gerçek "
+                            "gözlem DEĞİL."
                         ),
-                        "why_it_matters": "Ornek veridir; karar dayanagi olamaz.",
+                        "why_it_matters": "Örnek veridir; karar dayanağı olamaz.",
                         # Sahte veri ASLA 'fact' degildir.
                         "claim_type": "hypothesis",
                         "confidence": "low",
                         "source_urls": [],
                         "uncertainties": [
-                            "Gercek hesap incelenmedi; ornek veridir.",
+                            "Gerçek hesap incelenmedi; örnek veridir.",
                         ],
                     }
                 ],
                 "research_note": (
-                    "Ornek veri modu: hicbir rakip hesap incelenmedi. "
-                    "Gercek arastirma icin AI saglayicisini baglayin."
+                    "Örnek veri modu: hiçbir rakip hesap incelenmedi. "
+                    "Gerçek araştırma için yapay zekâ sağlayıcısını bağlayın."
                 ),
             }
 
@@ -172,13 +172,13 @@ class FakeProvider(AIProvider):
             "caption": "Ornek aciklama metni",
             "cta": "Profildeki baglantiya goz atin",
             "alternative_hooks": ["Ikinci acilis onerisi"],
-            "required_assets": ["Urun gorseli"],
+            "required_assets": ["Ürün görseli"],
             "production_difficulty": "kolay",
             "brand_risks": [],
             # Sahte cikti oldugu HER ZAMAN belirtilir.
-            "claims_to_verify": ["Bu icerik sahte saglayici tarafindan uretildi."],
-            "reason_for_recommendation": "Sahte saglayici - veriye dayali gerekce yok.",
+            "claims_to_verify": ["Bu içerik örnek veri sağlayıcısı tarafından üretildi."],
+            "reason_for_recommendation": "Örnek veri — veriye dayalı gerekçe yok.",
         }
 
     def health_check(self) -> tuple[bool, str | None]:
-        return True, "Sahte saglayici calisiyor (gercek AI DEGIL)."
+        return True, "Örnek veri sağlayıcısı çalışıyor — gerçek yapay zekâ DEĞİL."

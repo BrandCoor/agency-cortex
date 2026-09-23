@@ -189,4 +189,4 @@ class FakeInstagramAdapter(PlatformAdapter):
         )
 
     def health_check(self) -> HealthStatus:
-        return HealthStatus(ok=True, detail="Sahte adaptor calisiyor (gercek veri DEGIL).")
+        return HealthStatus(ok=True, detail="Sahte sağlayıcı çalışıyor — üretilen veri GERÇEK DEĞİL.")

@@ -156,11 +156,22 @@ def test_sahte_senaryo_tum_alanlari_doldurur():
     assert s.reason_for_recommendation
 
 
+# Ornek veri ciktisinin kendini ELE VERMESI gerekir. Test tek bir
+# kelimeye ("sahte") bagliydi; metin duzeltilince kural degismedigi
+# halde test patladi. Artik KURALI olcuyoruz: dogrulanacak iddialardan
+# en az biri bu ciktinin gercek olmadigini soylemeli.
+GERCEK_DEGIL_ISARETLERI = ("sahte", "örnek veri", "ornek veri")
+
+
 def test_sahte_cikti_sahte_oldugunu_soyler():
-    """Sahte veri gercek gibi sunulmamali."""
+    """Ornek veri gercek gibi sunulmamali."""
     yanit = FakeProvider().complete(istek())
     s = ContentScriptBatch.model_validate(yanit.parsed).scripts[0]
-    assert any("sahte" in c.lower() for c in s.claims_to_verify)
+    assert any(
+        isaret in c.lower()
+        for c in s.claims_to_verify
+        for isaret in GERCEK_DEGIL_ISARETLERI
+    )
 
 
 def test_sahte_yorum_her_zaman_hipotezdir():
