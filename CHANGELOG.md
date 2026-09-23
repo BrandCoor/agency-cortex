@@ -1347,6 +1347,16 @@ aşağıdaki dört sorun yalnızca böyle görülebilirdi.
   Artık yapacağı işi anlatıyor: koyu temada güneş, açık temada ay.
 - **Kırılma yolu (breadcrumb) dört sayfada yarım kalıyordu:**
   Kampanyalar, Marka bilgileri, Sistem ayarları ve Şifre değiştir.
+- **Kullanıcılar tablosunda iki sütunun başlığı da "Yetki" idi.** Birincisi
+  hesap türünü, ikincisi yetki kategorisini gösteriyordu; hangisinin ne
+  olduğu anlaşılmıyordu. Ayrıca düzenleme satırı `colspan=6` ile açılıyordu
+  ama tablo yedi sütunlu: satır yarım kesilmiş görünüyordu.
+- **Panelde görünen örnek veri metinleri Türkçe karaktersizdi.** "Sahte
+  adaptor calisiyor (gercek veri DEGIL)" gibi. Kod içindeki adlar ve
+  yorumlar ASCII kalabilir; kullanıcının okuduğu metin kalamaz.
+- **Sekiz formda ana "Kaydet" düğmesi ikincil görünümdeydi.** Aynı panelin
+  başka sayfalarında ana eylem dolu mavi düğmeydi.
+- **Giriş ve şifre belirleme ekranları farklı düzenler kullanıyordu.**
 
 ### Doğrulandı
 - 705/705 test geçti; `ruff check` temiz
