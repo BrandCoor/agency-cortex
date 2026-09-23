@@ -51,8 +51,12 @@
   <table>
     <thead>
       <tr>
-        <th>Kişi</th><th>Durum</th><th>Yetki</th>
-        <th>Yetki</th><th>Müşteri</th><th>Son giriş</th><th class="sag">İşlem</th>
+        {# Iki sutun da "Yetki" basligini tasiyordu ve hangisinin ne
+           oldugu anlasilmiyordu. Birincisi HESAP TURU (sistem yoneticisi
+           mi), ikincisi YETKI KATEGORISI (ne yapabilir). #}
+        <th>Kişi</th><th>Durum</th><th>Hesap türü</th>
+        <th>Yetki kategorisi</th><th>Müşteri</th><th>Son giriş</th>
+        <th class="sag">İşlem</th>
       </tr>
     </thead>
     <tbody>
@@ -103,7 +107,9 @@
         </td>
       </tr>
       <tr>
-        <td colspan="6" style="padding-top:0">
+        {# Tablo YEDI sutunlu; colspan 6 iken duzenleme satiri son sutunun
+           altina uzanmiyor ve satir yarim kesilmis gorunuyordu. #}
+        <td colspan="7" style="padding-top:0">
           <details>
             <summary>Düzenle</summary>
             <form method="post" action="/panel/kullanicilar/duzenle">
