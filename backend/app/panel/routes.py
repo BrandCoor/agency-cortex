@@ -230,7 +230,8 @@ def set_password_submit(
 def _sifre_sayfasi(request, user, *, error=None, ok=None, kod=200):
     return templates.TemplateResponse(
         request, "password.html",
-        {"user": user, "aktif": "sifre", "error": error, "ok": ok,
+        {"user": user, "aktif": "sifre", "yol": "Şifre değiştir",
+         "error": error, "ok": ok,
          "min_uzunluk": MIN_SIFRE_UZUNLUGU},
         status_code=kod,
     )
@@ -463,6 +464,7 @@ def _marka_sayfasi(request, db, user, uyelik, workspace, *, error=None, ok=None,
         {
             "user": user,
             "aktif": "marka",
+            "yol": "Marka bilgileri",
             "workspace": workspace,
             "marka": marka,
             "kilavuz": kilavuz,
@@ -733,6 +735,7 @@ def _ayarlar_sayfasi(
         {
             "user": user,
             "aktif": "ayarlar",
+            "yol": "Sistem ayarları",
             "ayarlar": satirlar,
             "gruplar": AYAR_GRUPLARI,
             # "Neyi girmedim?" en cok sorulan soru; cevabi ilk ekranda.
@@ -880,6 +883,7 @@ def _kampanya_sayfasi(request, db, user, uyelik, workspace, *, error=None, ok=No
         {
             "user": user,
             "aktif": "kampanya",
+            "yol": "Kampanyalar",
             "workspace": workspace,
             "marka": marka,
             "kampanyalar": [
