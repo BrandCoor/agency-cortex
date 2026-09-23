@@ -94,3 +94,16 @@ class ContentCalendar(UUIDPrimaryKey, WorkspaceScoped, Timestamps, Base):
         Enum(ContentStatus, name="content_status"), default=ContentStatus.SCHEDULED, nullable=False
     )
     notes: Mapped[str | None] = mapped_column(Text)
+    # Kim planladi. Bir icerigin takvime nasil girdigi sorulabilmeli.
+    planned_by_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL")
+    )
+    # YAYIN ELLE ISARETLENIR.
+    #
+    # Sistem bu surumde hicbir seyi kendisi paylasmaz (yayin izinleri
+    # bilerek istenmiyor). Paylasimi kullanici yapar ve buradan isaretler;
+    # boylece takvim gercegi gosterir, varsayimi degil.
+    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    published_by_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        PGUUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL")
+    )

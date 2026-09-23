@@ -808,3 +808,93 @@ Format: Karar / Seçenekler / Neden / Risk / Geri alma
 - **Kanıt:** `test_bagla_dugmesi_meta_izin_ekranina_goturuyor` — düğmeye
   basınca gerçekten `instagram.com/oauth/authorize` adresine gidiliyor,
   gizli anahtar adreste **yer almıyor** ve yayın izni istenmiyor.
+
+---
+
+## K-044 — Sistem ayarları 10 alandan 4 alana indirildi
+
+- **Sorun:** Ayarlar sayfasında hiçbir şeyi açmayan alanlar vardı.
+  `META_API_VERSION`, `META_AUTHORIZE_URL`, `META_TOKEN_URL`,
+  `META_GRAPH_BASE_URL`, `META_SCOPES` kodda zaten sabitti; panelden
+  değiştirilse bile bir etkisi olmuyordu. `GEMINI_API_KEY` ise hiçbir
+  yerde kullanılmıyordu. Kullanıcı "çalışmayan bir alan olmasın" dedi;
+  bunlar tam olarak öyle alanlardı.
+- **Karar:** Geriye **yalnızca dört** alan kaldı: `ANTHROPIC_API_KEY`,
+  `MANUS_API_KEY`, `META_APP_ID`, `META_APP_SECRET`. Kaldırılanlar
+  `KALDIRILAN_AYARLAR` listesine alındı; eski kayıt veritabanında kalsa
+  bile **okunmuyor**, böylece "girdim ama işe yaramıyor" durumu
+  tekrarlanamaz.
+- **Redirect URI artık sorulmuyor:** `public_domain` alanından türetiliyor.
+  Kullanıcının elle adres yazması, yanlış yazıldığında Meta tarafında
+  anlaşılmaz bir hataya dönüşüyordu.
+- **Her alan ne açıyor:** Ayar tanımına `acar` alanı eklendi; panel
+  "bu anahtarı girersen şu özellik açılır" diye yazıyor.
+- **Risk:** Meta bir gün API sürümünü değiştirirse kod güncellemesi
+  gerekir. Bunu panelden ayarlanabilir bırakmak, doğrulanmamış bir sürüm
+  numarası girilip tüm entegrasyonun sessizce bozulması riskini taşıyordu.
+- **Geri alma:** Kaldırılan anahtarlar `KALDIRILAN_AYARLAR` listesinden
+  çıkarılırsa tekrar okunur hale gelir.
+
+---
+
+## K-045 — Anthropic anahtarı gerçek bir çağrı ile sınanıyor
+
+- **Karar:** "Test et" düğmesi artık anahtarın biçimine bakmıyor;
+  `GET https://api.anthropic.com/v1/models` çağrısı yapıyor.
+- **Neden bu uç:** Model listesi ücretsizdir ve **token harcamaz**. Bir
+  mesaj gönderip sınamak, her testte para harcamak olurdu.
+- **Hata ayrımı:** 401 "anahtar kabul edilmedi", 403 "anahtarın yetkisi
+  yok", 429 "çok fazla istek" ve ağ hatası "Anthropic'e bağlanılamadı"
+  olarak **ayrı ayrı** gösteriliyor. Hepsini "anahtar hatalı" diye
+  göstermek, internet kesintisinde kullanıcıya doğru anahtarını
+  sildirtirdi.
+- **Risk:** Test, dışarıya gerçek bir istek gönderir. Zaman aşımı konuldu.
+
+---
+
+## K-046 — Yetkiler rol başına, müşteri başına ayarlanabilir
+
+- **Karar:** 5 sabit rolün yapabildikleri artık **17 ayrı izne** ayrıldı
+  (marka.duzenle, hesap.bagla, icerik.onayla, takvim.planla, rapor.onayla,
+  otomasyon.calistir, ekip.yonet, yetki.duzenle …). Her müşteri için her
+  rolün her izni tek tek açılıp kapatılabiliyor.
+- **Seçenekler:** (a) rolleri çoğaltmak, (b) kullanıcı başına izin,
+  (c) rol + müşteri başına izin.
+- **Neden (c):** (a) "editör2, editör3" gibi anlamsız roller üretir;
+  (b) 50 kullanıcıda 850 satır yönetmek demektir ve kimin neyi
+  yapabildiği görülemez hale gelir. (c) ekranda 5 satır × 17 sütunluk
+  tek bir tabloyla anlaşılır kalır.
+- **Yalnızca farklar saklanıyor:** Varsayılanla aynı olan satır
+  veritabanına **yazılmaz**. Böylece ileride bir varsayılan değişirse,
+  değişiklik eski müşterilere de yansır.
+- **SAHİP kısıtlanamaz:** `KISITLANAMAZ_ROL = OWNER`. Aksi halde bir
+  yönetici, sahibin yetkisini kapatıp müşteriyi kilitleyebilirdi.
+- **Sunucu tarafında zorlanıyor:** Kontrol yalnızca arayüzde gizlemek
+  değil; uçlar izne bakıyor. Testler, yetkisi alınmış bir kullanıcının
+  isteği **elle** gönderdiğinde de reddedildiğini gösteriyor.
+- **Geri alma:** `role_grants` tablosu boşaltılırsa sistem eski sabit
+  davranışa döner; `VARSAYILAN` tablosu eski davranışın birebir aynısıdır.
+
+---
+
+## K-047 — Yayın takvimi planlar, PAYLAŞMAZ
+
+- **Karar:** Takvim, onaylanmış içeriğin **ne zaman paylaşılacağını**
+  planlar. Paylaşımı kullanıcı yapar ve takvimde "yayınlandı" olarak
+  işaretler.
+- **Neden kendisi paylaşmıyor:** v1'de Meta'dan yayın izni bilerek
+  istenmiyor (K-021, K-041). İzin olmadan "paylaşıldı" yazmak, takvimin
+  gerçeği değil varsayımı göstermesi olurdu. Panelde bu açıkça yazıyor:
+  "Sistem kendisi paylaşmaz."
+- **Yalnızca ONAYLANMIŞ içerik planlanabilir:** Onaysız içeriği takvime
+  koymak, onay sistemini etkisiz hale getirirdi.
+- **Taşıma, kopyalama değil:** Zaten planlı bir içerik yeni bir saate
+  alındığında ikinci kayıt oluşmaz; mevcut kayıt taşınır. Aksi halde
+  takvimde aynı içerik iki kez görünürdü.
+- **Geçmiş silinemez:** "Yayınlandı" işaretli bir plan kaldırılamaz;
+  neyin ne zaman paylaşıldığı kaydı kaybolmamalı.
+- **Gecikme gizlenmiyor:** Zamanı geçmiş ama yayınlanmamış plan
+  `gecikti` olarak işaretlenir.
+- **Geri alma:** Takvim sayfası kaldırılabilir; `content_calendar`
+  tablosu zaten vardı, yeni sütunlar (kim planladı / ne zaman
+  yayınlandı) geri alınabilir bir migration ile eklendi.

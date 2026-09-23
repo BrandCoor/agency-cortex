@@ -313,12 +313,16 @@
          href="/panel/musteri/{{ workspace.id }}">{{ ikon('ozet') }} Özet ve onaylar</a>
       <a class="bag {% if aktif == 'marka' %}aktif{% endif %}"
          href="/panel/musteri/{{ workspace.id }}/marka">{{ ikon('marka') }} Marka bilgileri</a>
+      <a class="bag {% if aktif == 'takvim' %}aktif{% endif %}"
+         href="/panel/musteri/{{ workspace.id }}/takvim">{{ ikon('kampanya') }} Takvim</a>
       <a class="bag {% if aktif == 'kampanya' %}aktif{% endif %}"
-         href="/panel/musteri/{{ workspace.id }}/kampanya">{{ ikon('kampanya') }} Kampanyalar</a>
+         href="/panel/musteri/{{ workspace.id }}/kampanya">{{ ikon('ozet') }} Kampanyalar</a>
       <a class="bag {% if aktif == 'hesaplar' %}aktif{% endif %}"
          href="/panel/musteri/{{ workspace.id }}/hesaplar">{{ ikon('hesaplar') }} Bağlı hesaplar</a>
       <a class="bag {% if aktif == 'ekip' %}aktif{% endif %}"
          href="/panel/musteri/{{ workspace.id }}/ekip">{{ ikon('ekip') }} Ekip</a>
+      <a class="bag {% if aktif == 'yetkiler' %}aktif{% endif %}"
+         href="/panel/musteri/{{ workspace.id }}/yetkiler">{{ ikon('sifre') }} Yetkiler</a>
     {% endif %}
 
     {% if user.is_superuser %}

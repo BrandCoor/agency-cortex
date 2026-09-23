@@ -24,7 +24,7 @@ from sqlalchemy import select
 from app.api.deps import DbSession
 from app.cli.otomasyon import OTOMATIK_AD as OTOMATIK_ANAHTAR_ADI
 from app.core.config import get_settings
-from app.models.enums import AutomationTrigger, WorkspaceRole
+from app.models.enums import AutomationTrigger
 from app.models.identity import User, Workspace, WorkspaceMember
 from app.models.otomasyon import ApiClient
 from app.panel.auth import current_user_from_cookie
@@ -44,6 +44,7 @@ from app.services.otomasyon import (
     calistirma_baslat,
     son_calistirmalar,
 )
+from app.services.yetkiler import izin_var_mi
 
 router = APIRouter(prefix="/panel/otomasyon", tags=["panel"])
 templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
@@ -71,8 +72,8 @@ def _sayfa(request, db, user, *, error=None, ok=None, anahtar=None, kod=200):
         {
             "id": str(w.id),
             "ad": w.name,
-            "yonetebilir": m.role.covers(WorkspaceRole.ADMIN),
-            "calistirabilir": m.role.covers(WorkspaceRole.STRATEGIST),
+            "yonetebilir": izin_var_mi(db, w.id, m.role, "otomasyon.ayar"),
+            "calistirabilir": izin_var_mi(db, w.id, m.role, "otomasyon.calistir"),
             "akislar": akis_durumlari(db, w.id),
             "son_calistirmalar": [
                 {
@@ -227,10 +228,10 @@ def akis_degistir(
     # Uye degilse 404: musterinin varligi ele verilmez.
     if uyelik is None:
         return HTMLResponse("Bulunamadı.", status_code=404)
-    if not uyelik.role.covers(WorkspaceRole.ADMIN):
+    if not izin_var_mi(db, workspace_id, uyelik.role, "otomasyon.ayar"):
         return _sayfa(
             request, db, user,
-            error="Otomasyon ayarı için en az yönetici yetkisi gerekir.",
+            error="İş akışını açıp kapatma yetkiniz yok.",
             kod=status.HTTP_403_FORBIDDEN,
         )
 
@@ -395,10 +396,10 @@ def elle_calistir(
     ).scalar_one_or_none()
     if uyelik is None:
         return HTMLResponse("Bulunamadı.", status_code=404)
-    if not uyelik.role.covers(WorkspaceRole.STRATEGIST):
+    if not izin_var_mi(db, workspace_id, uyelik.role, "otomasyon.calistir"):
         return _sayfa(
             request, db, user,
-            error="Elle çalıştırmak için en az stratejist yetkisi gerekir.",
+            error="İş akışını elle çalıştırma yetkiniz yok.",
             kod=status.HTTP_403_FORBIDDEN,
         )
 

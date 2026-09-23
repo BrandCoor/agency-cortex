@@ -53,6 +53,7 @@ from app.services.sistem_ayarlari import (
     deger_yaz,
     durum_listesi,
 )
+from app.services.yetkiler import izin_var_mi
 
 router = APIRouter(prefix="/panel", tags=["panel"])
 templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
@@ -459,7 +460,7 @@ def _marka_sayfasi(request, db, user, uyelik, workspace, *, error=None, ok=None,
             "kilavuz": kilavuz,
             "yasakli_metin": "\n".join(kilavuz.forbidden_phrases) if kilavuz else "",
             "tercih_metin": "\n".join(kilavuz.preferred_phrases) if kilavuz else "",
-            "duzenleyebilir": uyelik.role.covers(WorkspaceRole.STRATEGIST),
+            "duzenleyebilir": izin_var_mi(db, workspace.id, uyelik.role, "marka.duzenle"),
             "error": error,
             "ok": ok,
         },
@@ -502,7 +503,7 @@ def brand_submit(
 
     workspace = db.get(Workspace, workspace_id)
     # Yetki sunucuda dogrulanir; formun kapali olmasi tek basina yeterli degil.
-    if not uyelik.role.covers(WorkspaceRole.STRATEGIST):
+    if not izin_var_mi(db, workspace_id, uyelik.role, "marka.duzenle"):
         return _marka_sayfasi(
             request, db, user, uyelik, workspace,
             error="Bu işlem için en az stratejist yetkisi gerekir.",
@@ -578,7 +579,7 @@ def _ekip_sayfasi(request, db, user, uyelik, workspace, *, error=None, ok=None, 
                 }
                 for m, u in satirlar
             ],
-            "yonetebilir": uyelik.role.covers(WorkspaceRole.ADMIN),
+            "yonetebilir": izin_var_mi(db, workspace.id, uyelik.role, "ekip.yonet"),
             "rol_secenekleri": ROL_ACIKLAMALARI,
             "yol": "Ekip",
             "error": error,
@@ -615,7 +616,7 @@ def member_add(
         return HTMLResponse("Bulunamadı.", status_code=404)
 
     workspace = db.get(Workspace, workspace_id)
-    if not uyelik.role.covers(WorkspaceRole.ADMIN):
+    if not izin_var_mi(db, workspace_id, uyelik.role, "ekip.yonet"):
         return _ekip_sayfasi(
             request, db, user, uyelik, workspace,
             error="Ekip yönetimi için en az yönetici yetkisi gerekir.",
@@ -689,7 +690,7 @@ def member_role_change(
         return HTMLResponse("Bulunamadı.", status_code=404)
 
     workspace = db.get(Workspace, workspace_id)
-    if not uyelik.role.covers(WorkspaceRole.ADMIN):
+    if not izin_var_mi(db, workspace_id, uyelik.role, "ekip.yonet"):
         return _ekip_sayfasi(
             request, db, user, uyelik, workspace,
             error="Ekip yönetimi için en az yönetici yetkisi gerekir.",
@@ -765,7 +766,7 @@ def member_remove(
         return HTMLResponse("Bulunamadı.", status_code=404)
 
     workspace = db.get(Workspace, workspace_id)
-    if not uyelik.role.covers(WorkspaceRole.ADMIN):
+    if not izin_var_mi(db, workspace_id, uyelik.role, "ekip.yonet"):
         return _ekip_sayfasi(
             request, db, user, uyelik, workspace,
             error="Ekip yönetimi için en az yönetici yetkisi gerekir.",
@@ -964,7 +965,7 @@ def _kampanya_sayfasi(request, db, user, uyelik, workspace, *, error=None, ok=No
             "marka": marka,
             "kampanyalar": kampanyalar,
             "status_labels": STATUS_LABELS,
-            "duzenleyebilir": uyelik.role.covers(WorkspaceRole.STRATEGIST),
+            "duzenleyebilir": izin_var_mi(db, workspace.id, uyelik.role, "kampanya.yonet"),
             "error": error,
             "ok": ok,
         },
@@ -1001,7 +1002,7 @@ def campaign_create(
         return HTMLResponse("Bulunamadı.", status_code=404)
 
     workspace = db.get(Workspace, workspace_id)
-    if not uyelik.role.covers(WorkspaceRole.STRATEGIST):
+    if not izin_var_mi(db, workspace_id, uyelik.role, "kampanya.yonet"):
         return _kampanya_sayfasi(
             request, db, user, uyelik, workspace,
             error="Bu işlem için en az stratejist yetkisi gerekir.",
@@ -1062,7 +1063,7 @@ def campaign_delete(
         return HTMLResponse("Bulunamadı.", status_code=404)
 
     workspace = db.get(Workspace, workspace_id)
-    if not uyelik.role.covers(WorkspaceRole.STRATEGIST):
+    if not izin_var_mi(db, workspace_id, uyelik.role, "kampanya.yonet"):
         return _kampanya_sayfasi(
             request, db, user, uyelik, workspace,
             error="Bu işlem için en az stratejist yetkisi gerekir.",
@@ -1168,7 +1169,7 @@ def _hesaplar_sayfasi(
                 .order_by(SocialAccount.created_at)
             ).scalars().all(),
             "platformlar": platformlar,
-            "baglayabilir": uyelik.role.covers(WorkspaceRole.ADMIN),
+            "baglayabilir": izin_var_mi(db, workspace.id, uyelik.role, "hesap.bagla"),
             # Sahte modda "Bagla" dugmesi GOSTERILMEZ: basilsa gercek bir
             # hesap baglanmaz, yalnizca ornek veri uretilir. Calisiyormus
             # gibi gostermek yaniltici olur.
@@ -1236,7 +1237,7 @@ def account_connect(
         return HTMLResponse("Bulunamadı.", status_code=404)
 
     workspace = db.get(Workspace, workspace_id)
-    if not uyelik.role.covers(WorkspaceRole.ADMIN):
+    if not izin_var_mi(db, workspace_id, uyelik.role, "hesap.bagla"):
         return _hesaplar_sayfasi(
             request, db, user, uyelik, workspace,
             error="Hesap bağlamak için en az yönetici yetkisi gerekir.",

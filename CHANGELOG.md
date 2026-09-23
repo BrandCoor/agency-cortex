@@ -1023,3 +1023,52 @@ son_kullanim: 2026-09-23 10:00:00+03:00
 ### Belge
 - `docs/otomasyon-plani.md`: kaç akış, ne yapıyor, müşteri başına nasıl
   çalışıyor, müşteri sayısı artınca ne değişiyor.
+
+## [0.13.0] - 2026-09-23 — Takvim, ayrıntılı yetkiler ve sade ayarlar
+
+### Eklendi — yayın takvimi
+- Aylık takvim görünümü (`Panel → müşteri → Takvim`): onaylanmış içerik
+  bir güne ve saate planlanıyor.
+- Plan taşıma, plan kaldırma, "yayınlandı" işaretleme.
+- Geciken planlar (saati geçmiş ama yayınlanmamış) ayrı renkte.
+- Takvim sayfasında açık uyarı: **"Sistem kendisi paylaşmaz."** Paylaşımı
+  kullanıcı yapar; takvim varsayımı değil gerçeği gösterir.
+- Yeni sütunlar: planı kim yaptı, ne zaman yayınlandı, kim yayınladı.
+  (migration `9d2e76410c06`)
+
+### Eklendi — kullanıcı yetkileri tek tek ayarlanabiliyor
+- 17 izin, 7 grupta: müşteri bilgileri, sosyal hesaplar, içerik, takvim,
+  rapor, otomasyon, ekip.
+- Her müşteri için her rolün her izni açılıp kapatılabiliyor
+  (`Panel → müşteri → Yetkiler`).
+- **SAHİP rolü kısıtlanamaz** — aksi halde müşteri kilitlenebilirdi.
+- Varsayılandan farklı olmayan satır veritabanına yazılmıyor.
+
+### Değişti — sistem ayarları 10 alandan 4 alana indi
+Kaldırılanlar hiçbir şeyi açmıyordu: `GEMINI_API_KEY` kullanılmıyordu;
+`META_API_VERSION`, `META_AUTHORIZE_URL`, `META_TOKEN_URL`,
+`META_GRAPH_BASE_URL`, `META_SCOPES` kodda zaten sabitti ve panelden
+değiştirilse bile etkisi yoktu. Redirect URI artık sorulmuyor, alan
+adından türetiliyor. Her alanın yanında "bu anahtar neyi açar" yazıyor.
+
+### Değişti — Anthropic "Test et" düğmesi gerçek çağrı yapıyor
+Artık anahtarın biçimine değil, `GET /v1/models` yanıtına bakıyor.
+Bu uç token harcamaz. 401 / 403 / 429 / ağ hatası ayrı ayrı gösteriliyor;
+internet kesintisi "anahtarın hatalı" diye gösterilmiyor.
+
+### Düzeltildi — planlanmış bir içeriğin saati değiştirilemiyordu
+`planla()` içeriği PLANLANDI durumuna alıyor, ama kendi kuralı
+"yalnızca ONAYLANMIŞ planlanabilir" diyordu. Yani bir içerik bir kez
+planlandıktan sonra **saati bir daha değiştirilemiyordu**. Testle
+yakalandı; PLANLANDI durumuna yalnızca o içeriğin kendi planı varken
+izin veriliyor.
+
+### Doğrulandı
+- **569/569 test geçti** (önceki 535 + 34 yeni: 16 yetki, 18 takvim).
+  Ayar sadeleştirmesi ve Anthropic sınaması bir önceki commit'te gelmişti
+  (9 test); günlüğe ilk kez burada yazıldı.
+- `ruff check app tests` temiz (CI'daki sürümle, ruff 0.13.1).
+- `alembic check`: bekleyen migration yok.
+- Yeni yetki testleri, izni alınmış kullanıcının isteği **elle**
+  gönderdiğinde de reddedildiğini gösteriyor; kontrol yalnızca arayüzde
+  gizlemek değil.

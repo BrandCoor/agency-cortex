@@ -1,0 +1,182 @@
+{% extends "base.html" %}
+{% block title %}Takvim — {{ workspace.name }}{% endblock %}
+{% block content %}
+<style>
+  .takvim { display:grid; grid-template-columns:repeat(7,1fr); gap:1px;
+            background:var(--line); border:1px solid var(--line);
+            border-radius:var(--r); overflow:hidden; }
+  .takvim .basl { background:var(--card-ust); padding:8px 6px; text-align:center;
+                  font-size:11px; font-weight:700; color:var(--sessiz);
+                  text-transform:uppercase; letter-spacing:.06em; }
+  .takvim .gun { background:var(--card); min-height:104px; padding:6px 7px; }
+  .takvim .gun.disari { background:var(--bg); opacity:.55; }
+  .takvim .gun.bugun { box-shadow:inset 0 0 0 2px var(--accent); }
+  .takvim .gun .no { font-size:12px; color:var(--muted); font-weight:600;
+                     margin-bottom:5px; }
+  .takvim .gun.bugun .no { color:var(--accent); }
+  .plan { display:block; font-size:11.5px; line-height:1.35; padding:4px 6px;
+          border-radius:5px; margin-bottom:4px; border-left:3px solid var(--accent);
+          background:var(--accent-soft); overflow-wrap:anywhere; }
+  .plan.yayinlandi { border-left-color:var(--ok); background:var(--ok-soft); }
+  .plan.gecikti { border-left-color:var(--bad); background:var(--bad-soft); }
+  .plan .saat { font-weight:700; }
+  @media (max-width:760px) {
+    .takvim .gun { min-height:72px; padding:4px; }
+    .takvim .gun .no { font-size:11px; }
+    .plan { font-size:10.5px; }
+  }
+</style>
+
+<div class="sayfa-ust">
+  <div class="metin">
+    <h1>Takvim</h1>
+    <p class="sub">Onaylanmış içeriklerin ne zaman paylaşılacağı.</p>
+  </div>
+  <div class="aksiyonlar">
+    <a class="btn kucuk" href="?yil={{ onceki.yil }}&ay={{ onceki.ay }}">&larr; Önceki</a>
+    <strong style="padding:0 6px">{{ ay_adi }} {{ gorunum.yil }}</strong>
+    <a class="btn kucuk" href="?yil={{ sonraki.yil }}&ay={{ sonraki.ay }}">Sonraki &rarr;</a>
+  </div>
+</div>
+
+{% if error %}<div class="err"><b>İşlem yapılmadı</b>{{ error }}</div>{% endif %}
+{% if ok %}<div class="ok">{{ ok }}</div>{% endif %}
+
+<div class="warn">
+  <b>Sistem kendisi paylaşmaz</b>
+  Bu takvim <strong>ne zaman ne paylaşılacağını planlamak</strong> içindir.
+  Paylaşımı siz yaparsınız, sonra buradan <em>yayınlandı</em> olarak
+  işaretlersiniz — böylece takvim gerçeği gösterir, varsayımı değil.
+  <div class="sessiz" style="margin-top:6px">
+    Otomatik paylaşım için Instagram'dan yayın izni istenmesi gerekir;
+    bu sürümde bilerek istenmiyor.
+  </div>
+</div>
+
+<div class="kutular">
+  <div class="kutu">
+    <div class="etiket">Bu ay planlanan</div>
+    <div class="deger">{{ gorunum.toplam }}</div>
+  </div>
+  <div class="kutu {% if gorunum.geciken %}kotu{% endif %}">
+    <div class="etiket">Zamanı geçmiş</div>
+    <div class="deger">{{ gorunum.geciken }}</div>
+    <div class="not">{% if gorunum.geciken %}Yayınlandı olarak işaretlenmemiş{% else %}Gecikme yok{% endif %}</div>
+  </div>
+  <div class="kutu">
+    <div class="etiket">Planlanmayı bekleyen</div>
+    <div class="deger">{{ bekleyenler | length }}</div>
+    <div class="not">Onaylanmış, takvimde değil</div>
+  </div>
+</div>
+
+<div class="takvim" style="margin-top:14px">
+  {% for g in gun_adlari %}<div class="basl">{{ g }}</div>{% endfor %}
+  {% for hafta in gorunum.haftalar %}
+    {% for gun in hafta %}
+    <div class="gun {% if not gun.bu_ay %}disari{% endif %} {% if gun.bugun %}bugun{% endif %}">
+      <div class="no">{{ gun.tarih.day }}</div>
+      {% for k in gun.kayitlar %}
+      <span class="plan {% if k.yayinlandi %}yayinlandi{% elif k.gecikti %}gecikti{% endif %}"
+            title="{{ k.baslik }}{% if k.kanca %} — {{ k.kanca }}{% endif %}">
+        <span class="saat">{{ k.ne_zaman.strftime('%H:%M') }}</span>
+        {{ k.platform }}<br>{{ k.baslik[:34] }}
+      </span>
+      {% endfor %}
+    </div>
+    {% endfor %}
+  {% endfor %}
+</div>
+
+<h2>Bu ayın planları</h2>
+{% set var_mi = namespace(x=false) %}
+{% for hafta in gorunum.haftalar %}{% for gun in hafta %}{% if gun.kayitlar and gun.bu_ay %}{% set var_mi.x = true %}{% endif %}{% endfor %}{% endfor %}
+
+{% if not var_mi.x %}
+<div class="bos">Bu ay için plan yok.</div>
+{% else %}
+<div class="card sikisik"><div class="tablo-sar">
+  <table>
+    <thead><tr><th>Ne zaman</th><th>İçerik</th><th>Durum</th><th class="sag">İşlem</th></tr></thead>
+    <tbody>
+    {% for hafta in gorunum.haftalar %}{% for gun in hafta %}{% if gun.bu_ay %}
+      {% for k in gun.kayitlar %}
+      <tr>
+        <td class="muted daralt">{{ k.ne_zaman.strftime('%d.%m %H:%M') }}</td>
+        <td>
+          <strong>{{ k.baslik }}</strong>
+          <span class="pill p-notr">{{ k.platform }}</span>
+          {% if k.kanca %}<div class="sessiz">{{ k.kanca }}</div>{% endif %}
+          {% if k.not_ %}<div class="sessiz">Not: {{ k.not_ }}</div>{% endif %}
+        </td>
+        <td>
+          {% if k.yayinlandi %}
+            <span class="pill p-ok">Yayınlandı</span>
+            <div class="sessiz">{{ k.yayin_zamani.strftime('%d.%m.%Y %H:%M') }}</div>
+          {% elif k.gecikti %}
+            <span class="pill p-bad">Zamanı geçti</span>
+            <div class="sessiz">Paylaşıldıysa işaretleyin</div>
+          {% else %}
+            <span class="pill p-acc">Planlandı</span>
+          {% endif %}
+        </td>
+        <td class="sag daralt">
+          {% if planlayabilir and not k.yayinlandi %}
+          <div class="aksiyonlar" style="justify-content:flex-end">
+            <form method="post" action="/panel/musteri/{{ workspace.id }}/takvim/yayinlandi"
+                  style="margin:0">
+              <input type="hidden" name="kayit_id" value="{{ k.id }}">
+              <button type="submit" class="kucuk">Yayınlandı</button>
+            </form>
+            <form method="post" action="/panel/musteri/{{ workspace.id }}/takvim/kaldir"
+                  style="margin:0">
+              <input type="hidden" name="kayit_id" value="{{ k.id }}">
+              <button type="submit" class="kucuk tehlikeli">Kaldır</button>
+            </form>
+          </div>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    {% endif %}{% endfor %}{% endfor %}
+    </tbody>
+  </table>
+</div></div>
+{% endif %}
+
+{% if planlayabilir %}
+<h2>Takvime içerik ekle</h2>
+{% if not bekleyenler %}
+<div class="bos">
+  Planlanmayı bekleyen <strong>onaylanmış</strong> içerik yok.<br>
+  <span class="sessiz">Yalnızca onaylanmış içerik planlanabilir — onaysız bir
+  içeriği takvime koymak onay sistemini etkisiz hale getirirdi.</span>
+</div>
+{% else %}
+<div class="card">
+  <form method="post" action="/panel/musteri/{{ workspace.id }}/takvim/planla">
+    <label for="script">İçerik</label>
+    <select id="script" name="script_id" required>
+      {% for b in bekleyenler %}
+      <option value="{{ b.id }}">{{ b.baslik }} — {{ b.platform }}{% if b.kanca %} · {{ b.kanca }}{% endif %}</option>
+      {% endfor %}
+    </select>
+    <div class="izgara" style="margin-top:12px">
+      <div>
+        <label for="tarih">Tarih</label>
+        <input id="tarih" name="tarih" type="date" required>
+      </div>
+      <div>
+        <label for="saat">Saat</label>
+        <input id="saat" name="saat" type="time" required value="12:00">
+      </div>
+    </div>
+    <label for="notlar">Not (isteğe bağlı)</label>
+    <input id="notlar" name="notlar" type="text" maxlength="500"
+           placeholder="Örn: kampanya görseliyle birlikte">
+    <div style="margin-top:15px"><button type="submit" class="birincil">Takvime ekle</button></div>
+  </form>
+</div>
+{% endif %}
+{% endif %}
+{% endblock %}

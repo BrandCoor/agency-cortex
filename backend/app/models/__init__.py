@@ -42,6 +42,7 @@ from app.models.social import (
     PlatformMedia,
     SocialAccount,
 )
+from app.models.yetki import RoleGrant
 
 __all__ = [
     "AICostEvent", "AIProviderName", "AIRun", "AITask", "AITaskStatus",
@@ -51,7 +52,7 @@ __all__ = [
     "Campaign", "CompetitorAccount", "CompetitorObservation", "ContentCalendar",
     "ContentIdea", "ContentScript", "ContentStatus", "MediaMetricsNormalized",
     "MediaMetricsRaw", "MediaType", "Notification", "OAuthCredential",
-    "Platform", "PlatformMedia", "Report", "ReportPeriod", "ReportSection",
+    "Platform", "PlatformMedia", "Report", "ReportPeriod", "ReportSection", "RoleGrant",
     "SocialAccount", "SystemError", "SystemSetting", "TrendObservation", "User", "WebhookEvent",
     "Workspace", "WorkspaceMember", "WorkspaceRole",
 ]
