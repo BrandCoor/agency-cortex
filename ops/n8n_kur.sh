@@ -35,9 +35,22 @@ cd "$DIZIN"
 
 yaz() { echo "[$(date -Is)] $*"; }
 
-if [ -f "$ISARET" ]; then
+# ISARET DOSYASI, KURULAN AKISLARIN LISTESINI TUTAR.
+#
+# Sadece "kuruldu mu" diye bakmak yetmiyordu: yeni bir akis eklendiginde
+# betik "zaten kurulu" deyip atliyor ve YENI AKIS HIC KURULMUYORDU.
+# Liste degistiyse yeniden kurulur.
+BEKLENEN=$(printf '%s\n' $AKIS_IDLERI | sort | tr '\n' ' ')
+
+if [ -f "$ISARET" ] && [ "$(cat "$ISARET" 2>/dev/null)" = "$BEKLENEN" ]; then
   yaz "Akislar zaten kurulu. Yeniden kurmak icin: rm $ISARET"
   exit 0
+fi
+
+if [ -f "$ISARET" ]; then
+  yaz "Akis listesi degismis; yeniden kuruluyor."
+  yaz "  onceki : $(cat "$ISARET" 2>/dev/null)"
+  yaz "  simdiki: $BEKLENEN"
 fi
 
 if [ ! -d "$AKIS_DIZINI" ]; then
@@ -173,5 +186,5 @@ if [ -n "$eksik" ]; then
   exit 1
 fi
 
-touch "$ISARET"
+printf '%s' "$BEKLENEN" > "$ISARET"
 yaz "TAMAM: tum is akislari kuruldu ve ETKIN."

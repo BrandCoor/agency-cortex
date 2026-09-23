@@ -128,3 +128,20 @@ def test_kurulum_betigi_dosyalarla_ayni_kimlikleri_kullaniyor():
         f"Betik {betikteki}, dosyalar {dosyadaki}"
     )
     assert 'KIMLIK_ID="agency-cortex-api"' in betik
+
+
+def test_kurulum_isareti_akis_listesini_tutuyor():
+    """Yeni akis eklendiginde kurulum TEKRAR calismali.
+
+    Isaret dosyasi yalnizca "kuruldu mu" bilgisini tutsaydi, WF-05 gibi
+    sonradan eklenen bir akis hic kurulmazdi: betik "zaten kurulu" deyip
+    atlardi.
+    """
+    betik = KURULUM_BETIGI.read_text(encoding="utf-8")
+
+    # Beklenen liste isaret dosyasiyla KARSILASTIRILMALI.
+    assert "BEKLENEN=" in betik
+    assert 'cat "$ISARET"' in betik
+    # Ve kurulum bitince liste YAZILMALI (bos bir dokunus degil).
+    assert 'printf \'%s\' "$BEKLENEN" > "$ISARET"' in betik
+    assert "touch \"$ISARET\"" not in betik
