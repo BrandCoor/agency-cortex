@@ -57,10 +57,18 @@ def _panel_ayari(anahtar: str) -> str | None:
 
 
 def _oku(anahtar: str, varsayilan: str = "") -> str:
-    """Once panel, sonra ortam degiskeni, sonra varsayilan."""
-    deger = _panel_ayari(anahtar)
-    if deger:
-        return deger
+    """Once panel, sonra ortam degiskeni, sonra varsayilan.
+
+    Panelden kaldirilan ayarlar icin panel degeri OKUNMAZ: daha once
+    kaydedilmis yanlis bir deger, dogrulanmis sabiti sessizce ezip
+    baglantiyi bozardi.
+    """
+    from app.services.sistem_ayarlari import KALDIRILAN_AYARLAR
+
+    if anahtar not in KALDIRILAN_AYARLAR:
+        deger = _panel_ayari(anahtar)
+        if deger:
+            return deger
     return os.environ.get(anahtar) or varsayilan
 
 

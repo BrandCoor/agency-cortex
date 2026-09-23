@@ -27,66 +27,72 @@ log = get_logger("sistem_ayarlari")
 class AyarTanimi:
     """Panelde gosterilecek bir ayarin tanimi."""
 
-    def __init__(self, anahtar: str, etiket: str, aciklama: str, *, gizli: bool = True):
+    def __init__(
+        self, anahtar: str, etiket: str, aciklama: str, *,
+        gizli: bool = True, acar: str = "",
+    ):
         self.anahtar = anahtar
         self.etiket = etiket
         self.aciklama = aciklama
         # gizli=False olanlar (surum, adres gibi) panelde acikca gosterilir.
         self.gizli = gizli
+        # Bu ayar girilince sistemde NE calisir hale gelir.
+        # Kullanici "girdim, ne oldu?" diye sormasin diye.
+        self.acar = acar
 
 
 # Panelde gosterilen ayarlar. Sira, doldurma sirasini da anlatir.
 AYARLAR: list[AyarTanimi] = [
     AyarTanimi(
         "ANTHROPIC_API_KEY", "Claude API anahtarı",
-        "İçerik senaryoları ve raporlar bu anahtarla üretilir. "
-        "console.anthropic.com adresinden alınır.",
-    ),
-    AyarTanimi(
-        "GEMINI_API_KEY", "Gemini API anahtarı",
-        "İsteğe bağlı. Toplu sınıflandırma ve özetleme için kullanılacak.",
+        "İçerik senaryolarını ve rapor yorumlarını üretir. "
+        "console.anthropic.com → API Keys.",
+        acar="WF-03 İçerik zekâsı iş akışı ve panelden içerik üretimi",
     ),
     AyarTanimi(
         "MANUS_API_KEY", "Manus API anahtarı",
-        "Rakip ve trend araştırması için. Adres doğrulanmadan kullanılmayacak.",
+        "Trend ve rakip araştırması yapar. manus.ai hesabınızdan alınır.",
+        acar="WF-02 Trend araştırması iş akışı",
     ),
     AyarTanimi(
         "META_APP_ID", "Meta uygulama kimliği",
-        "Instagram/Facebook bağlantısı için. developers.facebook.com üzerindeki "
-        "uygulamanızın kimliği. Gizli değildir ama burada tutulur.",
+        "Müşterilerin Instagram hesaplarını bağlamak için. Tüm müşteriler "
+        "için TEK uygulama yeterlidir. developers.facebook.com → uygulamanız "
+        "→ App ID. Gizli değildir.",
         gizli=False,
+        acar="Müşteri ekranındaki \"Instagram hesabı bağla\" düğmesi",
     ),
     AyarTanimi(
         "META_APP_SECRET", "Meta uygulama gizli anahtarı",
-        "Instagram/Facebook bağlantısı için. Bu değer gizlidir.",
-    ),
-    AyarTanimi(
-        "META_API_VERSION", "Meta API sürümü",
-        "Örn: v21.0 — Meta'nın resmî dokümanından alınmalı, tahmin edilmemeli.",
-        gizli=False,
-    ),
-    AyarTanimi(
-        "META_AUTHORIZE_URL", "Meta izin adresi",
-        "İzin ekranının tam adresi. Resmî dokümandan alınmalı.",
-        gizli=False,
-    ),
-    AyarTanimi(
-        "META_TOKEN_URL", "Meta anahtar değişim adresi",
-        "İzin kodunun anahtara çevrildiği adres. Resmî dokümandan alınmalı.",
-        gizli=False,
-    ),
-    AyarTanimi(
-        "META_GRAPH_BASE_URL", "Meta Graph API adresi",
-        "Veri çekilen ana adres. Resmî dokümandan alınmalı.",
-        gizli=False,
-    ),
-    AyarTanimi(
-        "META_SCOPES", "Meta izin listesi",
-        "Virgülle ayrılmış izin adları. Resmî dokümandan alınmalı; "
-        "tahminle yazılırsa bağlantı yanlış izinlerle kurulur.",
-        gizli=False,
+        "Yukarıdaki uygulamanın gizli anahtarı (App Secret).",
+        acar="Müşteri ekranındaki \"Instagram hesabı bağla\" düğmesi "
+             "ve WF-01 ile WF-05 iş akışları",
     ),
 ]
+
+# KALDIRILAN AYARLAR (META_API_VERSION, META_AUTHORIZE_URL, META_TOKEN_URL,
+# META_GRAPH_BASE_URL, META_SCOPES):
+#
+# Bunlar panelde gosteriliyordu ama kullanicinin dolduracagi degerler
+# DEGIL: hepsi Meta'nin resmi referansindan dogrulanmis sabitler ve kodda
+# tanimli (core/config.py). Panelde durmalari iki zarar veriyordu:
+# 1. Kullaniciya "bunlari da doldurmam mi gerekiyor?" dedirtiyordu.
+# 2. Yanlis yazilan bir deger, dogrulanmis sabiti sessizce ezip baglantiyi
+#    bozabiliyordu - ve nedeni hicbir yerde gorunmuyordu.
+#
+# Bu yuzden panelden kaldirildilar ve `platforms/meta_ayar.py` bu
+# anahtarlar icin panel degerini OKUMUYOR.
+#
+# GEMINI_API_KEY de kaldirildi: Gemini saglayicisi henuz gelistirilmedi.
+# Kullanilmayan bir anahtar istemek, calismayan bir alan gostermektir.
+KALDIRILAN_AYARLAR = frozenset({
+    "GEMINI_API_KEY",
+    "META_API_VERSION",
+    "META_AUTHORIZE_URL",
+    "META_TOKEN_URL",
+    "META_GRAPH_BASE_URL",
+    "META_SCOPES",
+})
 
 AYAR_ANAHTARLARI = {a.anahtar for a in AYARLAR}
 
@@ -157,6 +163,7 @@ def durum_listesi(db: Session) -> list[dict]:
                 "etiket": tanim.etiket,
                 "aciklama": tanim.aciklama,
                 "gizli": tanim.gizli,
+                "acar": tanim.acar,
                 "tanimli": kayit is not None or ortamda,
                 "kaynak": "panel" if kayit is not None else ("sunucu" if ortamda else None),
                 "son_dort": kayit.son_dort if kayit else None,

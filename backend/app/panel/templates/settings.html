@@ -1,8 +1,13 @@
 {% extends "base.html" %}
 {% block title %}Sistem ayarları{% endblock %}
 {% block content %}
-<h1>Sistem ayarları</h1>
-<p class="sub">API anahtarları ve dış servis adresleri. Tüm müşteriler için ortaktır.</p>
+<div class="sayfa-ust">
+  <div class="metin">
+    <h1>Sistem ayarları</h1>
+    <p class="sub">API anahtarları. <strong>Tüm müşteriler için ortaktır</strong> —
+      her müşteri için ayrı anahtar girmenize gerek yok.</p>
+  </div>
+</div>
 
 {% if error %}<div class="err">{{ error }}</div>{% endif %}
 {% if ok %}<div class="ok">{{ ok }}</div>{% endif %}
@@ -27,6 +32,13 @@
 
   <div class="muted" style="margin-top:6px">{{ a.aciklama }}</div>
 
+  {% if a.acar %}
+  <div class="{% if a.tanimli %}ok{% else %}warn{% endif %}" style="margin-top:10px">
+    <b>{% if a.tanimli %}Şunu çalıştırıyor{% else %}Girilince şu çalışır{% endif %}</b>
+    {{ a.acar }}
+  </div>
+  {% endif %}
+
   {% if a.tanimli %}
   <div class="muted" style="margin-top:6px">
     Kaynak: {% if a.kaynak == 'panel' %}panelden girildi{% else %}sunucu ayarı{% endif %}
@@ -42,10 +54,16 @@
     </div>
   {% endif %}
 
-  {% if a.tanimli and a.anahtar in sinanabilir %}
+  {% if a.anahtar in sinanabilir %}
   <form method="post" action="/panel/ayarlar/sina" style="margin-top:12px">
     <input type="hidden" name="anahtar" value="{{ a.anahtar }}">
-    <button type="submit">Bağlantıyı sına</button>
+    <button type="submit" {% if not a.tanimli %}disabled
+            title="Önce değeri girip kaydedin"{% endif %}>Bağlantıyı sına</button>
+    {% if a.tanimli %}
+    <div class="sessiz" style="margin-top:5px">
+      Sınama gerçek bir çağrı yapar ve <strong>ücret doğurmaz</strong>.
+    </div>
+    {% endif %}
   </form>
   {% endif %}
 

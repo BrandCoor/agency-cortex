@@ -116,7 +116,7 @@ def test_anahtar_loglanmiyor(client, yonetici, caplog):
 
 def test_ayni_anahtar_guncelleniyor_cogalmiyor(client, db, yonetici):
     for deger in ["ilk-deger-aaaa", "ikinci-deger-bbbb"]:
-        client.post("/panel/ayarlar", data={"anahtar": "GEMINI_API_KEY", "deger": deger})
+        client.post("/panel/ayarlar", data={"anahtar": "MANUS_API_KEY", "deger": deger})
 
     kayitlar = db.execute(select(SystemSetting)).scalars().all()
     assert len(kayitlar) == 1
@@ -154,12 +154,12 @@ def test_ayar_silinebiliyor(client, db, yonetici):
 
 def test_veritabani_ortam_degiskenini_geciyor(db, yonetici, monkeypatch):
     """Panelden girilen deger, sunucudaki ayardan onceliklidir."""
-    monkeypatch.setenv("GEMINI_API_KEY", "sunucudaki-deger")
-    assert deger_oku(db, "GEMINI_API_KEY") == "sunucudaki-deger"
+    monkeypatch.setenv("MANUS_API_KEY", "sunucudaki-deger")
+    assert deger_oku(db, "MANUS_API_KEY") == "sunucudaki-deger"
 
-    deger_yaz(db, "GEMINI_API_KEY", "panelden-girilen", user_id=yonetici.id)
+    deger_yaz(db, "MANUS_API_KEY", "panelden-girilen", user_id=yonetici.id)
     db.flush()
-    assert deger_oku(db, "GEMINI_API_KEY") == "panelden-girilen"
+    assert deger_oku(db, "MANUS_API_KEY") == "panelden-girilen"
 
 
 def test_hicbir_yerde_yoksa_none_donuyor(db, monkeypatch):
@@ -176,3 +176,48 @@ def test_cozulemeyen_deger_none_donuyor(db, yonetici):
     db.flush()
 
     assert deger_oku(db, "MANUS_API_KEY") is None
+
+
+# --- Panelden kaldirilan ayarlar ---------------------------------------------
+
+def test_kullanilmayan_ayarlar_panelde_gosterilmiyor():
+    """Calismayan bir alan gostermek, olmayan bir yetenek sunmaktir.
+
+    Gemini saglayicisi henuz gelistirilmedi; Meta'nin surum/adres sabitleri
+    ise kullanicinin dolduracagi degerler degil, dogrulanmis sabitler.
+    """
+    from app.services.sistem_ayarlari import AYAR_ANAHTARLARI, KALDIRILAN_AYARLAR
+
+    for anahtar in KALDIRILAN_AYARLAR:
+        assert anahtar not in AYAR_ANAHTARLARI, anahtar
+
+    # Kullanicinin gercekten girecegi ayarlar bunlar.
+    assert AYAR_ANAHTARLARI == {
+        "ANTHROPIC_API_KEY", "MANUS_API_KEY", "META_APP_ID", "META_APP_SECRET",
+    }
+
+
+def test_kaldirilan_ayar_kaydedilemiyor(client, db, yonetici):
+    yanit = client.post(
+        "/panel/ayarlar", data={"anahtar": "GEMINI_API_KEY", "deger": "x"}
+    )
+    assert yanit.status_code == 400
+
+
+def test_eski_meta_surum_degeri_sabiti_ezmiyor(db, yonetici):
+    """Daha once kaydedilmis yanlis bir deger baglantiyi bozmamali."""
+    from app.core.security import encrypt_secret
+    from app.models.ops import SystemSetting
+    from app.platforms.meta_ayar import meta_ayarlarini_oku
+
+    # Panelden kaldirilmadan once kaydedilmis, YANLIS bir surum.
+    db.add(SystemSetting(
+        anahtar="META_API_VERSION",
+        sifreli_deger=encrypt_secret("v1.0-yanlis"),
+        son_dort="anlis",
+    ))
+    db.flush()
+
+    ayar = meta_ayarlarini_oku()
+    assert ayar.api_version != "v1.0-yanlis"
+    assert ayar.api_version.startswith("v")

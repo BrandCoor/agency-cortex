@@ -136,7 +136,9 @@ def test_meta_sinamasi_canli_olmadigini_soyluyor(db, yonetici, monkeypatch):
     basarili, mesaj = meta_sina(db)
 
     assert basarili is True
-    assert "canlı bir sınama değildir" in mesaj
+    assert "canlı bir sınama DEĞİLDİR" in mesaj
+    # Ne yapilacagi da soylenmeli.
+    assert "Instagram hesabı bağla" in mesaj
 
 
 def test_meta_rakam_olmayan_app_id_reddediliyor(db, yonetici, monkeypatch):
@@ -155,15 +157,73 @@ def test_meta_rakam_olmayan_app_id_reddediliyor(db, yonetici, monkeypatch):
 
 # --- Claude ------------------------------------------------------------------
 
-def test_claude_sinamasi_ucret_dogurmuyor(db, yonetici):
-    deger_yaz(db, "ANTHROPIC_API_KEY", "sk-ant-deneme", user_id=yonetici.id)
+@pytest.mark.parametrize(
+    "kod,beklenen_basari,beklenen_metin",
+    [
+        (200, True, "çalışıyor"),
+        (401, False, "kabul edilmedi"),
+        (403, False, "yetkisi yok"),
+        (429, False, "çok fazla istek"),
+        (500, False, "Beklenmeyen yanıt"),
+    ],
+)
+def test_claude_sinamasi_gercek_cagri_yapiyor(
+    db, yonetici, monkeypatch, kod, beklenen_basari, beklenen_metin
+):
+    """Anahtar GERCEKTEN deneniyor.
+
+    Kullanilan uc model listesidir: salt okuma, jeton harcamaz, ucret
+    dogurmaz. Bu yuzden kullanicinin haberi olmadan para harcamadan
+    sinama yapilabilir.
+    """
+    import httpx
+
+    from app.services import baglanti_sinama
+
+    gizli = "sk-ant-cok-gizli-anahtar"
+    deger_yaz(db, "ANTHROPIC_API_KEY", gizli, user_id=yonetici.id)
     db.flush()
+
+    cagrilan = {}
+
+    def sahte_get(url, **kw):
+        cagrilan["url"] = url
+        cagrilan["headers"] = kw.get("headers", {})
+        return httpx.Response(
+            kod,
+            json={"data": [{"id": "claude-opus-5", "display_name": "Claude Opus 5"}]},
+            request=httpx.Request("GET", url),
+        )
+
+    monkeypatch.setattr(httpx, "get", sahte_get)
 
     basarili, mesaj = sina(db, "ANTHROPIC_API_KEY")
 
-    assert basarili is True
-    # Kullanicinin haberi olmadan harcama yapilmadigi acikca soylenmeli.
-    assert "harcama yapmıyoruz" in mesaj
+    assert basarili is beklenen_basari
+    assert beklenen_metin in mesaj
+    # Gercekten model listesi ucu cagrilmali (jeton harcamayan uc).
+    assert cagrilan["url"] == baglanti_sinama.ANTHROPIC_MODEL_UCU
+    assert cagrilan["headers"]["x-api-key"] == gizli
+    # ANAHTAR sonuca ASLA sizmamali.
+    assert gizli not in mesaj
+
+
+def test_claude_ag_hatasi_anahtar_hatasindan_ayriliyor(db, yonetici, monkeypatch):
+    """Ag sorunu ile gecersiz anahtar ayni sey degil; ayri soylenmeli."""
+    import httpx
+
+    deger_yaz(db, "ANTHROPIC_API_KEY", "sk-ant-deneme", user_id=yonetici.id)
+    db.flush()
+
+    def patla(url, **kw):
+        raise httpx.ConnectTimeout("zaman asimi")
+
+    monkeypatch.setattr(httpx, "get", patla)
+
+    basarili, mesaj = sina(db, "ANTHROPIC_API_KEY")
+    assert basarili is False
+    assert "bağlanılamadı" in mesaj
+    assert "kabul edilmedi" not in mesaj
 
 
 # --- Panel ucu ---------------------------------------------------------------

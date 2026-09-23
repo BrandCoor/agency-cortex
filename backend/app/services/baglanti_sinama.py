@@ -59,25 +59,70 @@ def meta_sina(db: Session) -> tuple[bool, str]:
         return False, "Uygulama kimliği yalnızca rakamlardan oluşmalı."
 
     return True, (
-        "Biçim doğru görünüyor. NOT: Bu canlı bir sınama değildir — "
-        "Meta'nın kimlik bilgilerini tek başına doğrulayan salt okuma bir ucu "
-        "elimizdeki resmî referansta tanımlı değil. Gerçek doğrulama, ilk "
-        "Instagram hesabı bağlandığında olacak."
+        "Biçim doğru görünüyor. NOT: Bu canlı bir sınama DEĞİLDİR — Meta'nın "
+        "uygulama bilgilerini tek başına doğrulayan salt okuma bir ucu resmî "
+        "referansta tanımlı değil; uydurma bir uç çağırmıyoruz. "
+        "GERÇEK SINAMA: bir müşteriye gidip \"Instagram hesabı bağla\" "
+        "düğmesine basın. Bilgiler yanlışsa Instagram size açıkça söyler."
     )
+
+
+#: Claude anahtarini dogrulamak icin kullanilan salt okuma uc.
+#: Model listesi doner, JETON HARCAMAZ ve UCRET DOGURMAZ.
+#: Kaynak: Anthropic Messages API - Models endpoint (GET /v1/models)
+ANTHROPIC_MODEL_UCU = "https://api.anthropic.com/v1/models"
+ANTHROPIC_SURUM = "2023-06-01"
 
 
 def anthropic_sina(db: Session) -> tuple[bool, str]:
-    """Claude anahtarini kontrol eder."""
+    """Claude anahtarini GERCEK bir API cagrisiyla dogrular.
+
+    Model listesi ucu salt okumadir: jeton harcamaz, ucret dogurmaz.
+    Bu yuzden kullanicinin haberi olmadan para harcamadan sinama yapilabilir.
+    """
+    import httpx
+
     anahtar = deger_oku(db, "ANTHROPIC_API_KEY")
     if not anahtar:
         return False, "Claude API anahtarı girilmemiş."
-    # Canli sinama icin en ucuz yol kisa bir istek gondermektir; bu da
-    # ucret dogurur. Kullanicinin haberi olmadan ucret dogurmuyoruz.
-    return True, (
-        "Anahtar kayıtlı. Canlı sınama yapılmadı: en ucuz sınama bile "
-        "ücret doğurur ve haberiniz olmadan harcama yapmıyoruz. Anahtar "
-        "ilk içerik üretiminde denenecek."
-    )
+
+    try:
+        yanit = httpx.get(
+            ANTHROPIC_MODEL_UCU,
+            headers={"x-api-key": anahtar, "anthropic-version": ANTHROPIC_SURUM},
+            params={"limit": 1},
+            timeout=20.0,
+        )
+    except httpx.HTTPError as hata:
+        # Anahtar hatali olmayabilir; ag sorunu da olabilir. Ayrimi yapiyoruz.
+        return False, f"Anthropic'e bağlanılamadı: {type(hata).__name__}"
+
+    if yanit.status_code == 200:
+        try:
+            modeller = yanit.json().get("data") or []
+            ad = modeller[0].get("display_name") or modeller[0].get("id")
+        except Exception:  # noqa: BLE001 - yanit bicimi beklenenden farkliysa
+            ad = None
+        mesaj = "Bağlantı çalışıyor. Anahtar geçerli."
+        if ad:
+            mesaj += f" (erişilebilen model: {ad})"
+        return True, mesaj + " Bu sınama ücret doğurmaz."
+
+    if yanit.status_code == 401:
+        return False, (
+            "Anahtar kabul edilmedi. console.anthropic.com adresinden yeni "
+            "bir anahtar üretip tekrar girin."
+        )
+    if yanit.status_code == 403:
+        return False, (
+            "Anahtar tanındı ama yetkisi yok. Anahtarın hangi çalışma alanına "
+            "ait olduğunu Anthropic konsolundan kontrol edin."
+        )
+    if yanit.status_code == 429:
+        return False, "Anthropic şu an çok fazla istek aldı; biraz sonra tekrar deneyin."
+
+    # Hata govdesi anahtar icermez ama yine de kisaltilir.
+    return False, f"Beklenmeyen yanıt (HTTP {yanit.status_code})."
 
 
 SINAYICILAR = {
