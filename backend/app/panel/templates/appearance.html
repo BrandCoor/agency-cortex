@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}Görünüm{% endblock %}
+{% block content %}
+
+<h1>Görünüm</h1>
+<p class="alt-yazi">
+  Bu ayarlar <strong>yalnızca sizin hesabınız</strong> içindir. Ekibinizdeki
+  diğer kişiler kendi tercihlerini seçer.
+</p>
+
+<form method="post" action="/panel/gorunum">
+  <div class="card">
+    <h3>Tema</h3>
+    <p class="sessiz" style="margin-top:0">
+      "Sistemi izle" seçilirse bilgisayarınızın karanlık/aydınlık tercihi
+      kullanılır.
+    </p>
+    <div class="tema-secim">
+      {% for t in temalar %}
+      <label>
+        <input type="radio" name="tema" value="{{ t.deger }}"
+               {% if t.secili %}checked{% endif %}>
+        <span>{{ t.etiket }}</span>
+      </label>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Vurgu rengi</h3>
+    <p class="sessiz" style="margin-top:0">
+      Düğmelerde, bağlantılarda ve seçili menü satırında kullanılır.
+      Renkler her iki temada da okunabilir olacak şekilde iki ayrı tonda
+      tanımlıdır.
+    </p>
+    <div class="renk-secim">
+      {% for v in vurgular %}
+      <label title="{{ v.ad }}">
+        <input type="radio" name="vurgu" value="{{ v.deger }}"
+               {% if v.secili %}checked{% endif %}>
+        <span class="renk-nokta"
+              style="background:linear-gradient(135deg,{{ v.renk }},{{ v.renk_acik }})"></span>
+      </label>
+      {% endfor %}
+    </div>
+  </div>
+
+  <button type="submit" class="birincil">Kaydet</button>
+</form>
+
+<h2>Önizleme</h2>
+<div class="card">
+  <div class="row" style="flex-wrap:wrap; gap:8px">
+    <button type="button" class="birincil">Birincil düğme</button>
+    <button type="button">İkincil düğme</button>
+    <button type="button" class="tehlikeli">Tehlikeli</button>
+    <span class="pill p-acc">vurgu</span>
+    <span class="pill p-ok">tamam</span>
+    <span class="pill p-warn">uyarı</span>
+    <span class="pill p-bad">hata</span>
+  </div>
+  <div class="bilgi" style="margin-top:14px">
+    Bilgi kutusu bu renkte görünür.
+  </div>
+</div>
+
+{% endblock %}

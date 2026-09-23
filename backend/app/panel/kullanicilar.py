@@ -96,6 +96,11 @@ def _sayfa(request, db, user, *, error=None, ok=None, bag=None, bag_kisi=None, k
             "last_login_at": k.last_login_at,
             "uyelik": uyelik_sayilari.get(k.id, 0),
             "kendisi": k.id == user.id,
+            # Yetki kategorisi listede DE gorunur: "yetkilendirme nerede?"
+            # sorusu bir daha sorulmasin diye.
+            "paket_adi": PAKET_ADLARI.get(
+                k.permission_package, k.permission_package.value
+            ),
         }
         for k in kayitlar
     ]
@@ -460,3 +465,4 @@ def yetkileri_varsayilana_dondur(user_id: uuid.UUID, request: Request, db: DbSes
     return RedirectResponse(
         f"/panel/kullanicilar/{user_id}", status_code=status.HTTP_303_SEE_OTHER
     )
+

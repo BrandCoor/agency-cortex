@@ -404,3 +404,75 @@ def test_her_izin_bir_yerde_gercekten_kontrol_ediliyor():
         "Bu izinler panelde gorunuyor ama hicbir yerde uygulanmiyor: "
         + ", ".join(kontrolsuz)
     )
+
+
+# --- Yetkiler ekrani GORUNUR olmali ------------------------------------------
+#
+# Yetkiler yalnizca "Kullanicilar -> kisiye tikla -> asagi kaydir"
+# yolundan ulasilabiliyordu. Menude "Yetkiler" diye bir sey yoktu; bu
+# yuzden ozellik VAR olmasina ragmen YOK sanildi.
+#
+# Gorunmeyen bir ozellik, olmayan bir ozelliktir.
+
+def test_menude_yetkiler_baglantisi_var(client, db, iki_kisi):
+    yonetici, _kisi, _ws = iki_kisi()
+    _giris(client, yonetici)
+    sayfa = client.get("/panel")
+    assert '/panel/yetkiler' in sayfa.text
+
+
+def test_yetkiler_ekrani_herkesi_listeliyor(client, db, iki_kisi):
+    yonetici, kisi, _ws = iki_kisi()
+    _giris(client, yonetici)
+
+    sayfa = client.get("/panel/yetkiler")
+    assert sayfa.status_code == 200
+    assert kisi.email in sayfa.text
+    assert "Kategoriler ne yapabilir?" in sayfa.text
+
+
+def test_kategori_ekrandan_degistirilebiliyor(client, db, iki_kisi):
+    yonetici, kisi, _ws = iki_kisi(PermissionPackage.VIEWER)
+    _giris(client, yonetici)
+
+    yanit = client.post(
+        "/panel/yetkiler/paket",
+        data={"user_id": str(kisi.id), "paket": "strategist"},
+    )
+    assert yanit.status_code == 200
+    db.expire_all()
+    assert db.get(type(kisi), kisi.id).permission_package is PermissionPackage.STRATEGIST
+
+
+def test_ozellestirilmis_kisi_isaretleniyor(client, db, iki_kisi):
+    """'Bu kisi neden farkli?' sorusu tabloyu terk etmeden gorulmeli."""
+    yonetici, kisi, _ws = iki_kisi(PermissionPackage.VIEWER)
+    izinleri_yaz(db, kisi, set(PAKET_VARSAYILANI[PermissionPackage.VIEWER]) | {"icerik.onayla"})
+    db.commit()
+
+    _giris(client, yonetici)
+    sayfa = client.get("/panel/yetkiler")
+    assert "özelleştirilmiş" in sayfa.text
+
+
+def test_sistem_yoneticisinin_kategorisi_degistirilemiyor(client, db, iki_kisi):
+    yonetici, _kisi, _ws = iki_kisi()
+    _giris(client, yonetici)
+
+    yanit = client.post(
+        "/panel/yetkiler/paket",
+        data={"user_id": str(yonetici.id), "paket": "viewer"},
+    )
+    assert yanit.status_code == 400
+    db.expire_all()
+    assert db.get(type(yonetici), yonetici.id).is_superuser is True
+
+
+def test_yetkiler_ekrani_sistem_yoneticisine_ozel(client, db, iki_kisi):
+    _yonetici, kisi, _ws = iki_kisi()
+    _giris(client, kisi)
+    assert client.get("/panel/yetkiler").status_code == 404
+    assert client.post(
+        "/panel/yetkiler/paket",
+        data={"user_id": str(kisi.id), "paket": "admin"},
+    ).status_code == 404

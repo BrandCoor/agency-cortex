@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}Yetkiler{% endblock %}
+{% block content %}
+
+<h1>Yetkiler</h1>
+<p class="alt-yazi">
+  Bir kişinin <strong>neyi yapabileceği</strong> burada belirlenir ve
+  <strong>tüm müşterilerde</strong> geçerlidir. Hangi müşterilerde
+  çalışacağı ise ilgili müşterinin <strong>Ekip</strong> sayfasından atanır.
+</p>
+
+{% if error %}<div class="err">{{ error }}</div>{% endif %}
+{% if ok %}<div class="ok">{{ ok }}</div>{% endif %}
+
+<div class="card sikisik">
+  <div class="card-bas"><strong>Kullanıcılar ve kategorileri</strong></div>
+  <div class="tablo-sar">
+  <table>
+    <thead>
+      <tr>
+        <th>Kişi</th>
+        <th>Kategori</th>
+        <th class="daralt">İzin</th>
+        <th class="daralt">Müşteri</th>
+        <th class="sag daralt"></th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for s in satirlar %}
+      <tr>
+        <td>
+          <a href="/panel/kullanicilar/{{ s.id }}"><strong>{{ s.ad }}</strong></a>
+          {% if s.kendisi %}<span class="pill p-acc">siz</span>{% endif %}
+          {% if not s.aktif %}<span class="pill p-bad">pasif</span>{% endif %}
+          <div class="sessiz">{{ s.email }}</div>
+        </td>
+        <td>
+          {% if s.sistem_yoneticisi %}
+            <span class="pill p-acc">Sistem yöneticisi</span>
+            <div class="sessiz">Kısıtlanamaz — her şeyi yapar.</div>
+          {% else %}
+          <form method="post" action="/panel/yetkiler/paket" class="satir-form">
+            <input type="hidden" name="user_id" value="{{ s.id }}">
+            <select name="paket" onchange="this.form.submit()">
+              {% for p in paketler %}
+              <option value="{{ p.deger }}" {% if p.deger == s.paket %}selected{% endif %}>
+                {{ p.etiket }}
+              </option>
+              {% endfor %}
+            </select>
+            <noscript><button type="submit" class="kucuk">Uygula</button></noscript>
+          </form>
+          {% endif %}
+        </td>
+        <td class="daralt">
+          {{ s.izin_sayisi }} / {{ toplam_izin }}
+          {% if s.ozellestirilmis %}
+            <div><span class="pill p-warn">özelleştirilmiş</span></div>
+          {% endif %}
+        </td>
+        <td class="daralt">{{ s.musteri_sayisi }}</td>
+        <td class="sag daralt">
+          <a class="btn kucuk" href="/panel/kullanicilar/{{ s.id }}">Tek tek ayarla</a>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>
+
+<div class="bilgi">
+  <b>Kategori bir başlangıç noktasıdır</b>
+  Kategori seçmek, o kişinin izinlerini kategorinin varsayılanına
+  <strong>sıfırlar</strong>. Sonra "Tek tek ayarla" ile her izni
+  ayrı ayrı açıp kapatabilirsiniz — o zaman satırda
+  <span class="pill p-warn">özelleştirilmiş</span> etiketi görünür.
+</div>
+
+<h2>Kategoriler ne yapabilir?</h2>
+<div class="izgara">
+  {% for p in paket_ozeti %}
+  <div class="card">
+    <div class="row">
+      <strong style="flex:1">{{ p.etiket }}</strong>
+      <span class="pill">{{ p.sayi }} izin</span>
+    </div>
+    <ul style="margin:10px 0 0 18px; padding:0; color:var(--muted); font-size:13px">
+      {% for i in p.izinler %}<li>{{ i }}</li>{% endfor %}
+    </ul>
+  </div>
+  {% endfor %}
+</div>
+
+{% endblock %}

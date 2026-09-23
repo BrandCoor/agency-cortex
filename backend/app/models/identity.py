@@ -37,6 +37,17 @@ class User(UUIDPrimaryKey, Timestamps, Base):
         Enum(PermissionPackage, name="permission_package"),
         default=PermissionPackage.VIEWER, nullable=False,
     )
+    # GORUNUM TERCIHI - kisiye ozeldir.
+    #
+    # Sunucu genelinde tek bir tema dayatmak yanlis olurdu: aydinlik bir
+    # odada calisan biriyle gece calisan birinin ihtiyaci ayni degildir.
+    # "sistem" secilirse isletim sisteminin tercihi kullanilir.
+    tema: Mapped[str] = mapped_column(
+        String(10), default="sistem", server_default="sistem", nullable=False
+    )
+    vurgu: Mapped[str] = mapped_column(
+        String(20), default="mavi", server_default="mavi", nullable=False
+    )
 
     memberships: Mapped[list[WorkspaceMember]] = relationship(
         back_populates="user", cascade="all, delete-orphan"

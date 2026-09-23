@@ -124,14 +124,18 @@ app.include_router(approvals.router)
 app.include_router(makine.router)
 
 # Tarayicidan kullanilan panel
+from app.panel.gorunum_sayfasi import router as panel_gorunum_router  # noqa: E402
 from app.panel.kullanicilar import router as panel_kullanici_router  # noqa: E402
 from app.panel.otomasyon import router as panel_otomasyon_router  # noqa: E402
 from app.panel.rakip_sayfasi import router as panel_rakip_router  # noqa: E402
 from app.panel.routes import router as panel_router  # noqa: E402
 from app.panel.takvim_sayfasi import router as panel_takvim_router  # noqa: E402
+from app.panel.yetkiler_sayfasi import router as panel_yetkiler_router  # noqa: E402
 
 app.include_router(panel_router)
 app.include_router(panel_kullanici_router)
 app.include_router(panel_otomasyon_router)
 app.include_router(panel_takvim_router)
 app.include_router(panel_rakip_router)
+app.include_router(panel_gorunum_router)
+app.include_router(panel_yetkiler_router)

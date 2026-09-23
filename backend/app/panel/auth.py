@@ -53,4 +53,14 @@ def current_user_from_cookie(request: Request, db: Session) -> User | None:
     user = db.get(User, user_id)
     if user is None or not user.is_active:
         return None
+
+    # GORUNUM TERCIHI TEK NOKTADAN.
+    #
+    # Her panel sayfasi bu fonksiyondan geciyor; tercihi burada
+    # saklamak, yirmi ayri render cagrisina ayri ayri parametre
+    # gecirmekten hem kisa hem de unutulmaya kapali.
+    from app.services.gorunum import tema_gecerli, vurgu_gecerli
+
+    request.state.tema = tema_gecerli(user.tema)
+    request.state.vurgu = vurgu_gecerli(user.vurgu)
     return user

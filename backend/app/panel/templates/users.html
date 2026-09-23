@@ -52,7 +52,7 @@
     <thead>
       <tr>
         <th>Kişi</th><th>Durum</th><th>Yetki</th>
-        <th>Müşteri</th><th>Son giriş</th><th class="sag">İşlem</th>
+        <th>Yetki</th><th>Müşteri</th><th>Son giriş</th><th class="sag">İşlem</th>
       </tr>
     </thead>
     <tbody>
@@ -70,6 +70,13 @@
         <td>
           {% if k.is_superuser %}<span class="pill p-acc">Sistem yöneticisi</span>
           {% else %}<span class="pill p-notr">Normal</span>{% endif %}
+        </td>
+        <td>
+          {% if k.is_superuser %}
+            <span class="sessiz">kısıtlanamaz</span>
+          {% else %}
+            <a href="/panel/yetkiler">{{ k.paket_adi }}</a>
+          {% endif %}
         </td>
         <td class="muted">{{ k.uyelik }}</td>
         <td class="muted">
