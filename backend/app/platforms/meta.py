@@ -40,6 +40,7 @@ from app.platforms.base import (
     TokenBundle,
     TokenExpired,
 )
+from app.platforms.meta_ayar import MetaAyarlari, meta_ayarlarini_oku
 
 log = get_logger("meta")
 
@@ -78,8 +79,17 @@ class MetaAdapter(PlatformAdapter):
         }
     )
 
-    def __init__(self, *, timeout_seconds: float = 30.0) -> None:
+    def __init__(
+        self,
+        *,
+        timeout_seconds: float = 30.0,
+        ayarlar: MetaAyarlari | None = None,
+    ) -> None:
         self._settings = get_settings()
+        # Uygulama bilgileri PANELDEN de girilebilir. Yalnizca ortam
+        # degiskenine bakmak, panelden girilen anahtarlarin sessizce
+        # gormezden gelinmesi demekti.
+        self._meta = ayarlar or meta_ayarlarini_oku()
         self._timeout = timeout_seconds
 
     # ------------------------------------------------------------------
@@ -88,7 +98,7 @@ class MetaAdapter(PlatformAdapter):
 
     @property
     def missing_config(self) -> list[str]:
-        return self._settings.meta_live_config_errors()
+        return self._meta.eksikler
 
     @property
     def is_configured(self) -> bool:
@@ -170,14 +180,14 @@ class MetaAdapter(PlatformAdapter):
         self._require_config()
 
         params = {
-            "client_id": self._settings.meta_app_id,
+            "client_id": self._meta.app_id,
             "redirect_uri": redirect_uri,
             "response_type": "code",
-            "scope": ",".join(self._settings.meta_scope_list),
+            "scope": ",".join(self._meta.scopes),
             "state": state,
         }
         return AuthorizationRequest(
-            url=f"{self._settings.meta_authorize_url}?{urlencode(params)}",
+            url=f"{self._meta.authorize_url}?{urlencode(params)}",
             state=state,
         )
 
@@ -188,10 +198,10 @@ class MetaAdapter(PlatformAdapter):
             raise PlatformError("Yetkilendirme kodu bos.")
 
         veri = self._post(
-            self._settings.meta_token_url,
+            self._meta.token_url,
             {
-                "client_id": self._settings.meta_app_id,
-                "client_secret": self._settings.meta_app_secret,
+                "client_id": self._meta.app_id,
+                "client_secret": self._meta.app_secret,
                 "grant_type": "authorization_code",
                 "redirect_uri": redirect_uri,
                 "code": code,
@@ -212,7 +222,7 @@ class MetaAdapter(PlatformAdapter):
                 if expires_in
                 else None
             ),
-            scopes=tuple(self._settings.meta_scope_list),
+            scopes=tuple(self._meta.scopes),
         )
 
         profile = self._fetch_profile(access_token, veri)
@@ -251,11 +261,11 @@ class MetaAdapter(PlatformAdapter):
         self._require(Capability.REFRESH_TOKEN)
 
         veri = self._post(
-            self._settings.meta_token_url,
+            self._meta.token_url,
             {
                 "grant_type": "refresh_token",
-                "client_id": self._settings.meta_app_id,
-                "client_secret": self._settings.meta_app_secret,
+                "client_id": self._meta.app_id,
+                "client_secret": self._meta.app_secret,
                 "refresh_token": refresh_token,
             },
         )

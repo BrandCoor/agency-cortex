@@ -13,10 +13,10 @@ import uuid
 
 import pytest
 
-from app.core.config import Settings
 from app.models.enums import WorkspaceRole
 from app.platforms.base import PlatformError
 from app.platforms.meta import MetaAdapter, MetaConfigurationIncomplete
+from app.platforms.meta_ayar import MetaAyarlari
 from app.services.oauth_state import StateError, consume_state, create_state
 from app.services.webhook_guard import record_event, verify_signature, verify_token_matches
 
@@ -40,16 +40,20 @@ def test_ayar_eksikken_acik_hata_verir():
     assert "docs/platforms/meta.md" in str(exc.value)
 
 
-def test_ayarlar_tamamlaninca_yetenekler_acilir(monkeypatch):
-    """Ayarlar doldurulunca adaptor calisir hale gelir; kod degismez."""
-    adapter = MetaAdapter()
-    dolu = Settings(
-        meta_app_id="123", meta_app_secret="gizli", meta_redirect_uri="https://x/cb",
-        meta_api_version="vXX.0", meta_authorize_url="https://ornek/authorize",
-        meta_token_url="https://ornek/token", meta_graph_base_url="https://ornek/graph",
-        meta_scopes="izin_a,izin_b",
+def _dolu_ayar(**degisiklik) -> MetaAyarlari:
+    varsayilan = dict(
+        app_id="123", app_secret="gizli", redirect_uri="https://x/cb",
+        api_version="vXX.0", authorize_url="https://ornek/authorize",
+        token_url="https://ornek/token", graph_base_url="https://ornek/graph",
+        scopes=["izin_a", "izin_b"],
     )
-    monkeypatch.setattr(adapter, "_settings", dolu)
+    varsayilan.update(degisiklik)
+    return MetaAyarlari(**varsayilan)
+
+
+def test_ayarlar_tamamlaninca_yetenekler_acilir():
+    """Ayarlar doldurulunca adaptor calisir hale gelir; kod degismez."""
+    adapter = MetaAdapter(ayarlar=_dolu_ayar())
 
     assert adapter.is_configured is True
     assert adapter.health_check().ok is True
@@ -61,18 +65,14 @@ def test_ayarlar_tamamlaninca_yetenekler_acilir(monkeypatch):
     assert Capability.FETCH_COMMENTS not in adapter.capabilities
 
 
-def test_izin_adresi_ayarlardan_uretilir(monkeypatch):
-    adapter = MetaAdapter()
-    dolu = Settings(
-        meta_app_id="app123", meta_app_secret="gizli",
-        meta_redirect_uri="https://agencycortex.tech/api/v1/oauth/meta/callback",
-        meta_api_version="vXX.0", meta_authorize_url="https://ornek/authorize",
-        meta_token_url="https://ornek/token", meta_graph_base_url="https://ornek/graph",
-        meta_scopes="izin_a,izin_b",
+def test_izin_adresi_ayarlardan_uretilir():
+    dolu = _dolu_ayar(
+        app_id="app123",
+        redirect_uri="https://agencycortex.tech/api/v1/oauth/meta/callback",
     )
-    monkeypatch.setattr(adapter, "_settings", dolu)
+    adapter = MetaAdapter(ayarlar=dolu)
 
-    istek = adapter.authorize(state="abc123", redirect_uri=dolu.meta_redirect_uri)
+    istek = adapter.authorize(state="abc123", redirect_uri=dolu.redirect_uri)
     assert istek.url.startswith("https://ornek/authorize?")
     assert "client_id=app123" in istek.url
     assert "state=abc123" in istek.url
@@ -81,14 +81,8 @@ def test_izin_adresi_ayarlardan_uretilir(monkeypatch):
     assert "gizli" not in istek.url
 
 
-def test_bos_kod_reddedilir(monkeypatch):
-    adapter = MetaAdapter()
-    dolu = Settings(
-        meta_app_id="1", meta_app_secret="s", meta_redirect_uri="https://x/cb",
-        meta_api_version="v", meta_authorize_url="https://a", meta_token_url="https://t",
-        meta_graph_base_url="https://g", meta_scopes="a",
-    )
-    monkeypatch.setattr(adapter, "_settings", dolu)
+def test_bos_kod_reddedilir():
+    adapter = MetaAdapter(ayarlar=_dolu_ayar())
     with pytest.raises(PlatformError):
         adapter.callback(code="", redirect_uri="https://x/cb")
 
@@ -274,13 +268,43 @@ def test_callback_eksik_parametreyle_reddedilir(client):
     assert client.get("/api/v1/oauth/meta/callback").status_code == 400
 
 
-def test_callback_kullanici_reddederse_kontrollu_hata_verir(client):
+def test_callback_statesiz_reddedilir(client):
+    """State yoksa kullaniciyi NEREYE gonderecegimizi bilemeyiz."""
     r = client.get(
         "/api/v1/oauth/meta/callback",
         params={"error": "access_denied", "error_description": "Kullanici izin vermedi"},
     )
     assert r.status_code == 400
-    assert "izin vermedi" in r.json()["detail"]
+    assert "state" in r.json()["detail"]
+
+
+def test_callback_kullanici_reddederse_panele_donuyor(client, make_user, make_workspace):
+    """Bu uca TARAYICI gelir; ekranda ham JSON hatasi gorunmemeli."""
+    user = make_user()
+    ws = make_workspace(name="Reddedilen")
+    state = create_state(
+        workspace_id=ws.id, user_id=user.id, platform="instagram",
+        redirect_uri="https://ornek/cb",
+    )
+
+    r = client.get(
+        "/api/v1/oauth/meta/callback",
+        params={
+            "state": state,
+            "error": "access_denied",
+            "error_description": "Kullanici izin vermedi",
+        },
+        follow_redirects=False,
+    )
+
+    assert r.status_code == 303
+    hedef = r.headers["location"]
+    assert hedef.startswith(f"/panel/musteri/{ws.id}/hesaplar")
+    assert "hata=" in hedef
+
+    # State TUKETILDI: ayni donus ikinci kez islenemez.
+    with pytest.raises(StateError):
+        consume_state(state)
 
 
 def test_callback_gecersiz_state_reddedilir(client):

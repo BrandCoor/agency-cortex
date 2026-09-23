@@ -747,3 +747,64 @@ Format: Karar / Seçenekler / Neden / Risk / Geri alma
   çalışabilecek bir işi iptal etmek daha kötü olurdu. Yalnızca kredinin
   sıfır olduğu **kesin** olduğunda duruluyor.
 - **Bu uç kredi harcamıyor** (salt okuma).
+
+---
+
+## K-041 — Hesap bağlama: şifre değil, OAuth izni
+
+- **Karar:** Müşterinin sosyal medya hesabı **Instagram'ın kendi izin
+  ekranından** bağlanıyor. Panelde müşteri şifresi veya müşteriye ait API
+  anahtarı **istenmiyor**.
+- **Seçenekler:**
+  1. Müşterinin kullanıcı adı/şifresini panele girmek.
+  2. Her müşteri için ayrı bir Meta uygulaması/anahtarı istemek.
+  3. Ajansın tek bir Meta uygulaması + müşteri başına OAuth izni. **(seçilen)**
+- **Neden:** (1) en kötüsü: şifre bizde durur, sızarsa hesabın tamamı
+  gider, müşteri izni geri alamaz ve iki adımlı doğrulama zaten engeller.
+  (2) her müşteriden teknik bir kurulum beklemek demek; çoğu yapamaz.
+  (3) hesap sahibi kendi girişini yapar, **ne izni verdiğini görür**, bize
+  yalnızca **okuma yetkili, süreli ve iptal edilebilir** bir anahtar gelir.
+  İzni istediği an Instagram ayarlarından geri alabilir.
+- **İstenen izinler yalnızca okuma:** `instagram_business_basic`,
+  `instagram_business_manage_insights`. Paylaşım, yorum ve mesaj izinleri
+  **bilerek istenmiyor** — bu sürümde sistem hiçbir şey yayınlamıyor.
+- **Anahtarlar şifreli saklanıyor** (`oauth_credentials`, Fernet).
+- **Ajansın kendi uygulama bilgileri** (App ID + Secret) bir kez sistem
+  ayarlarından giriliyor; sonra her müşteri tek tıkla bağlanıyor.
+- **Dönüş adresi elle yazılmıyor:** alan adından üretilip kopyalanabilir
+  şekilde gösteriliyor. Meta'ya birebir aynı girilmesi gerekiyor ve tek
+  harf farkı bağlantıyı bozardı.
+
+---
+
+## K-042 — Panelden girilen Meta bilgileri artık gerçekten okunuyor
+
+- **Sorun:** Meta uygulama bilgileri panelde giriliyordu ama adaptör
+  yalnızca **ortam değişkenlerine** bakıyordu. Kullanıcı anahtarı girip
+  kaydediyor, hiçbir şey değişmiyordu — **sessiz bir çıkmaz sokak**.
+- **Karar:** Tek okuma yolu tanımlandı (`platforms/meta_ayar.py`): önce
+  panel ayarı, yoksa ortam değişkeni, o da yoksa doğrulanmış varsayılan.
+- **Ayrıca:** Meta bilgileri girilmişse sistem **örnek veri moduna
+  düşmüyor**. Kullanıcının girdiği anahtarları görmezden gelip örnek veri
+  üretmek, o veriyi gerçek sanmasına yol açardı. Sunucuda bir ortam
+  değişkeni değiştirmeye de gerek kalmıyor.
+- **Dürüstlük:** Örnek veri modundaki platform artık "bağlanabilir" diye
+  gösterilmiyor. Sahte adaptör "sağlıklı" der ama gerçek hesap bağlayamaz.
+
+---
+
+## K-043 — "Bağla" düğmesi hiç çalışmamıştı
+
+- **Bulgu:** Panel, `GET` yönlendirmesiyle bir API ucuna gidiyordu; o uç
+  ise **POST** bekliyor ve **Bearer anahtarı** istiyordu. Tarayıcının
+  izlediği yönlendirme GET'tir ve çerezle gelir. Düğme hiçbir zaman
+  çalışmamıştı — ama Meta ayarları eksik olduğu için düğme zaten
+  görünmüyordu ve bu gizli kalmıştı.
+- **Karar:** İzin adresi panelin kendisinde üretiliyor. Panel zaten çerez
+  oturumuyla yetkilendirilmiş durumda; araya bir API çağrısı koymak hem
+  gereksiz hem de kırıktı.
+- **Dönüş de panele:** Meta geri döndüğünde kullanıcı ham JSON görmüyor;
+  bağlı hesaplar sayfasına, sonuç yazılı olarak dönüyor.
+- **Kanıt:** `test_bagla_dugmesi_meta_izin_ekranina_goturuyor` — düğmeye
+  basınca gerçekten `instagram.com/oauth/authorize` adresine gidiliyor,
+  gizli anahtar adreste **yer almıyor** ve yayın izni istenmiyor.

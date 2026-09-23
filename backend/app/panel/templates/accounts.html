@@ -1,83 +1,149 @@
 {% extends "base.html" %}
 {% block title %}Bağlı hesaplar — {{ workspace.name }}{% endblock %}
 {% block content %}
-<h1>Bağlı hesaplar</h1>
-<p class="sub">Bu müşterinin verisi hangi sosyal medya hesaplarından geliyor.</p>
+<div class="sayfa-ust">
+  <div class="metin">
+    <h1>Bağlı hesaplar</h1>
+    <p class="sub">Bu müşterinin verisi hangi sosyal medya hesaplarından geliyor.</p>
+  </div>
+</div>
 
-{% if error %}<div class="err">{{ error }}</div>{% endif %}
+{% if error %}<div class="err"><b>Bağlantı kurulamadı</b>{{ error }}</div>{% endif %}
+{% if ok %}<div class="ok">{{ ok }}</div>{% endif %}
+{% if uyari %}<div class="warn"><b>Dikkat</b>{{ uyari }}</div>{% endif %}
+
+<div class="bilgi">
+  <b>Şifre istemiyoruz</b>
+  Hesabı bağlamak için müşterinizin şifresini almanız <strong>gerekmez ve
+  istemeyin</strong>. Bağlantı Instagram'ın kendi izin ekranından yapılır:
+  hesap sahibi kendi girişini yapar, ne izni verdiğini görür ve onaylar.
+  Bize yalnızca <strong>okuma yetkisi olan, süreli ve iptal edilebilir</strong>
+  bir anahtar gelir — şifre hiçbir zaman ulaşmaz.
+  <div class="sessiz" style="margin-top:6px">
+    Hesap sahibi bu izni istediği an Instagram ayarlarından geri alabilir.
+  </div>
+</div>
 
 <h2>Bağlı olanlar</h2>
 {% if not hesaplar %}
-  <div class="card empty">Henüz bağlı hesap yok.</div>
+  <div class="bos">Henüz bağlı hesap yok.</div>
 {% endif %}
+
 {% for h in hesaplar %}
 <div class="card">
   <div class="row">
     <strong style="flex:1">{{ h.username or h.external_id }}</strong>
-    <span class="muted">{{ h.platform.value }}</span>
+    <span class="pill p-notr">{{ h.platform.value }}</span>
+    {% if h.is_professional %}<span class="pill p-ok">profesyonel</span>
+    {% else %}<span class="pill p-warn">kişisel</span>{% endif %}
+    {% if h.is_active %}<span class="pill p-ok">aktif</span>
+    {% else %}<span class="pill p-bad">pasif</span>{% endif %}
   </div>
-  <div class="muted" style="margin-top:6px">
-    {{ h.display_name or '' }}
-    {% if h.is_professional %}· profesyonel hesap{% else %}· kişisel hesap{% endif %}
-    {% if h.is_active %}· aktif{% else %}· pasif{% endif %}
-  </div>
+  {% if h.display_name %}<div class="muted" style="margin-top:4px">{{ h.display_name }}</div>{% endif %}
   {% if h.last_synced_at %}
     <div class="muted">Son veri çekimi: {{ h.last_synced_at.strftime('%d.%m.%Y %H:%M') }}</div>
   {% else %}
-    <div class="warn">Bu hesaptan henüz hiç veri çekilmedi.</div>
+    <div class="warn" style="margin-top:8px">
+      Bu hesaptan henüz hiç veri çekilmedi. İlk veri, günlük iş akışı
+      çalıştığında gelir — <a href="/panel/otomasyon">Otomasyon</a>
+      sayfasından hemen de çalıştırabilirsiniz.
+    </div>
   {% endif %}
-  {% if h.sync_error %}<div class="err">Son hata: {{ h.sync_error }}</div>{% endif %}
+  {% if h.sync_error %}<div class="err" style="margin-top:8px">Son hata: {{ h.sync_error }}</div>{% endif %}
+  {% if not h.is_professional %}
+  <div class="warn" style="margin-top:8px">
+    Bu hesap <strong>profesyonel</strong> görünmüyor. Instagram, erişim ve
+    kaydetme gibi içgörü verilerini yalnızca Business/Creator hesaplarına
+    açar. Hesap sahibi Instagram ayarlarından hesabı profesyonele çevirip
+    tekrar bağlarsa bu veriler de gelir.
+  </div>
+  {% endif %}
 </div>
 {% endfor %}
 
 <h2>Yeni hesap bağlama</h2>
-{% if sahte_mod %}
+
+{% if eksik_ayarlar %}
 <div class="warn">
-  ⚠️ <strong>Sistem sahte sağlayıcı ile çalışıyor.</strong> Bu modda gerçek bir
-  Instagram/Facebook hesabı bağlanamaz. Gerçek bağlantı için Meta ayarlarının
-  tamamlanması ve sistemin canlı moda alınması gerekiyor.
+  <b>Önce ajansınızın Meta uygulaması tanımlanmalı</b>
+  Bu bir defalık kurulumdur; sonra her müşteri tek tıkla bağlanır.
+  {% if sistem_yoneticisi %}
+  <div style="margin-top:10px">
+    Eksik olan{{ "lar" if eksik_ayarlar | length > 1 else "" }}:
+    {% for ad in eksik_ayarlar %}<code>{{ ad }}</code>{% if not loop.last %}, {% endif %}{% endfor %}
+    <div style="margin-top:9px">
+      <a class="btn kucuk birincil" href="/panel/ayarlar">Sistem ayarlarına git</a>
+    </div>
+  </div>
+  {% else %}
+  <div style="margin-top:8px">Bir sistem yöneticisinden tamamlamasını isteyin.</div>
+  {% endif %}
+</div>
+
+{% if sistem_yoneticisi %}
+<details class="card">
+  <summary>Meta uygulaması nasıl hazırlanır? (tek seferlik)</summary>
+  <ol style="margin:10px 0 0 18px; line-height:1.9">
+    <li><a href="https://developers.facebook.com/apps" target="_blank" rel="noopener">developers.facebook.com/apps</a>
+        adresinden bir uygulama oluşturun.</li>
+    <li>Uygulamaya <strong>Instagram</strong> ürününü ekleyin.</li>
+    <li>İzin verilen dönüş adresi (<em>Redirect URI</em>) olarak
+        <strong>tam olarak</strong> şunu girin — tek harf farkı bile
+        bağlantıyı bozar:
+      <code class="kod blok" style="margin:6px 0">{{ donus_adresi or "— önce alan adı tanımlanmalı —" }}</code>
+    </li>
+    <li>Uygulamanın <strong>kimliğini</strong> ve <strong>gizli anahtarını</strong>
+        <a href="/panel/ayarlar">Sistem ayarları</a> sayfasına girin.</li>
+  </ol>
+  {% if izinler %}
+  <div class="muted" style="margin-top:12px">
+    İstenecek izinler (yalnızca <strong>okuma</strong>):
+    {% for i in izinler %}<code>{{ i }}</code>{% if not loop.last %} {% endif %}{% endfor %}
+  </div>
+  <div class="sessiz" style="margin-top:4px">
+    Paylaşım, yorum ve mesaj izinleri <strong>bilerek istenmiyor</strong> —
+    bu sürümde sistem hiçbir şey yayınlamıyor.
+  </div>
+  {% endif %}
+</details>
+{% endif %}
+{% endif %}
+
+{% if sahte_mod and not eksik_ayarlar %}
+<div class="warn">
+  <b>Sistem örnek veriyle çalışıyor</b>
+  Bu modda gerçek bir hesap bağlanamaz. Bağlanmış gibi göstermeyeceğiz.
 </div>
 {% endif %}
+
 {% for p in platformlar %}
 <div class="card">
   <div class="row">
     <strong style="flex:1">{{ p.etiket }}</strong>
-    {% if p.available %}
-      <span class="badge b-approved">hazır</span>
-    {% else %}
-      <span class="badge b-rejected">henüz bağlanamıyor</span>
-    {% endif %}
+    {% if p.available %}<span class="pill p-ok">bağlanabilir</span>
+    {% else %}<span class="pill p-bad">henüz bağlanamıyor</span>{% endif %}
   </div>
 
   {% if p.available %}
     {% if baglayabilir and not sahte_mod %}
-    <form method="post" action="/panel/musteri/{{ workspace.id }}/hesaplar/baglan" style="margin-top:12px">
+    <form method="post" action="/panel/musteri/{{ workspace.id }}/hesaplar/baglan"
+          style="margin-top:12px">
       <input type="hidden" name="platform" value="{{ p.platform }}">
-      <button type="submit">{{ p.etiket }} hesabı bağla</button>
+      <button type="submit" class="birincil">{{ p.etiket }} hesabı bağla</button>
     </form>
-    <div class="muted" style="margin-top:8px">
-      İzin ekranına yönlendirileceksiniz. Hesaba giriş yapıp izin vermeyi
-      <strong>siz</strong> yapacaksınız; sizin adınıza giriş yapılmaz.
+    <div class="sessiz" style="margin-top:8px">
+      {{ p.etiket }} izin ekranına yönlendirileceksiniz. Girişi ve izni
+      <strong>hesap sahibi</strong> yapar; sizin adınıza giriş yapılmaz.
     </div>
     {% elif not baglayabilir %}
-    <div class="warn">Hesap bağlamak için en az <strong>yönetici</strong> yetkisi gerekir.</div>
+    <div class="warn" style="margin-top:10px">
+      Hesap bağlamak için en az <strong>yönetici</strong> yetkisi gerekir.
+    </div>
     {% endif %}
   {% else %}
     <div class="warn" style="margin-top:10px">
-      <strong>Neden bağlanamıyor:</strong> {{ p.detail }}
+      <b>Neden bağlanamıyor</b>{{ p.detail }}
     </div>
-    {% if p.eksik_ayarlar %}
-    <div style="margin-top:10px">
-      <div class="muted">Eksik olan ayarlar:</div>
-      <ul style="margin:6px 0 0 18px">
-        {% for ad in p.eksik_ayarlar %}<li><code>{{ ad }}</code></li>{% endfor %}
-      </ul>
-      <div class="muted" style="margin-top:8px">
-        Bu değerler Meta'nın resmî dokümanından doğrulanmadan doldurulmayacak.
-        Tahminle doldurulursa hesabınız yanlış izinlerle bağlanabilir.
-      </div>
-    </div>
-    {% endif %}
   {% endif %}
 </div>
 {% endfor %}

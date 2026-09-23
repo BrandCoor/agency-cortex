@@ -12,8 +12,10 @@ AKIS:
 from __future__ import annotations
 
 from typing import Annotated
+from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import RedirectResponse
 from sqlalchemy import select
 
 from app.api.deps import DbSession, WorkspaceContext, require_role
@@ -75,6 +77,28 @@ def start_authorization(
     return {"authorization_url": request.url, "state": request.state}
 
 
+def _panele_don(workspace_id, *, hata: str | None = None,
+                baglandi: str | None = None, uyari: str | None = None):
+    """Kullaniciyi panele geri gonderir.
+
+    Bu uca TARAYICI gelir (Meta yonlendirir). Ham JSON gostermek yerine
+    kullanici bagli hesaplar sayfasina, sonucun yazili oldugu haliyle
+    doner.
+    """
+    parametreler = {}
+    if hata:
+        parametreler["hata"] = hata
+    if baglandi:
+        parametreler["baglandi"] = baglandi
+    if uyari:
+        parametreler["uyari"] = uyari
+
+    adres = f"/panel/musteri/{workspace_id}/hesaplar"
+    if parametreler:
+        adres += "?" + urlencode(parametreler)
+    return RedirectResponse(adres, status_code=status.HTTP_303_SEE_OTHER)
+
+
 @router.get("/meta/callback", summary="Meta izin ekranindan donus")
 def meta_callback(
     db: DbSession,
@@ -82,27 +106,21 @@ def meta_callback(
     state: Annotated[str | None, Query()] = None,
     error: Annotated[str | None, Query()] = None,
     error_description: Annotated[str | None, Query()] = None,
-) -> dict:
+):
     """Meta'dan gelen yetkilendirme kodunu isler.
 
-    Kullanici izin vermezse veya bir hata olursa kontrollu hata doner;
-    sistem cokmez.
+    Kullanici izin vermezse veya bir hata olursa kontrollu sekilde panele
+    doner; sistem cokmez ve ekranda ham hata JSON'u gorunmez.
     """
-    # 1) Kullanici izin vermedi veya Meta hata dondurdu
-    if error:
-        log.info("oauth_kullanici_reddetti", error=error)
+    # State olmadan nereye donecegimizi BILEMEYIZ; tek gercek hata yolu budur.
+    if not state:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Hesap baglanamadi: {error_description or error}",
+            detail="Eksik parametre: 'state' zorunludur.",
         )
 
-    if not code or not state:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Eksik parametre: 'code' ve 'state' zorunludur.",
-        )
-
-    # 2) State dogrulanir ve tuketilir - ayni donus ikinci kez islenemez
+    # State dogrulanir ve TUKETILIR - ayni donus ikinci kez islenemez.
+    # Kullanici izin vermemis olsa bile tuketilir: o state artik gecersizdir.
     try:
         payload = consume_state(state)
     except StateError as exc:
@@ -111,16 +129,30 @@ def meta_callback(
             status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
         ) from exc
 
-    # 3) Kod anahtara cevrilir
+    # Kullanici izin vermedi veya Meta hata dondurdu
+    if error:
+        log.info("oauth_kullanici_reddetti", error=error)
+        return _panele_don(
+            payload.workspace_id,
+            hata=f"Hesap bağlanmadı: {error_description or error}",
+        )
+
+    if not code:
+        return _panele_don(
+            payload.workspace_id,
+            hata="Meta bir yetkilendirme kodu göndermedi. Tekrar deneyin.",
+        )
+
+    # Kod anahtara cevrilir
     adapter = get_adapter(Platform.INSTAGRAM)
     try:
         tokens, profile = adapter.callback(code=code, redirect_uri=payload.redirect_uri)
     except PlatformError as exc:
         log.error("oauth_token_degisimi_basarisiz", reason=type(exc).__name__)
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"Meta ile anahtar degisimi basarisiz: {exc}",
-        ) from exc
+        return _panele_don(
+            payload.workspace_id,
+            hata=f"Meta ile anahtar değişimi başarısız: {exc}",
+        )
 
     # 4) Hesap kaydedilir (varsa guncellenir)
     account = db.execute(
@@ -173,18 +205,17 @@ def meta_callback(
     )
     db.commit()
 
-    return {
-        "connected": True,
-        "social_account_id": str(account.id),
-        "username": profile.username,
-        "is_professional": profile.is_professional,
-        # Profesyonel olmayan hesapta icgoru verisi bulunmaz; kullanici uyarilir.
-        "warning": (
+    return _panele_don(
+        payload.workspace_id,
+        baglandi=profile.username or profile.external_id,
+        # Profesyonel olmayan hesapta icgoru verisi BULUNMAZ. Bagli
+        # gorunup veri gelmemesi kafa karistirirdi; simdiden soylenir.
+        uyari=(
             None
             if profile.is_professional
             else (
-                "Bu hesabin profesyonel (Business/Creator) oldugu dogrulanamadi. "
-                "Icgoru metrikleri alinamayabilir."
+                "Bu hesabın profesyonel (Business/Creator) olduğu "
+                "doğrulanamadı. İçgörü metrikleri alınamayabilir."
             )
         ),
-    }
+    )

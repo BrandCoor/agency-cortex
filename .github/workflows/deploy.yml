@@ -819,3 +819,36 @@ jobs:
 
           ssh -i ~/.ssh/id_deploy -o BatchMode=yes "$VPS_USER@$VPS_HOST" \
             "chmod +x /tmp/n8n_akis_kur.sh && /tmp/n8n_akis_kur.sh; rm -f /tmp/n8n_akis_kur.sh"
+
+      # Kurulumdan SONRA gercek durumu olcup yazar.
+      # "Kurdum" demek yetmez; n8n'de ne oldugu goruntulenmeli.
+      - name: n8n durumu (tanilama)
+        if: always()
+        run: |
+          ssh -i ~/.ssh/id_deploy -o BatchMode=yes "$VPS_USER@$VPS_HOST" bash -s <<'UZAK'
+          set -eu
+          cd /opt/agency-cortex
+
+          echo "=== n8n'deki TUM is akislari ==="
+          docker compose exec -T n8n n8n list:workflow </dev/null 2>/dev/null || echo "(okunamadi)"
+
+          echo
+          echo "=== ETKIN olanlar ==="
+          docker compose exec -T n8n n8n list:workflow --active=true --onlyId </dev/null 2>/dev/null || echo "(okunamadi)"
+
+          echo
+          echo "=== Agency Cortex'teki makine anahtari ==="
+          docker compose exec -T api python -m app.cli.otomasyon durum </dev/null 2>&1 || true
+
+          echo
+          echo "=== Kurulum isareti ==="
+          if [ -f .n8n-akislari-kuruldu ]; then
+            echo "kuruldu (isaret dosyasi var)"
+          else
+            echo "HENUZ KURULMADI (isaret dosyasi yok)"
+          fi
+
+          echo
+          echo "=== Kurulum gunlugunun son 20 satiri ==="
+          tail -20 n8n-kurulum.log 2>/dev/null || echo "(gunluk yok)"
+          UZAK

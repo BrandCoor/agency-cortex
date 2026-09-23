@@ -11,6 +11,7 @@ from app.models.enums import Platform
 from app.platforms.base import NotImplementedAdapter, PlatformAdapter
 from app.platforms.fake import FakeInstagramAdapter
 from app.platforms.meta import MetaAdapter
+from app.platforms.meta_ayar import meta_ayarlarini_oku
 
 # Henuz gelistirilmemis platformlar. Arayuz hazir; gercek entegrasyon yok.
 # Bu liste bilerek acik tutulur: "yakinda" demek yerine "yok" denir.
@@ -32,9 +33,18 @@ def get_adapter(platform: Platform, *, mode: str | None = None) -> PlatformAdapt
     effective_mode = mode or settings.platform_mode
 
     if platform in (Platform.INSTAGRAM, Platform.FACEBOOK):
-        if effective_mode == "fake":
+        # Meta uygulama bilgileri GIRILMISSE sahte adaptore dusulmez.
+        #
+        # Neden: kullanici anahtarlarini panele girdiginde gercek baglanti
+        # bekler. Sahte adaptorde kalmak, uretilen ornek veriyi gercek
+        # sanmasina yol acardi (bkz. DECISIONS.md K-041). Ayrica sunucuda
+        # bir ortam degiskeni degistirmeden gecise izin verir.
+        # Ayar TEK KEZ okunur ve adaptore verilir; aksi halde ayni
+        # sayfa yuklemesinde veritabanina gereksiz yere birkac kez gidilir.
+        meta_ayar = meta_ayarlarini_oku()
+        if effective_mode == "fake" and not meta_ayar.hazir:
             return FakeInstagramAdapter()
-        return MetaAdapter()
+        return MetaAdapter(ayarlar=meta_ayar)
 
     if platform in _PLANNED:
         return NotImplementedAdapter(platform)

@@ -50,6 +50,7 @@ from app.core.security import create_token, hash_password  # noqa: E402
 from app.main import app as fastapi_app  # noqa: E402
 from app.models.enums import WorkspaceRole  # noqa: E402
 from app.models.identity import User, Workspace, WorkspaceMember  # noqa: E402
+from app.platforms import meta_ayar  # noqa: E402
 from app.services import ai_butce  # noqa: E402
 
 _engine = create_engine(get_settings().database_url, future=True)
@@ -103,11 +104,13 @@ def db() -> Iterator[Session]:
     # bir baglanti onu goremez; bu yuzden ayni baglantiya baglanir.
     # Esszamanlilik testi bunu KULLANMAZ, gercek ayri baglantilar acar.
     onceki_uretici = ai_butce.oturum_ureticiyi_ayarla(oturum_uretici)
+    onceki_meta = meta_ayar.oturum_ureticiyi_ayarla(oturum_uretici)
 
     try:
         yield session
     finally:
         ai_butce.oturum_ureticiyi_ayarla(onceki_uretici)
+        meta_ayar.oturum_ureticiyi_ayarla(onceki_meta)
         session.close()
         transaction.rollback()   # Testin yazdigi her sey silinir
         connection.close()

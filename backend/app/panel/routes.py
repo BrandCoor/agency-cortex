@@ -31,7 +31,9 @@ from app.models.identity import User, Workspace, WorkspaceMember
 from app.models.reporting import Report, ReportSection
 from app.models.social import SocialAccount
 from app.panel.auth import clear_session_cookie, current_user_from_cookie, set_session_cookie
-from app.platforms.registry import platform_status
+from app.platforms.base import PlatformError
+from app.platforms.meta_ayar import meta_ayarlarini_oku
+from app.platforms.registry import get_adapter, platform_status
 from app.services.ai_runner import month_spend
 from app.services.approvals import (
     ALLOWED_TRANSITIONS,
@@ -43,6 +45,7 @@ from app.services.approvals import (
 )
 from app.services.baglanti_sinama import SINAYICILAR, sina
 from app.services.denetim import kaydet
+from app.services.oauth_state import create_state
 from app.services.sifre_sifirlama import JetonHatasi, jeton_gecerli_mi, jetonu_tuket
 from app.services.sistem_ayarlari import (
     AYAR_ANAHTARLARI,
@@ -1108,21 +1111,35 @@ PANELDE_GOSTERILEN_PLATFORMLAR = ("instagram", "facebook")
 
 
 def _eksik_meta_ayarlari() -> list[str]:
-    from app.core.config import get_settings
+    """Baglanti icin eksik olan alanlar (panel ayarlari dahil)."""
+    from app.platforms.meta_ayar import meta_ayarlarini_oku
 
-    return get_settings().meta_live_config_errors()
+    return meta_ayarlarini_oku().eksikler
 
 
 def _sahte_platform_modu() -> bool:
+    """Sistem GERCEKTEN sahte veriyle mi calisiyor?
+
+    Ortam degiskenine degil, ortaya cikan duruma bakar: Meta bilgileri
+    girilmisse sahte mod yoktur, gercek baglanti yapilir.
+    """
     from app.core.config import get_settings
+    from app.platforms.meta_ayar import meta_hazir_mi
 
-    return get_settings().platform_mode == "fake"
+    return get_settings().platform_mode == "fake" and not meta_hazir_mi()
 
 
-def _hesaplar_sayfasi(request, db, user, uyelik, workspace, *, error=None, kod=200):
+def _hesaplar_sayfasi(
+    request, db, user, uyelik, workspace, *,
+    error=None, ok=None, uyari=None, kod=200,
+):
+    from app.platforms.meta_ayar import meta_ayarlarini_oku
+
     durumlar = {d["platform"]: d for d in platform_status()}
-    meta_eksikler = _eksik_meta_ayarlari()
+    meta_ayar = meta_ayarlarini_oku()
+    meta_eksikler = meta_ayar.eksikler
 
+    sahte = _sahte_platform_modu()
     platformlar = []
     for ad in PANELDE_GOSTERILEN_PLATFORMLAR:
         durum = durumlar.get(ad, {})
@@ -1130,7 +1147,9 @@ def _hesaplar_sayfasi(request, db, user, uyelik, workspace, *, error=None, kod=2
             {
                 "platform": ad,
                 "etiket": PLATFORM_ETIKETLERI.get(ad, ad),
-                "available": bool(durum.get("available")),
+                # Sahte adaptor "saglikli" der ama gercek hesap baglayamaz.
+                # Bunu "baglanabilir" diye gostermek yalan olurdu.
+                "available": bool(durum.get("available")) and not sahte,
                 "detail": durum.get("detail") or "Ayrıntı bildirilmedi.",
                 "eksik_ayarlar": meta_eksikler if not durum.get("available") else [],
             }
@@ -1142,6 +1161,7 @@ def _hesaplar_sayfasi(request, db, user, uyelik, workspace, *, error=None, kod=2
             "user": user,
             "aktif": "hesaplar",
             "workspace": workspace,
+            "yol": "Bağlı hesaplar",
             "hesaplar": db.execute(
                 select(SocialAccount)
                 .where(SocialAccount.workspace_id == workspace.id)
@@ -1152,22 +1172,48 @@ def _hesaplar_sayfasi(request, db, user, uyelik, workspace, *, error=None, kod=2
             # Sahte modda "Bagla" dugmesi GOSTERILMEZ: basilsa gercek bir
             # hesap baglanmaz, yalnizca ornek veri uretilir. Calisiyormus
             # gibi gostermek yaniltici olur.
-            "sahte_mod": _sahte_platform_modu(),
+            "sahte_mod": sahte,
+            # Meta'ya girilecek donus adresi: birebir ayni olmali, bu yuzden
+            # kullanicinin kopyalayabilecegi sekilde gosterilir.
+            "donus_adresi": meta_ayar.redirect_uri,
+            "izinler": meta_ayar.scopes,
+            "eksik_ayarlar": meta_eksikler,
+            "sistem_yoneticisi": user.is_superuser,
             "error": error,
+            "ok": ok,
+            "uyari": uyari,
         },
         status_code=kod,
     )
 
 
 @router.get("/musteri/{workspace_id}/hesaplar", response_class=HTMLResponse)
-def accounts_page(workspace_id: uuid.UUID, request: Request, db: DbSession):
+def accounts_page(
+    workspace_id: uuid.UUID,
+    request: Request,
+    db: DbSession,
+    baglandi: str = "",
+    hata: str = "",
+    uyari: str = "",
+):
+    """Bagli hesaplar.
+
+    `baglandi`/`hata`/`uyari`: Meta izin ekranindan donuste sonucun
+    kullaniciya gosterilmesi icin.
+    """
     user = current_user_from_cookie(request, db)
     if user is None:
         return _giris_yonlendir()
     uyelik = _uyelik(db, user, workspace_id)
     if uyelik is None:
         return HTMLResponse("Bulunamadı.", status_code=404)
-    return _hesaplar_sayfasi(request, db, user, uyelik, db.get(Workspace, workspace_id))
+
+    return _hesaplar_sayfasi(
+        request, db, user, uyelik, db.get(Workspace, workspace_id),
+        ok=(f"{baglandi} hesabı bağlandı." if baglandi else None),
+        error=hata or None,
+        uyari=uyari or None,
+    )
 
 
 @router.post("/musteri/{workspace_id}/hesaplar/baglan")
@@ -1228,12 +1274,52 @@ def account_connect(
             kod=status.HTTP_409_CONFLICT,
         )
 
-    # Buraya ancak platform gercekten hazirsa gelinir. Izin akisi API
-    # ucundan yurutulur; panel yalnizca baslangici tetikler.
-    return RedirectResponse(
-        f"/api/v1/oauth/{secilen.value}/authorize?workspace_id={workspace_id}",
-        status_code=status.HTTP_303_SEE_OTHER,
+    # Izin adresi BURADA uretilir.
+    #
+    # Daha once API ucuna yonlendiriliyordu ve DUGME HIC CALISMIYORDU:
+    # o uc POST bekliyor ve Bearer anahtari istiyor; tarayicinin izledigi
+    # yonlendirme ise GET ve cerezle gelir. Panel kendi oturumuyla
+    # yetkilendirildigi icin akisi dogrudan baslatmasi hem calisir hem
+    # de dogrudur.
+    ayar = meta_ayarlarini_oku()
+    if not ayar.redirect_uri:
+        return _hesaplar_sayfasi(
+            request, db, user, uyelik, workspace,
+            error=(
+                "Dönüş adresi (META_REDIRECT_URI) belirlenemedi. "
+                "Sistem ayarlarından girin."
+            ),
+            kod=status.HTTP_409_CONFLICT,
+        )
+
+    state = create_state(
+        workspace_id=workspace_id,
+        user_id=user.id,
+        platform=secilen.value,
+        redirect_uri=ayar.redirect_uri,
     )
+
+    try:
+        izin = get_adapter(secilen).authorize(
+            state=state, redirect_uri=ayar.redirect_uri
+        )
+    except PlatformError as hata:
+        return _hesaplar_sayfasi(
+            request, db, user, uyelik, workspace,
+            error=f"İzin adresi üretilemedi: {hata}",
+            kod=status.HTTP_409_CONFLICT,
+        )
+
+    kaydet(
+        db, action="social_account.baglama_baslatildi", actor_user_id=user.id,
+        workspace_id=workspace_id, request=request,
+        details={"platform": secilen.value},
+    )
+    db.commit()
+
+    # Kullanici Meta'nin izin ekranina gider. Girisi ve izni KENDISI yapar;
+    # sifresi bize hicbir zaman ulasmaz.
+    return RedirectResponse(izin.url, status_code=status.HTTP_303_SEE_OTHER)
 
 
 def get_fake_mode() -> bool:
