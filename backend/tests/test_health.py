@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from fastapi.testclient import TestClient
 
+from app import __version__
 from app.main import app
 
 client = TestClient(app)
@@ -19,7 +20,10 @@ def test_version_yayin_kilidini_bildirir():
     r = client.get("/version")
     assert r.status_code == 200
     body = r.json()
-    assert body["version"] == "0.1.0"
+    # Sabit bir metin yerine paketin KENDI surumu ile karsilastiriliyor;
+    # aksi halde surum yukseltildiginde bu test, gercek bir hata olmadigi
+    # halde patlardi.
+    assert body["version"] == __version__
     # Ilk surumde yayin KAPALI olmali. Bu test kilidin kazara acilmasini yakalar.
     assert body["publishing_enabled"] is False
 

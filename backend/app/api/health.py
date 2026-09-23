@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Response, status
 
+from app import __version__
 from app.core.config import get_settings
 from app.core.db import check_database
 from app.core.redis_client import check_redis
@@ -49,7 +50,7 @@ def version() -> dict:
     settings = get_settings()
     return {
         "name": settings.app_name,
-        "version": "0.1.0",
+        "version": __version__,
         "environment": settings.app_env,
         # Ilk surumde yayin kilitlerinin durumu disaridan gorulebilmeli.
         "publishing_enabled": settings.feature_publishing_enabled,

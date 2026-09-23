@@ -12,6 +12,7 @@ from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from app import __version__
 from app.api import (
     ai,
     approvals,
@@ -57,7 +58,7 @@ async def lifespan(_app: FastAPI):
 app = FastAPI(
     title=settings.app_name,
     description="Cok musterili sosyal medya asistani",
-    version="0.1.0",
+    version=__version__,
     lifespan=lifespan,
     docs_url="/docs" if not settings.is_production else None,
     redoc_url=None,
