@@ -363,3 +363,194 @@ def test_makine_ucu_kapsam_disindaki_musteride_calismiyor(
     assert db.execute(
         select(AutomationRun).where(AutomationRun.workspace_id == baskasi.id)
     ).scalars().all() == []
+
+
+# --- WF-05: baglanti sagligi -------------------------------------------------
+#
+# BU AKIS OLMADAN sistem ~60 gun sonra SESSIZCE durur: anahtar suresi
+# dolar, veri cekilemez ve kimse nedenini bilmez.
+
+@pytest.fixture
+def hesap_ekle(db, musteri):
+    from app.platforms.base import TokenBundle
+    from app.services.token_store import save_tokens
+
+    def _ekle(*, kalan_gun=None, yenileme_anahtari="yenile-abc", kullanici="taha"):
+        hesap = SocialAccount(
+            workspace_id=musteri.id, platform=Platform.INSTAGRAM,
+            external_id=f"ig-{kullanici}", username=kullanici, is_active=True,
+        )
+        db.add(hesap)
+        db.flush()
+
+        save_tokens(
+            db, workspace_id=musteri.id, social_account_id=hesap.id,
+            tokens=TokenBundle(
+                access_token="eski-anahtar",
+                refresh_token=yenileme_anahtari,
+                token_type="bearer",
+                expires_at=(
+                    datetime.now(UTC) + timedelta(days=kalan_gun)
+                    if kalan_gun is not None else None
+                ),
+                scopes=("instagram_business_basic",),
+            ),
+        )
+        db.flush()
+        return hesap
+
+    return _ekle
+
+
+@pytest.fixture
+def sahte_yenileme(monkeypatch):
+    """refresh_token cagrisini taklit eder."""
+    from app.platforms.base import TokenBundle
+    from app.platforms.fake import FakeInstagramAdapter
+
+    cagrilar: list[str] = []
+
+    def _kur(*, patlat=False):
+        def sahte(self, *, refresh_token):
+            cagrilar.append(refresh_token)
+            if patlat:
+                from app.platforms.base import PlatformError
+                raise PlatformError("Meta anahtari kabul etmedi")
+            return TokenBundle(
+                access_token="yeni-anahtar",
+                refresh_token="yeni-yenileme",
+                token_type="bearer",
+                expires_at=datetime.now(UTC) + timedelta(days=60),
+                scopes=("instagram_business_basic",),
+            )
+
+        monkeypatch.setattr(FakeInstagramAdapter, "refresh_token", sahte, raising=False)
+        return cagrilar
+
+    return _kur
+
+
+def test_wf05_hesap_yoksa_is_yok(db, musteri):
+    from app.services.is_akislari import wf05_baglanti_sagligi
+
+    sonuc = wf05_baglanti_sagligi(db, musteri)
+    assert sonuc.yapilacak_is_yoktu is True
+    assert sonuc.ozet["hesap"] == 0
+
+
+def test_wf05_suresi_yakin_anahtar_yenileniyor(db, musteri, hesap_ekle, sahte_yenileme):
+    from app.services.is_akislari import wf05_baglanti_sagligi
+    from app.services.token_store import load_tokens
+
+    hesap = hesap_ekle(kalan_gun=10)
+    cagrilar = sahte_yenileme()
+
+    sonuc = wf05_baglanti_sagligi(db, musteri)
+
+    assert sonuc.ozet["yenilendi"] == 1
+    assert cagrilar == ["yenile-abc"]
+
+    taze = load_tokens(db, workspace_id=musteri.id, social_account_id=hesap.id)
+    assert taze.access_token == "yeni-anahtar"
+    # Yeni bitis tarihi ileriye alinmali.
+    assert (taze.expires_at - datetime.now(UTC)).days > 50
+
+
+def test_wf05_suresi_uzak_anahtara_dokunmuyor(db, musteri, hesap_ekle, sahte_yenileme):
+    """Gereksiz yenileme yapilmaz; her yenileme bir dis cagridir."""
+    from app.services.is_akislari import wf05_baglanti_sagligi
+
+    hesap_ekle(kalan_gun=55)
+    cagrilar = sahte_yenileme()
+
+    sonuc = wf05_baglanti_sagligi(db, musteri)
+    assert sonuc.ozet["gerek_yoktu"] == 1
+    assert sonuc.ozet["yenilendi"] == 0
+    assert cagrilar == []
+
+
+def test_wf05_bitis_tarihi_bilinmiyorsa_yenilemeyi_deniyor(
+    db, musteri, hesap_ekle, sahte_yenileme
+):
+    """Bitis tarihi TAHMIN EDILMEZ; gereksiz yenileme zararsiz, kacirilan degil."""
+    from app.services.is_akislari import wf05_baglanti_sagligi
+
+    hesap_ekle(kalan_gun=None)
+    cagrilar = sahte_yenileme()
+
+    sonuc = wf05_baglanti_sagligi(db, musteri)
+    assert sonuc.ozet["yenilendi"] == 1
+    assert cagrilar == ["yenile-abc"]
+
+
+def test_wf05_yenileme_basarisizsa_gizlenmiyor(
+    db, musteri, hesap_ekle, sahte_yenileme
+):
+    from app.services.is_akislari import wf05_baglanti_sagligi
+
+    hesap = hesap_ekle(kalan_gun=3)
+    sahte_yenileme(patlat=True)
+
+    sonuc = wf05_baglanti_sagligi(db, musteri)
+
+    assert sonuc.ozet["yenilenemedi"] == 1
+    assert sonuc.ozet["suresi_bitiyor"] == 1
+    assert any("yenilenemedi" in n for n in sonuc.notlar)
+    # Hesabin kendisinde de iz kalmali: panelde gorunur.
+    db.refresh(hesap)
+    assert hesap.sync_error and "yenilenemedi" in hesap.sync_error
+
+
+def test_wf05_yenileme_anahtari_yoksa_uyariyor(db, musteri, hesap_ekle, sahte_yenileme):
+    from app.services.is_akislari import wf05_baglanti_sagligi
+
+    hesap = hesap_ekle(kalan_gun=5, yenileme_anahtari=None)
+    cagrilar = sahte_yenileme()
+
+    sonuc = wf05_baglanti_sagligi(db, musteri)
+
+    assert sonuc.ozet["yenilenemedi"] == 1
+    assert cagrilar == []  # yenileme anahtari yokken cagri YAPILMAZ
+    db.refresh(hesap)
+    assert "yeniden bağlayın" in hesap.sync_error
+
+
+def test_wf05_basarili_yenileme_eski_hatayi_temizliyor(
+    db, musteri, hesap_ekle, sahte_yenileme
+):
+    """Sorun gectiyse panelde eski hata durmamali."""
+    from app.services.is_akislari import wf05_baglanti_sagligi
+
+    hesap = hesap_ekle(kalan_gun=10)
+    hesap.sync_error = "anahtar yenilenemedi (onceki deneme)"
+    db.flush()
+    sahte_yenileme()
+
+    wf05_baglanti_sagligi(db, musteri)
+    db.refresh(hesap)
+    assert hesap.sync_error is None
+
+
+def test_wf05_bir_hesabin_hatasi_digerini_durdurmuyor(
+    db, musteri, hesap_ekle, sahte_yenileme, monkeypatch
+):
+    from app.platforms.base import PlatformError, TokenBundle
+    from app.platforms.fake import FakeInstagramAdapter
+    from app.services.is_akislari import wf05_baglanti_sagligi
+
+    hesap_ekle(kalan_gun=5, yenileme_anahtari="bozuk", kullanici="bozuk_hesap")
+    hesap_ekle(kalan_gun=5, yenileme_anahtari="saglam", kullanici="saglam_hesap")
+
+    def sahte(self, *, refresh_token):
+        if refresh_token == "bozuk":
+            raise PlatformError("kabul edilmedi")
+        return TokenBundle(
+            access_token="yeni", refresh_token="yeni2", token_type="bearer",
+            expires_at=datetime.now(UTC) + timedelta(days=60), scopes=(),
+        )
+
+    monkeypatch.setattr(FakeInstagramAdapter, "refresh_token", sahte, raising=False)
+
+    sonuc = wf05_baglanti_sagligi(db, musteri)
+    assert sonuc.ozet["yenilendi"] == 1
+    assert sonuc.ozet["yenilenemedi"] == 1

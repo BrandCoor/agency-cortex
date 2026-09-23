@@ -36,6 +36,25 @@
 </div>
 {% endif %}
 
+<details class="card">
+  <summary>Nasıl çalışıyor?</summary>
+  <ol style="margin:10px 0 0 18px; line-height:1.9">
+    <li>n8n her iş akışını <strong>zamanı geldiğinde bir kez</strong>
+        çalıştırır — müşteri başına ayrı ayrı değil.</li>
+    <li>Agency Cortex o anda <strong>yetkili olduğu tüm müşterileri</strong>
+        gezer.</li>
+    <li>Akışı <strong>kapalı</strong> olan müşteri <strong>atlanır</strong>.
+        Bu bir hata değildir; kayıt da oluşmaz.</li>
+    <li>Açık olan her müşteri için iş yapılır ve sonucu buraya yazılır.
+        Bir müşteride çıkan hata diğerlerini <strong>durdurmaz</strong>.</li>
+  </ol>
+  <div class="muted" style="margin-top:12px">
+    Yani müşteri sayısı artınca n8n tarafında hiçbir şey değişmez;
+    yeni müşteri otomatik kapsama girer, siz yalnızca hangi akışın açık
+    olacağını seçersiniz.
+  </div>
+</details>
+
 <div class="warn">
   <b>v1'de yayın yok</b>
   İş akışları araştırır, analiz eder, önerir ve panele yazar.
@@ -78,7 +97,9 @@
         </td>
         <td class="muted">{{ a.zamanlama }}</td>
         <td>
-          {% if a.son_durum == 'succeeded' %}
+          {% if not a.acik %}
+            <span class="sessiz">kapalı — bu müşteride çalışmıyor</span>
+          {% elif a.son_durum == 'succeeded' %}
             <span class="pill p-ok">Başarılı</span>
           {% elif a.son_durum == 'failed' %}
             <span class="pill p-bad">Hata</span>
@@ -87,8 +108,11 @@
           {% else %}
             <span class="sessiz">hiç çalışmadı</span>
           {% endif %}
-          {% if a.son_baslangic %}
+          {% if a.acik and a.son_baslangic %}
           <div class="sessiz">{{ a.son_baslangic.strftime("%d.%m.%Y %H:%M") }}</div>
+          {% endif %}
+          {% if a.acik and a.son_ozet and a.son_ozet.get("yapilacak_is_yoktu") %}
+          <div class="sessiz">çalıştı ama yapacak iş yoktu</div>
           {% endif %}
           {% if a.takildi %}
           <div class="sessiz" style="color:var(--bad)">

@@ -32,7 +32,7 @@ def _dosyalar() -> list[Path]:
 
 def test_akis_dosyalari_mevcut():
     assert AKIS_DIZINI.is_dir(), f"Akis dizini yok: {AKIS_DIZINI}"
-    assert len(_dosyalar()) == 4, "Dort is akisi dosyasi bekleniyor."
+    assert len(_dosyalar()) == 5, "Bes is akisi dosyasi bekleniyor."
 
 
 @pytest.mark.parametrize("yol", _dosyalar(), ids=lambda p: p.name)

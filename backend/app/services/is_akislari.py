@@ -33,6 +33,7 @@ from app.services.ai_runner import run_ai_task
 from app.services.content import build_context, generate_scripts
 from app.services.reports import generate_report
 from app.services.sync import sync_social_account
+from app.services.token_store import load_tokens, save_tokens
 
 log = get_logger("is_akislari")
 
@@ -297,6 +298,119 @@ def wf03_icerik_zekasi(
     )
 
 
+# --- WF-05: Baglanti sagligi ------------------------------------------------
+
+#: Anahtar bu kadar gun kaldiginda yenilenir.
+#
+# NEDEN BU KADAR ERKEN: Instagram'in uzun omurlu anahtari ~60 gun gecerli.
+# Son gune birakmak, o gun bir aksilik (n8n kapali, Meta hata veriyor)
+# oldugunda hesabin olmesi demek. 25 gunluk pay, iki haftalik bir kesintiyi
+# bile tolere eder.
+YENILEME_ESIGI_GUN = 25
+
+#: Bu esigin altina dusup yenilenemeyen anahtar icin uyari uretilir.
+UYARI_ESIGI_GUN = 7
+
+
+def wf05_baglanti_sagligi(db: Session, workspace: Workspace) -> AkisSonucu:
+    """Erisim anahtarlarini suresi dolmadan yeniler.
+
+    BU AKIS OLMADAN sistem yaklasik 60 gun sonra sessizce durur: anahtar
+    suresi dolar, veri cekilemez ve kimse nedenini bilmez.
+
+    Yenilenemeyen anahtar GIZLENMEZ: hesap isaretlenir ve panelde gorunur.
+    """
+    hesaplar = db.execute(
+        select(SocialAccount).where(
+            SocialAccount.workspace_id == workspace.id,
+            SocialAccount.is_active.is_(True),
+        )
+    ).scalars().all()
+
+    if not hesaplar:
+        return AkisSonucu(
+            ozet={"hesap": 0},
+            notlar=["Bu müşteride bağlı hesap yok."],
+            yapilacak_is_yoktu=True,
+        )
+
+    simdi = datetime.now(UTC)
+    toplam = {
+        "hesap": len(hesaplar), "yenilendi": 0,
+        "gerek_yoktu": 0, "yenilenemedi": 0, "suresi_bitiyor": 0,
+    }
+    notlar: list[str] = []
+
+    for hesap in hesaplar:
+        ad = hesap.username or hesap.external_id
+        anahtarlar = load_tokens(
+            db, workspace_id=workspace.id, social_account_id=hesap.id
+        )
+        if anahtarlar is None:
+            toplam["yenilenemedi"] += 1
+            notlar.append(f"{ad}: kayıtlı erişim anahtarı yok, yeniden bağlanmalı.")
+            hesap.sync_error = "Erişim anahtarı yok. Hesabı yeniden bağlayın."
+            continue
+
+        kalan_gun = (
+            (anahtarlar.expires_at - simdi).days
+            if anahtarlar.expires_at is not None else None
+        )
+
+        # Bitis tarihi bilinmiyorsa TAHMIN EDILMEZ; yenileme denenir.
+        # Gereksiz bir yenileme zararsizdir, kacirilmis bir yenileme degil.
+        if kalan_gun is not None and kalan_gun > YENILEME_ESIGI_GUN:
+            toplam["gerek_yoktu"] += 1
+            continue
+
+        if not anahtarlar.refresh_token:
+            toplam["yenilenemedi"] += 1
+            mesaj = (
+                f"{ad}: yenileme anahtarı yok, "
+                + (f"{kalan_gun} gün sonra" if kalan_gun is not None else "süresi dolunca")
+                + " bağlantı kesilecek. Hesabı yeniden bağlayın."
+            )
+            notlar.append(mesaj)
+            hesap.sync_error = mesaj
+            if kalan_gun is not None and kalan_gun <= UYARI_ESIGI_GUN:
+                toplam["suresi_bitiyor"] += 1
+            continue
+
+        try:
+            yeni = get_adapter(hesap.platform).refresh_token(
+                refresh_token=anahtarlar.refresh_token
+            )
+        except PlatformError as hata:
+            toplam["yenilenemedi"] += 1
+            mesaj = f"{ad}: anahtar yenilenemedi ({hata})."
+            notlar.append(mesaj)
+            hesap.sync_error = mesaj[:500]
+            if kalan_gun is not None and kalan_gun <= UYARI_ESIGI_GUN:
+                toplam["suresi_bitiyor"] += 1
+            log.warning(
+                "wf05_yenileme_basarisiz",
+                workspace_id=str(workspace.id),
+                social_account_id=str(hesap.id),
+                error=type(hata).__name__,
+            )
+            continue
+
+        save_tokens(
+            db, workspace_id=workspace.id,
+            social_account_id=hesap.id, tokens=yeni,
+        )
+        # Onceki yenileme hatasi varsa temizlenir: sorun gecti.
+        if hesap.sync_error and "anahtar" in hesap.sync_error.lower():
+            hesap.sync_error = None
+        toplam["yenilendi"] += 1
+
+    db.flush()
+
+    # Yenilenemeyen anahtar VAR ise bu bir hata degil ama sessiz de gecilmez;
+    # ozet ve notlar panelde gorunur.
+    return AkisSonucu(ozet=toplam, notlar=notlar)
+
+
 # --- WF-04: Haftalik zeka raporu --------------------------------------------
 
 def wf04_haftalik_rapor(
@@ -325,4 +439,5 @@ AKISLAR = {
     "wf02_trend": wf02_trend_arastirmasi,
     "wf03_icerik": wf03_icerik_zekasi,
     "wf04_haftalik_rapor": wf04_haftalik_rapor,
+    "wf05_baglanti_sagligi": wf05_baglanti_sagligi,
 }

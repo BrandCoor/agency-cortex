@@ -76,6 +76,16 @@ IS_AKISLARI: tuple[IsAkisi, ...] = (
         ),
         zamanlama="Her pazartesi 08:00",
     ),
+    IsAkisi(
+        anahtar="wf05_baglanti_sagligi",
+        ad="Bağlantı sağlığı",
+        aciklama=(
+            "Bağlı hesapların erişim anahtarlarını süresi dolmadan yeniler "
+            "ve yenilenemeyenleri işaretler. Bu akış olmadan hesaplar "
+            "yaklaşık 60 gün sonra sessizce çalışmaz hale gelir."
+        ),
+        zamanlama="Her gün 06:00",
+    ),
 )
 
 IS_AKISI_ANAHTARLARI = frozenset(a.anahtar for a in IS_AKISLARI)

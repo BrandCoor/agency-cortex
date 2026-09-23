@@ -29,7 +29,7 @@ ISARET="$DIZIN/.n8n-akislari-kuruldu"
 
 KIMLIK_ID="agency-cortex-api"
 KIMLIK_AD="Agency Cortex API"
-AKIS_IDLERI="agency-cortex-wf01 agency-cortex-wf02 agency-cortex-wf03 agency-cortex-wf04"
+AKIS_IDLERI="agency-cortex-wf01 agency-cortex-wf02 agency-cortex-wf03 agency-cortex-wf04 agency-cortex-wf05"
 
 cd "$DIZIN"
 
@@ -174,4 +174,4 @@ if [ -n "$eksik" ]; then
 fi
 
 touch "$ISARET"
-yaz "TAMAM: dort is akisi da kuruldu ve ETKIN."
+yaz "TAMAM: tum is akislari kuruldu ve ETKIN."

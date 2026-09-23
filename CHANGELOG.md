@@ -950,3 +950,76 @@ Cortex'e gerçekten ulaşıp ulaşmadığı):
   için değil, **veri olmadığı için**.
 - **Yedeklerin sunucu dışına kopyalanması** yapılmadı; depolama seçimi
   sizin kararınız.
+
+## [0.12.0] - 2026-09-23 — Hesap bağlama düzeltildi, beşinci iş akışı
+
+### Düzeltildi — "Bağla" düğmesi hiç çalışmamıştı
+Panel, `GET` yönlendirmesiyle bir API ucuna gidiyordu; o uç ise **POST**
+bekliyor ve **Bearer anahtarı** istiyordu. Tarayıcının izlediği yönlendirme
+GET'tir ve çerezle gelir. Meta ayarları eksik olduğu için düğme zaten
+görünmüyordu — hata bu yüzden gizli kalmıştı.
+
+İzin adresi artık panelin kendisinde üretiliyor.
+Kanıt: `test_bagla_dugmesi_meta_izin_ekranina_goturuyor`.
+
+### Düzeltildi — panelden girilen Meta bilgileri hiç okunmuyordu
+Adaptör yalnızca **ortam değişkenlerine** bakıyordu. Kullanıcı anahtarı
+panele girip kaydediyor, hiçbir şey değişmiyordu — sessiz bir çıkmaz sokak.
+
+Tek okuma yolu tanımlandı (`platforms/meta_ayar.py`): önce panel ayarı,
+yoksa ortam değişkeni, o da yoksa doğrulanmış varsayılan.
+
+Ayrıca Meta bilgileri girilmişse sistem **örnek veri moduna düşmüyor**.
+Girilen anahtarları görmezden gelip örnek veri üretmek, o veriyi gerçek
+sanmasına yol açardı.
+
+### Düzeltildi — Meta dönüşünde ham JSON gösteriliyordu
+Bu uca **tarayıcı** gelir. Artık kullanıcı bağlı hesaplar sayfasına,
+sonuç yazılı olarak dönüyor — izin vermese bile.
+
+### Eklendi — WF-05 Bağlantı sağlığı (kritik eksikti)
+**Anahtar yenileme hiç yoktu.** Instagram'ın erişim anahtarı ~60 gün
+geçerli; yenilenmezse bağlı her hesap sessizce çalışmaz hale gelirdi.
+
+- Anahtar **25 gün kala** yenileniyor. Son güne bırakmak riskli olurdu:
+  o gün n8n kapalıysa veya Meta hata veriyorsa hesap ölür.
+- Bitiş tarihi bilinmiyorsa **tahmin edilmiyor**, yenileme deneniyor.
+  Gereksiz bir yenileme zararsız; kaçırılmış bir yenileme değil.
+- Yenilenemeyen anahtar **gizlenmiyor**: hesap işaretleniyor, sebebi
+  Bağlı hesaplar sayfasında yazıyor.
+- Bir hesabın hatası diğerlerini durdurmuyor.
+
+### Düzeltildi — iki iş çift çalışıyordu
+Veri senkronu hem Celery'de (6 saatte bir) hem WF-01'de vardı; haftalık
+rapor ise ikisinde de **pazartesi 08:00** idi. Celery tarafındaki
+çalışmalar panelde **hiç görünmüyordu**. Çift zamanlamalar kaldırıldı;
+iş akışlarının tek sahibi n8n.
+
+### Eklendi — panel artık nasıl çalıştığını anlatıyor
+- "Nasıl çalışıyor?" açılır kutusu: n8n bir kez çalışır, Cortex tüm
+  müşterileri gezer, kapalı olanı atlar.
+- Kapalı akış artık "kapalı — bu müşteride çalışmıyor" diyor. Önce
+  "hiç çalışmadı" yazıyordu ve n8n bozuk sanılabilirdi.
+- "Çalıştı ama yapacak iş yoktu" ayrı gösteriliyor.
+- Örnek veri modundaki platform artık "bağlanabilir" diye gösterilmiyor.
+
+### Doğrulandı — n8n canlıda gerçekten çalışıyor
+Sunucudan ölçüldü:
+```
+=== n8n'deki TUM is akislari ===    (dördü de mevcut)
+=== ETKIN olanlar ===              (dördü de etkin)
+=== Agency Cortex'teki makine anahtari ===
+anahtar: var (acx_da2f4305)
+tum_musteriler: evet
+son_kullanim: 2026-09-23 10:00:00+03:00
+```
+`son_kullanim`, n8n'in Agency Cortex'e **gerçekten ulaştığının** kanıtı.
+
+### Doğrulandı
+- 526/526 test geçti (önceki 507 + 19 yeni).
+- Kuruluma `n8n durumu (tanılama)` adımı eklendi: kurulumdan sonra
+  n8n'deki gerçek durum ölçülüp yazılıyor. "Kurdum" demek yetmez.
+
+### Belge
+- `docs/otomasyon-plani.md`: kaç akış, ne yapıyor, müşteri başına nasıl
+  çalışıyor, müşteri sayısı artınca ne değişiyor.

@@ -36,23 +36,27 @@ celery_app.conf.update(
 # Zamanlanmis isler. Aksamalar ayri asamalarda eklenecek; su an yalnizca
 # sistemin kendi sagligini izleyen is aktif.
 # Saatler Europe/Istanbul'a goredir (timezone ayari yukarida).
+# ZAMANLAMANIN SAHIBI KIM?
+#
+# Is akislari (veri cekme, arastirma, icerik, haftalik rapor, baglanti
+# sagligi) n8n tarafindan zamanlanir ve panelde "Otomasyon" sayfasinda
+# gorunur. Burada TEKRAR zamanlanmazlar.
+#
+# Neden: daha once veri senkronu hem burada (6 saatte bir) hem WF-01'de
+# vardi; haftalik rapor ise ikisinde de PAZARTESI 08:00 idi. Ayni is iki
+# kez calisiyordu ve buradaki calismalar panelde HIC GORUNMUYORDU -
+# kullanici "akis calisti mi" sorusunu cevaplayamazdi.
+#
+# Burada yalnizca n8n'de karsiligi OLMAYAN isler kalir.
 celery_app.conf.beat_schedule = {
     "heartbeat-her-5-dakika": {
         "task": "app.workers.tasks.heartbeat",
         "schedule": crontab(minute="*/5"),
     },
-    # Once veri cekilir, sonra rapor uretilir. Aralarinda pay birakildi.
-    "veri-senkronu-her-6-saat": {
-        "task": "app.workers.tasks.sync_social_accounts",
-        "schedule": crontab(minute=0, hour="*/6"),
-    },
+    # Gunluk ve aylik rapor: n8n'de karsiligi yok (WF-04 haftaliktir).
     "gunluk-rapor-sabah-07": {
         "task": "app.workers.tasks.generate_daily_report",
         "schedule": crontab(minute=30, hour=7),
-    },
-    "haftalik-rapor-pazartesi-08": {
-        "task": "app.workers.tasks.generate_weekly_report",
-        "schedule": crontab(minute=0, hour=8, day_of_week=1),
     },
     "aylik-rapor-ayin-biri-09": {
         "task": "app.workers.tasks.generate_monthly_report",
