@@ -558,3 +558,32 @@ def test_menude_gizlenen_sayfa_adres_yazilinca_da_acilmiyor(client, db, iki_kisi
 
     _giris(client, izleyici)
     assert client.get(f"/panel/musteri/{ws.id}/takvim").status_code == 404
+
+
+def test_sahip_tum_sayfalarda_tum_menuyu_goruyor(client, db, iki_kisi, rapor_olustur):
+    """Menu izinleri bir sayfada hazirlanmazsa o sayfada menu EKSIK gorunur.
+
+    Bu test, izinlerin her musteri sayfasinda hazirlandigini dogrular.
+    """
+    sahip, _, ws = iki_kisi()
+    rapor = rapor_olustur(ws)
+    db.commit()
+    _giris(client, sahip)
+
+    sayfalar = [
+        f"/panel/musteri/{ws.id}",
+        f"/panel/musteri/{ws.id}/marka",
+        f"/panel/musteri/{ws.id}/takvim",
+        f"/panel/musteri/{ws.id}/kampanya",
+        f"/panel/musteri/{ws.id}/hesaplar",
+        f"/panel/musteri/{ws.id}/ekip",
+        f"/panel/musteri/{ws.id}/yetkiler",
+        f"/panel/musteri/{ws.id}/rapor/{rapor.id}",
+    ]
+    for yol in sayfalar:
+        yanit = client.get(yol)
+        assert yanit.status_code == 200, yol
+        for beklenen in ("takvim", "hesaplar", "ekip", "yetkiler"):
+            assert f"/panel/musteri/{ws.id}/{beklenen}" in yanit.text, (
+                f"{yol} sayfasinda menude '{beklenen}' baglantisi eksik"
+            )
