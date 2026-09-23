@@ -1328,3 +1328,27 @@ değerlerin birbiriyle tutarlı olup olmadığını söylüyoruz.
 - 12 panel sayfası gerçek istemciyle çizdirildi; hepsi HTTP 200
 - Stil testi kasten bozularak (bir sınıf tanımı silinerek) gerçekten
   patladığı doğrulandı
+
+## [0.16.1] - 2026-09-23 — Gerçek tarayıcıda görsel doğrulama
+
+Panelin 14 sayfası Chromium ile açılıp koyu ve açık temada resimleri
+alındı. "Test geçiyor" bir şeyin doğru **göründüğünü** kanıtlamaz;
+aşağıdaki dört sorun yalnızca böyle görülebilirdi.
+
+### Düzeltildi
+- **Tema ve vurgu rengi seçimi klavyeyle yapılamıyordu.** Radyo düğmeleri
+  `display:none` ile gizlenmişti; bu onları sekme (Tab) sırasından da
+  çıkarıyordu. Görsel olarak gizli ama erişilebilir hâle getirildi.
+- **Üç menü satırı aynı simgeyi kullanıyordu.** "Özet ve onaylar",
+  "Rakip ve trend" ve "Kampanyalar" ayırt edilemiyordu; ayrıca
+  "Otomasyon" ile "Görünüm" de aynı güneş simgesindeydi. Dördü de kendi
+  simgesini aldı.
+- **Üst çubuktaki tema düğmesi her iki temada güneş gösteriyordu.**
+  Artık yapacağı işi anlatıyor: koyu temada güneş, açık temada ay.
+- **Kırılma yolu (breadcrumb) dört sayfada yarım kalıyordu:**
+  Kampanyalar, Marka bilgileri, Sistem ayarları ve Şifre değiştir.
+
+### Doğrulandı
+- 705/705 test geçti; `ruff check` temiz
+- 14 sayfa × 2 tema = 28 ekran görüntüsü; hiçbirinde giriş ekranına
+  düşme veya "Not Found" yok
