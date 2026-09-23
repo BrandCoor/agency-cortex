@@ -12,10 +12,16 @@ from sqlalchemy import func, select
 
 from app.ai.base import AIProviderError
 from app.ai.registry import provider_status
-from app.api.deps import CurrentUser, DbSession, Workspace_, WorkspaceContext, require_role
+from app.api.deps import (
+    CurrentUser,
+    DbSession,
+    Workspace_,
+    WorkspaceContext,
+    require_permission,
+)
 from app.models.ai import AIRun, AITask
 from app.models.brand import Brand
-from app.models.enums import Platform, WorkspaceRole
+from app.models.enums import Platform
 from app.models.identity import Workspace
 from app.services.ai_runner import BudgetExceeded, month_spend
 from app.services.content import generate_scripts
@@ -85,7 +91,7 @@ class ScriptRequest(BaseModel):
 )
 def create_scripts(
     payload: ScriptRequest,
-    ctx: Annotated[WorkspaceContext, Depends(require_role(WorkspaceRole.STRATEGIST))],
+    ctx: Annotated[WorkspaceContext, Depends(require_permission("icerik.uret"))],
     db: DbSession,
 ) -> dict:
     """Marka baglamina gore platforma ozel senaryolar uretir.

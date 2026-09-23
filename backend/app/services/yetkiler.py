@@ -50,12 +50,13 @@ IZINLER: tuple[Izin, ...] = (
     # --- Icerik ---
     Izin("icerik.uret", "İçerik", "Yapay zekâ ile içerik ürettir",
          "Para harcatır: her üretim AI bütçesinden düşer."),
-    Izin("icerik.duzenle", "İçerik", "İçeriği düzenle",
-         "Taslak içeriği değiştirir."),
-    Izin("icerik.onaya_sun", "İçerik", "İçeriği onaya sun",
-         "İçeriği iç incelemeye veya müşteri incelemesine gönderir."),
-    Izin("icerik.onayla", "İçerik", "İçeriği onayla veya reddet",
-         "Son karardır. Onaylanmayan hiçbir şey planlanamaz."),
+    Izin("icerik.duzenle", "İçerik", "İçeriği düzenle ve iç incelemeye gönder",
+         "Taslağı değiştirir, iç incelemeye gönderir, incelemeden taslağa "
+         "geri çeker."),
+    Izin("icerik.onaya_sun", "İçerik", "Müşteri onayına sun veya reddet",
+         "İçeriği müşteri incelemesine gönderir; uygun değilse reddeder."),
+    Izin("icerik.onayla", "İçerik", "İçeriği onayla veya arşivle",
+         "Son karardır. Onaylanmayan hiçbir şey takvime konulamaz."),
 
     # --- Takvim ---
     Izin("takvim.gor", "Takvim", "Yayın takvimini gör",
@@ -65,7 +66,11 @@ IZINLER: tuple[Izin, ...] = (
 
     # --- Rapor ---
     Izin("rapor.gor", "Rapor", "Raporları gör", "Üretilmiş raporları okur."),
-    Izin("rapor.onayla", "Rapor", "Raporu onayla veya reddet",
+    Izin("rapor.hazirla", "Rapor", "Raporu iç incelemeye gönder",
+         "Üretilen raporu ekip incelemesine alır, taslağa geri çeker."),
+    Izin("rapor.sun", "Rapor", "Raporu müşteriye sun veya reddet",
+         "Raporu müşteri incelemesine gönderir; uygun değilse reddeder."),
+    Izin("rapor.onayla", "Rapor", "Raporu onayla veya arşivle",
          "Raporun müşteriye gösterilebilir hale gelmesini sağlar."),
 
     # --- Otomasyon ---
@@ -100,10 +105,12 @@ VARSAYILAN: dict[WorkspaceRole, frozenset[str]] = {
         "marka.duzenle", "kampanya.yonet", "hesap.gor",
         "icerik.uret", "icerik.duzenle", "icerik.onaya_sun",
         "takvim.gor", "takvim.planla",
-        "rapor.gor", "otomasyon.calistir", "ekip.gor",
+        "rapor.gor", "rapor.hazirla", "rapor.sun",
+        "otomasyon.calistir", "ekip.gor",
     }),
     WorkspaceRole.EDITOR: frozenset({
-        "hesap.gor", "icerik.duzenle", "takvim.gor", "rapor.gor", "ekip.gor",
+        "hesap.gor", "icerik.duzenle", "takvim.gor",
+        "rapor.gor", "rapor.hazirla", "ekip.gor",
     }),
     WorkspaceRole.VIEWER: frozenset({
         "hesap.gor", "takvim.gor", "rapor.gor", "ekip.gor",

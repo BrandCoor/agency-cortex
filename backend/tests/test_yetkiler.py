@@ -10,10 +10,15 @@ Korunan kurallar:
 
 from __future__ import annotations
 
+import datetime as dt
+import pathlib
+import uuid
+
 import pytest
 from sqlalchemy import select
 
-from app.models.enums import WorkspaceRole
+from app.models.enums import ContentStatus, ReportPeriod, WorkspaceRole
+from app.models.reporting import Report
 from app.models.yetki import RoleGrant
 from app.panel.auth import COOKIE_NAME
 from app.services.yetkiler import (
@@ -156,7 +161,8 @@ def test_sayfa_aciliyor_ve_matrisi_gosteriyor(client, db, ortam):
 
     assert yanit.status_code == 200
     assert "Marka bilgilerini düzenle" in yanit.text
-    assert "İçeriği onayla veya reddet" in yanit.text
+    assert "İçeriği onayla veya arşivle" in yanit.text
+    assert "Raporu müşteriye sun veya reddet" in yanit.text
     assert "Stratejist" in yanit.text
 
 
@@ -304,3 +310,251 @@ def test_verilen_izin_gercekten_aciyor(
               "acik": "1"},
     )
     assert sonra.status_code == 200
+
+
+# --- Once HIC uygulanmayan izinler -------------------------------------------
+#
+# Bu izinler katalogda vardi, panelde acilip kapatilabiliyordu ama HICBIR
+# YERDE kontrol edilmiyordu. Yani kullanici izni kapatiyor, sayfa yine
+# aciliyordu. Asagidaki testler her birinin GERCEKTEN uygulandigini
+# gosterir; biri tekrar sessizce kopdugunda test duser.
+
+def _izni_kaldir(client, db, sahip, ws, rol: WorkspaceRole, izin: str) -> None:
+    """Sahip olarak girip bir rolden tek bir izni kaldirir."""
+    _giris(client, sahip)
+    yanit = client.post(
+        f"/panel/musteri/{ws.id}/yetkiler/kaydet",
+        data={"rol": rol.value, "izin": sorted(VARSAYILAN[rol] - {izin})},
+    )
+    assert yanit.status_code in (200, 303)
+    db.expire_all()
+    assert izin_var_mi(db, ws.id, rol, izin) is False
+    client.post("/panel/cikis")
+
+
+@pytest.fixture
+def iki_kisi(client, db, make_user, make_workspace, add_member):
+    """Sahip (ayari yapan) + izleyici (kisitlanan)."""
+    def _kur(rol=WorkspaceRole.VIEWER):
+        sahip = make_user(password=SIFRE)
+        kisi = make_user(password=SIFRE)
+        ws = make_workspace(name="Uygulama Kontrolu")
+        add_member(ws, sahip, WorkspaceRole.OWNER)
+        add_member(ws, kisi, rol)
+        db.commit()
+        return sahip, kisi, ws
+
+    return _kur
+
+
+@pytest.mark.parametrize(
+    ("izin", "yol"),
+    [
+        ("hesap.gor", "hesaplar"),
+        ("ekip.gor", "ekip"),
+        ("takvim.gor", "takvim"),
+    ],
+)
+def test_gorme_izni_kaldirilinca_sayfa_acilmiyor(client, db, iki_kisi, izin, yol):
+    sahip, kisi, ws = iki_kisi()
+
+    # Once ACILIYOR: testin bir sey olcttugunu kanitlar.
+    _giris(client, kisi)
+    assert client.get(f"/panel/musteri/{ws.id}/{yol}").status_code == 200
+    client.post("/panel/cikis")
+
+    _izni_kaldir(client, db, sahip, ws, WorkspaceRole.VIEWER, izin)
+
+    # Artik 404: 403 degil, cunku sayfanin VARLIGI bile bilgi sizdirir.
+    _giris(client, kisi)
+    assert client.get(f"/panel/musteri/{ws.id}/{yol}").status_code == 404
+
+
+@pytest.fixture
+def rapor_olustur(db):
+    def _kur(ws, durum=ContentStatus.INTERNAL_REVIEW):
+        rapor = Report(
+            workspace_id=ws.id, period=ReportPeriod.WEEKLY,
+            period_start=dt.date(2026, 9, 14), period_end=dt.date(2026, 9, 20),
+            title="Haftalık rapor", status=durum,
+        )
+        db.add(rapor)
+        db.flush()
+        return rapor
+
+    return _kur
+
+
+def test_rapor_gor_izni_kaldirilinca_rapor_acilmiyor(
+    client, db, iki_kisi, rapor_olustur
+):
+    sahip, kisi, ws = iki_kisi()
+    rapor = rapor_olustur(ws)
+    db.commit()
+
+    _giris(client, kisi)
+    assert client.get(f"/panel/musteri/{ws.id}/rapor/{rapor.id}").status_code == 200
+    client.post("/panel/cikis")
+
+    _izni_kaldir(client, db, sahip, ws, WorkspaceRole.VIEWER, "rapor.gor")
+
+    _giris(client, kisi)
+    assert client.get(f"/panel/musteri/{ws.id}/rapor/{rapor.id}").status_code == 404
+
+
+def test_onay_izni_kaldirilinca_onay_verilemiyor(client, db, iki_kisi, rapor_olustur):
+    """Onay, yetki sisteminin en kritik kapisi.
+
+    ONCEDEN bu kontrol koda gomulu ROLE bakiyordu; panelden yapilan ayarin
+    hicbir etkisi yoktu.
+    """
+    sahip, yonetici, ws = iki_kisi(WorkspaceRole.ADMIN)
+    rapor = rapor_olustur(ws, durum=ContentStatus.CLIENT_REVIEW)
+    db.commit()
+
+    _izni_kaldir(client, db, sahip, ws, WorkspaceRole.ADMIN, "rapor.onayla")
+
+    _giris(client, yonetici)
+    yanit = client.post(
+        f"/panel/musteri/{ws.id}/rapor/{rapor.id}/karar",
+        data={"target": "approved", "comment": ""},
+        follow_redirects=False,
+    )
+    # Yonlendirme icinde hata tasinir; ASIL kanit raporun durumudur.
+    assert yanit.status_code == 303
+    db.expire_all()
+    assert db.get(Report, rapor.id).status is ContentStatus.CLIENT_REVIEW
+
+
+def test_verilen_onay_izni_gercekten_aciyor(client, db, iki_kisi, rapor_olustur):
+    """Izin vermek de calismali; yoksa ayar tek yonlu olurdu."""
+    sahip, stratejist, ws = iki_kisi(WorkspaceRole.STRATEGIST)
+    rapor = rapor_olustur(ws, durum=ContentStatus.CLIENT_REVIEW)
+    db.commit()
+
+    # Stratejist varsayilan olarak rapor ONAYLAYAMAZ.
+    assert izin_var_mi(db, ws.id, WorkspaceRole.STRATEGIST, "rapor.onayla") is False
+
+    _giris(client, sahip)
+    client.post(
+        f"/panel/musteri/{ws.id}/yetkiler/kaydet",
+        data={
+            "rol": "strategist",
+            "izin": sorted(VARSAYILAN[WorkspaceRole.STRATEGIST] | {"rapor.onayla"}),
+        },
+    )
+    client.post("/panel/cikis")
+
+    _giris(client, stratejist)
+    client.post(
+        f"/panel/musteri/{ws.id}/rapor/{rapor.id}/karar",
+        data={"target": "approved", "comment": ""},
+        follow_redirects=False,
+    )
+    db.expire_all()
+    assert db.get(Report, rapor.id).status is ContentStatus.APPROVED
+
+
+def test_dugme_gorunmuyorsa_sunucu_da_reddediyor(client, db, iki_kisi, rapor_olustur):
+    """Panelde gizlenen secenek, ELLE gonderildiginde de reddedilmeli."""
+    sahip, yonetici, ws = iki_kisi(WorkspaceRole.ADMIN)
+    rapor = rapor_olustur(ws, durum=ContentStatus.CLIENT_REVIEW)
+    db.commit()
+
+    _izni_kaldir(client, db, sahip, ws, WorkspaceRole.ADMIN, "rapor.onayla")
+
+    _giris(client, yonetici)
+    sayfa = client.get(f"/panel/musteri/{ws.id}/rapor/{rapor.id}")
+    assert sayfa.status_code == 200
+    # Secenek listede YOK...
+    assert 'value="approved"' not in sayfa.text
+    # ...ve elle gonderilse de gecmiyor (yukaridaki test bunu kanitliyor).
+
+
+def test_icerik_uret_izni_api_ucunda_da_uygulaniyor(
+    client, db, make_user, make_workspace, add_member, auth_headers
+):
+    """AI uretimi PARA HARCATIR; izin kontrolu API ucunda da olmali.
+
+    Bu uc daha once sabit bir ROL bekliyordu. Panelden 'içerik ürettir'
+    iznini kapatmak, bu ucu HIC etkilemiyordu.
+    """
+    stratejist = make_user(password=SIFRE)
+    ws = make_workspace(name="AI Izni")
+    add_member(ws, stratejist, WorkspaceRole.STRATEGIST)
+    db.commit()
+
+    govde = {
+        "brand_id": str(uuid.uuid4()),
+        "platforms": ["instagram"],
+        "brief": "Baklava tanitimi icin kisa video",
+    }
+    yol = f"/api/v1/workspaces/{ws.id}/ai/content-scripts"
+
+    # Izin varken: yetki kapisi GECILIR. (Marka uydurma oldugu icin 404;
+    # onemli olan 403 OLMAMASI.)
+    ilk = client.post(yol, json=govde, headers=auth_headers(stratejist))
+    assert ilk.status_code == 404
+
+    izinleri_yaz(
+        db, ws.id, WorkspaceRole.STRATEGIST,
+        set(VARSAYILAN[WorkspaceRole.STRATEGIST] - {"icerik.uret"}),
+    )
+    db.commit()
+
+    sonra = client.post(yol, json=govde, headers=auth_headers(stratejist))
+    assert sonra.status_code == 403
+    assert "icerik.uret" in sonra.json()["detail"]
+
+
+def test_her_izin_bir_yerde_gercekten_kontrol_ediliyor():
+    """Katalogda olup HICBIR YERDE kontrol edilmeyen izin olmamali.
+
+    Boyle bir izin, panelde acilip kapatilabilen ama hicbir sey yapmayan
+    bir dugme demektir. Bu test bir kez dustu: 19 iznin 8'i hicbir yerde
+    kontrol edilmiyordu.
+    """
+    # Calisma dizinine BAGIMLI olmasin: test dosyasindan turetilir.
+    kok = pathlib.Path(__file__).resolve().parent.parent / "app"
+    kaynak = ""
+    for dosya in kok.rglob("*.py"):
+        if dosya.name == "yetkiler.py":
+            continue
+        kaynak += dosya.read_text(encoding="utf-8")
+
+    kontrolsuz = sorted(i for i in IZIN_ANAHTARLARI if f'"{i}"' not in kaynak)
+    assert kontrolsuz == [], (
+        "Bu izinler panelde gorunuyor ama hicbir yerde uygulanmiyor: "
+        + ", ".join(kontrolsuz)
+    )
+
+
+# --- Kenar menu ---------------------------------------------------------------
+
+def test_menu_acilamayan_sayfayi_gostermiyor(client, db, iki_kisi):
+    """Tiklayinca "Bulunamadı" veren baglanti, calismayan bir dugmedir."""
+    sahip, izleyici, ws = iki_kisi()
+
+    _giris(client, izleyici)
+    once = client.get(f"/panel/musteri/{ws.id}")
+    assert once.status_code == 200
+    assert f"/panel/musteri/{ws.id}/takvim" in once.text
+    # İzleyicide "Yetkiler" zaten olmamali (varsayilanda yetki.duzenle yok).
+    assert f"/panel/musteri/{ws.id}/yetkiler" not in once.text
+    client.post("/panel/cikis")
+
+    _izni_kaldir(client, db, sahip, ws, WorkspaceRole.VIEWER, "takvim.gor")
+
+    _giris(client, izleyici)
+    sonra = client.get(f"/panel/musteri/{ws.id}")
+    assert sonra.status_code == 200
+    assert f"/panel/musteri/{ws.id}/takvim" not in sonra.text
+
+
+def test_menude_gizlenen_sayfa_adres_yazilinca_da_acilmiyor(client, db, iki_kisi):
+    """Menude gizlemek GUVENLIK DEGILDIR; kilit sayfanin kendisinde."""
+    sahip, izleyici, ws = iki_kisi()
+    _izni_kaldir(client, db, sahip, ws, WorkspaceRole.VIEWER, "takvim.gor")
+
+    _giris(client, izleyici)
+    assert client.get(f"/panel/musteri/{ws.id}/takvim").status_code == 404

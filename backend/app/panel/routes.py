@@ -31,16 +31,17 @@ from app.models.identity import User, Workspace, WorkspaceMember
 from app.models.reporting import Report, ReportSection
 from app.models.social import SocialAccount
 from app.panel.auth import clear_session_cookie, current_user_from_cookie, set_session_cookie
+from app.panel.ortak import uyelik_bul
 from app.platforms.base import PlatformError
 from app.platforms.meta_ayar import meta_ayarlarini_oku
 from app.platforms.registry import get_adapter, platform_status
 from app.services.ai_runner import month_spend
 from app.services.approvals import (
     ALLOWED_TRANSITIONS,
-    REQUIRED_ROLE,
     ApprovalError,
     approval_history,
     can_publish,
+    gerekli_izin,
     transition,
 )
 from app.services.baglanti_sinama import SINAYICILAR, sina
@@ -82,27 +83,25 @@ def _giris_yonlendir() -> RedirectResponse:
     return RedirectResponse("/panel/giris", status_code=status.HTTP_303_SEE_OTHER)
 
 
-def _uyelik(db, user: User, workspace_id: uuid.UUID) -> WorkspaceMember | None:
-    return db.execute(
-        select(WorkspaceMember).where(
-            WorkspaceMember.workspace_id == workspace_id,
-            WorkspaceMember.user_id == user.id,
-        )
-    ).scalar_one_or_none()
-
-
-def _izinli_hedefler(mevcut: ContentStatus, rol: WorkspaceRole) -> list[str]:
+def _izinli_hedefler(
+    db, workspace_id: uuid.UUID, mevcut: ContentStatus,
+    rol: WorkspaceRole, tur: str,
+) -> list[str]:
     """Kullanicinin bu durumdan gidebilecegi durumlar.
 
     Yetkisi yetmeyen secenekler listede GOSTERILMEZ; kullanici
     yapamayacagi bir seyi denemek zorunda kalmaz.
+
+    Ayni izin tablosunu `transition` da kullanir. Burasi yalnizca
+    GORUNUMU belirler; asil kilit servis katmanindadir. Ikisi ayri
+    tablolara baksaydi, panelde gorunen bir dugme sunucuda reddedilirdi.
     """
     sonuc = []
     for hedef in ALLOWED_TRANSITIONS.get(mevcut, set()):
         # Yayinlama kilidi kapali oldugu icin bu secenek hic sunulmaz.
         if hedef is ContentStatus.PUBLISHED:
             continue
-        if rol.covers(REQUIRED_ROLE.get(hedef, WorkspaceRole.ADMIN)):
+        if izin_var_mi(db, workspace_id, rol, gerekli_izin(tur, hedef)):
             sonuc.append(hedef.value)
     return sorted(sonuc)
 
@@ -370,7 +369,7 @@ def workspace_page(workspace_id: uuid.UUID, request: Request, db: DbSession):
     if user is None:
         return _giris_yonlendir()
 
-    uyelik = _uyelik(db, user, workspace_id)
+    uyelik = uyelik_bul(request, db, user, workspace_id)
     if uyelik is None:
         return HTMLResponse("Bulunamadı.", status_code=404)
 
@@ -473,7 +472,7 @@ def brand_page(workspace_id: uuid.UUID, request: Request, db: DbSession):
     user = current_user_from_cookie(request, db)
     if user is None:
         return _giris_yonlendir()
-    uyelik = _uyelik(db, user, workspace_id)
+    uyelik = uyelik_bul(request, db, user, workspace_id)
     if uyelik is None:
         return HTMLResponse("Bulunamadı.", status_code=404)
     return _marka_sayfasi(request, db, user, uyelik, db.get(Workspace, workspace_id))
@@ -497,7 +496,7 @@ def brand_submit(
     user = current_user_from_cookie(request, db)
     if user is None:
         return _giris_yonlendir()
-    uyelik = _uyelik(db, user, workspace_id)
+    uyelik = uyelik_bul(request, db, user, workspace_id)
     if uyelik is None:
         return HTMLResponse("Bulunamadı.", status_code=404)
 
@@ -594,8 +593,12 @@ def members_page(workspace_id: uuid.UUID, request: Request, db: DbSession):
     user = current_user_from_cookie(request, db)
     if user is None:
         return _giris_yonlendir()
-    uyelik = _uyelik(db, user, workspace_id)
+    uyelik = uyelik_bul(request, db, user, workspace_id)
     if uyelik is None:
+        return HTMLResponse("Bulunamadı.", status_code=404)
+    if not izin_var_mi(db, workspace_id, uyelik.role, "ekip.gor"):
+        # 404, 403 degil: yetkisi olmayan kisiye sayfanin VARLIGI bile
+        # bilgi verir. "Yok" demek en az bilgi sizdiran cevaptir.
         return HTMLResponse("Bulunamadı.", status_code=404)
     return _ekip_sayfasi(request, db, user, uyelik, db.get(Workspace, workspace_id))
 
@@ -611,7 +614,7 @@ def member_add(
     user = current_user_from_cookie(request, db)
     if user is None:
         return _giris_yonlendir()
-    uyelik = _uyelik(db, user, workspace_id)
+    uyelik = uyelik_bul(request, db, user, workspace_id)
     if uyelik is None:
         return HTMLResponse("Bulunamadı.", status_code=404)
 
@@ -685,7 +688,7 @@ def member_role_change(
     user = current_user_from_cookie(request, db)
     if user is None:
         return _giris_yonlendir()
-    uyelik = _uyelik(db, user, workspace_id)
+    uyelik = uyelik_bul(request, db, user, workspace_id)
     if uyelik is None:
         return HTMLResponse("Bulunamadı.", status_code=404)
 
@@ -761,7 +764,7 @@ def member_remove(
     user = current_user_from_cookie(request, db)
     if user is None:
         return _giris_yonlendir()
-    uyelik = _uyelik(db, user, workspace_id)
+    uyelik = uyelik_bul(request, db, user, workspace_id)
     if uyelik is None:
         return HTMLResponse("Bulunamadı.", status_code=404)
 
@@ -978,7 +981,7 @@ def campaigns_page(workspace_id: uuid.UUID, request: Request, db: DbSession):
     user = current_user_from_cookie(request, db)
     if user is None:
         return _giris_yonlendir()
-    uyelik = _uyelik(db, user, workspace_id)
+    uyelik = uyelik_bul(request, db, user, workspace_id)
     if uyelik is None:
         return HTMLResponse("Bulunamadı.", status_code=404)
     return _kampanya_sayfasi(request, db, user, uyelik, db.get(Workspace, workspace_id))
@@ -997,7 +1000,7 @@ def campaign_create(
     user = current_user_from_cookie(request, db)
     if user is None:
         return _giris_yonlendir()
-    uyelik = _uyelik(db, user, workspace_id)
+    uyelik = uyelik_bul(request, db, user, workspace_id)
     if uyelik is None:
         return HTMLResponse("Bulunamadı.", status_code=404)
 
@@ -1058,7 +1061,7 @@ def campaign_delete(
     user = current_user_from_cookie(request, db)
     if user is None:
         return _giris_yonlendir()
-    uyelik = _uyelik(db, user, workspace_id)
+    uyelik = uyelik_bul(request, db, user, workspace_id)
     if uyelik is None:
         return HTMLResponse("Bulunamadı.", status_code=404)
 
@@ -1205,8 +1208,13 @@ def accounts_page(
     user = current_user_from_cookie(request, db)
     if user is None:
         return _giris_yonlendir()
-    uyelik = _uyelik(db, user, workspace_id)
+    uyelik = uyelik_bul(request, db, user, workspace_id)
     if uyelik is None:
+        return HTMLResponse("Bulunamadı.", status_code=404)
+
+    if not izin_var_mi(db, workspace_id, uyelik.role, "hesap.gor"):
+        # 404, 403 degil: yetkisi olmayan kisiye sayfanin VARLIGI bile
+        # bilgi verir. "Yok" demek en az bilgi sizdiran cevaptir.
         return HTMLResponse("Bulunamadı.", status_code=404)
 
     return _hesaplar_sayfasi(
@@ -1232,7 +1240,7 @@ def account_connect(
     user = current_user_from_cookie(request, db)
     if user is None:
         return _giris_yonlendir()
-    uyelik = _uyelik(db, user, workspace_id)
+    uyelik = uyelik_bul(request, db, user, workspace_id)
     if uyelik is None:
         return HTMLResponse("Bulunamadı.", status_code=404)
 
@@ -1340,7 +1348,7 @@ def script_page(
     if user is None:
         return _giris_yonlendir()
 
-    uyelik = _uyelik(db, user, workspace_id)
+    uyelik = uyelik_bul(request, db, user, workspace_id)
     if uyelik is None:
         return HTMLResponse("Bulunamadı.", status_code=404)
 
@@ -1362,7 +1370,9 @@ def script_page(
             "workspace": db.get(Workspace, workspace_id),
             "script": s,
             "status_labels": STATUS_LABELS,
-            "allowed_targets": _izinli_hedefler(s.status, uyelik.role),
+            "allowed_targets": _izinli_hedefler(
+                db, workspace_id, s.status, uyelik.role, "content_script",
+            ),
             "publish_reason": gerekce,
             "history": approval_history(
                 db, workspace_id=workspace_id,
@@ -1384,7 +1394,7 @@ def script_decision(
     if user is None:
         return _giris_yonlendir()
 
-    uyelik = _uyelik(db, user, workspace_id)
+    uyelik = uyelik_bul(request, db, user, workspace_id)
     if uyelik is None:
         return HTMLResponse("Bulunamadı.", status_code=404)
 
@@ -1425,8 +1435,13 @@ def report_page(
     if user is None:
         return _giris_yonlendir()
 
-    uyelik = _uyelik(db, user, workspace_id)
+    uyelik = uyelik_bul(request, db, user, workspace_id)
     if uyelik is None:
+        return HTMLResponse("Bulunamadı.", status_code=404)
+
+    if not izin_var_mi(db, workspace_id, uyelik.role, "rapor.gor"):
+        # 404, 403 degil: yetkisi olmayan kisiye sayfanin VARLIGI bile
+        # bilgi verir. "Yok" demek en az bilgi sizdiran cevaptir.
         return HTMLResponse("Bulunamadı.", status_code=404)
 
     r = db.execute(
@@ -1446,7 +1461,9 @@ def report_page(
                 .order_by(ReportSection.order_index)
             ).scalars().all(),
             "status_labels": STATUS_LABELS,
-            "allowed_targets": _izinli_hedefler(r.status, uyelik.role),
+            "allowed_targets": _izinli_hedefler(
+                db, workspace_id, r.status, uyelik.role, "report",
+            ),
             "error": error,
         },
     )
@@ -1462,7 +1479,7 @@ def report_decision(
     if user is None:
         return _giris_yonlendir()
 
-    uyelik = _uyelik(db, user, workspace_id)
+    uyelik = uyelik_bul(request, db, user, workspace_id)
     if uyelik is None:
         return HTMLResponse("Bulunamadı.", status_code=404)
 

@@ -306,6 +306,10 @@
     </a>
 
     {% if workspace %}
+      {# Yalnizca ACILABILEN sayfalar listelenir. Izni olmayana baglanti
+         gostermek, tiklayinca "Bulunamadı" almasi demekti. Gizlemek
+         guvenlik DEGILDIR; asil kilit sayfalarin kendisindedir. #}
+      {% set izinler = request.state.izinler or [] %}
       <div class="baslik musteri" title="{{ workspace.name }}">
         <span class="pill p-acc">Müşteri</span> {{ workspace.name }}
       </div>
@@ -313,16 +317,24 @@
          href="/panel/musteri/{{ workspace.id }}">{{ ikon('ozet') }} Özet ve onaylar</a>
       <a class="bag {% if aktif == 'marka' %}aktif{% endif %}"
          href="/panel/musteri/{{ workspace.id }}/marka">{{ ikon('marka') }} Marka bilgileri</a>
+      {% if 'takvim.gor' in izinler %}
       <a class="bag {% if aktif == 'takvim' %}aktif{% endif %}"
          href="/panel/musteri/{{ workspace.id }}/takvim">{{ ikon('kampanya') }} Takvim</a>
+      {% endif %}
       <a class="bag {% if aktif == 'kampanya' %}aktif{% endif %}"
          href="/panel/musteri/{{ workspace.id }}/kampanya">{{ ikon('ozet') }} Kampanyalar</a>
+      {% if 'hesap.gor' in izinler %}
       <a class="bag {% if aktif == 'hesaplar' %}aktif{% endif %}"
          href="/panel/musteri/{{ workspace.id }}/hesaplar">{{ ikon('hesaplar') }} Bağlı hesaplar</a>
+      {% endif %}
+      {% if 'ekip.gor' in izinler %}
       <a class="bag {% if aktif == 'ekip' %}aktif{% endif %}"
          href="/panel/musteri/{{ workspace.id }}/ekip">{{ ikon('ekip') }} Ekip</a>
+      {% endif %}
+      {% if 'yetki.duzenle' in izinler %}
       <a class="bag {% if aktif == 'yetkiler' %}aktif{% endif %}"
          href="/panel/musteri/{{ workspace.id }}/yetkiler">{{ ikon('sifre') }} Yetkiler</a>
+      {% endif %}
     {% endif %}
 
     {% if user.is_superuser %}

@@ -1072,3 +1072,46 @@ izin veriliyor.
 - Yeni yetki testleri, izni alınmış kullanıcının isteği **elle**
   gönderdiğinde de reddedildiğini gösteriyor; kontrol yalnızca arayüzde
   gizlemek değil.
+
+## [0.13.1] - 2026-09-23 — Yetki ekranının çalışmayan yarısı düzeltildi
+
+### Düzeltildi — 19 iznin 8'i hiçbir şey yapmıyordu
+Bir önceki sürümde tanımlanan izinlerin **8'i hiçbir yerde kontrol
+edilmiyordu**: `hesap.gor`, `ekip.gor`, `rapor.gor`, `rapor.onayla`,
+`icerik.uret`, `icerik.duzenle`, `icerik.onaya_sun`, `icerik.onayla`.
+Panelde açılıp kapatılıyor, hiçbir şey değişmiyordu. İçerik ve rapor
+onayı hâlâ koda gömülü **role** bakıyordu.
+
+Artık hepsi uygulanıyor:
+- İçerik/rapor onay geçişleri izin tablosuna bakıyor (sabit rol tablosu
+  kaldırıldı).
+- Bağlı hesaplar, Ekip, Rapor sayfaları görüntüleme iznine bağlandı.
+- AI içerik üretim ucu (`POST /ai/content-scripts`) artık `icerik.uret`
+  iznini istiyor — **para harcatan** bir uç olduğu için önemli.
+
+**Kimsenin yetkisi değişmedi.** İzin→varsayılan eşlemesi eski rol
+tablosunu birebir tekrar ediyor. Kanıt: mevcut onay testlerinin hiçbiri
+değişmedi.
+
+### Eklendi — iki yeni izin (17 → 19)
+`rapor.hazirla` (raporu iç incelemeye gönder) ve `rapor.sun` (müşteriye
+sun veya reddet). Eski tabloda bu iki iş **farklı** yetki seviyesindeydi;
+tek izne indirmek birinin yetkisini değiştirirdi.
+
+### Eklendi — tekrar olmasın diye bekçi test
+`test_her_izin_bir_yerde_gercekten_kontrol_ediliyor`: katalogdaki her
+izni kaynak kodda arar. Uygulanmayan bir izin eklenirse test düşer.
+Bu test ilk yazıldığında **8 izinle düşüyordu**.
+
+### Düzeltildi — menüde tıklayınca "Bulunamadı" veren bağlantılar
+Kenar menü artık yalnızca **açılabilen** sayfaları gösteriyor. Menüde
+gizlemek güvenlik değildir; adres elle yazıldığında da 404 dönüyor
+(test ile kanıtlandı).
+
+### Temizlik
+Üyelik sorgusunun üç ayrı kopyası tek yardımcıya indirildi
+(`panel/ortak.py`).
+
+### Doğrulandı
+- **580/580 test geçti** (569 + 11 yeni).
+- `ruff check app tests` temiz, `alembic check` temiz.

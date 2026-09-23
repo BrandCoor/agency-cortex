@@ -898,3 +898,50 @@ Format: Karar / Seçenekler / Neden / Risk / Geri alma
 - **Geri alma:** Takvim sayfası kaldırılabilir; `content_calendar`
   tablosu zaten vardı, yeni sütunlar (kim planladı / ne zaman
   yayınlandı) geri alınabilir bir migration ile eklendi.
+
+---
+
+## K-048 — İzinler artık gerçekten uygulanıyor (K-046'nın açık kalan yarısı)
+
+- **Bulgu:** K-046 ile 17 izin tanımlanmıştı ama **8'i hiçbir yerde
+  kontrol edilmiyordu**: `hesap.gor`, `ekip.gor`, `rapor.gor`,
+  `rapor.onayla`, `icerik.uret`, `icerik.duzenle`, `icerik.onaya_sun`,
+  `icerik.onayla`. Panelde bu anahtarlar açılıp kapatılıyor, hiçbir şey
+  değişmiyordu. İçerik ve rapor onayı hâlâ koda gömülü **role** bakıyordu.
+  Yani yetki ekranının yarısı **çalışmayan düğmeydi**.
+- **Karar:** Onay durum makinesindeki sabit rol tablosu (`REQUIRED_ROLE`)
+  kaldırıldı; yerine izin tablosu geldi (`IZIN_ICERIK`, `IZIN_RAPOR`).
+  Görüntüleme izinleri sayfaların kendisinde zorlanıyor. AI üretim ucu
+  için `require_permission` bağımlılığı eklendi.
+- **Kimsenin yetkisi değişmedi:** İzin→varsayılan eşlemesi eski rol
+  tablosunu **birebir** tekrar edecek şekilde seçildi:
+  `icerik.duzenle`→EDİTÖR+, `icerik.onaya_sun`→STRATEJİST+,
+  `icerik.onayla`→YÖNETİCİ+, `takvim.planla`→STRATEJİST+. Kanıt: bu
+  değişiklikten sonra mevcut onay testlerinin **hiçbiri değişmedi**.
+- **İki yeni izin:** Raporun iç incelemeye alınması (editör) ile müşteriye
+  sunulması (stratejist) eski tabloda **farklı** seviyelerdeydi. Tek izne
+  indirmek birinin yetkisini değiştirirdi; bu yüzden `rapor.hazirla` ve
+  `rapor.sun` ayrı tanımlandı. Toplam izin 17 → 19.
+- **Tekrarlanmasın diye test:** `test_her_izin_bir_yerde_gercekten_
+  kontrol_ediliyor` katalogdaki her izni kaynakta arar. Kontrolsüz bir
+  izin eklenirse test düşer. Bu test yazıldığında **8 izinle düşüyordu**.
+- **Risk:** İzin anahtarı metin olarak aranıyor; farklı yazılan bir
+  anahtar testi yanıltabilir. Buna karşı `izin_var_mi` tanımsız izinde
+  **hata fırlatır**, sessizce kapı açmaz.
+
+---
+
+## K-049 — Kenar menüde yalnızca açılabilen sayfalar görünür
+
+- **Sorun:** Menü, üyeliği olan herkese bütün bağlantıları gösteriyordu.
+  İzni olmayan biri "Yetkiler"e tıklayınca "Bulunamadı" alıyordu.
+- **Karar:** Üyelik bulunan her istekte kişinin bu müşterideki geçerli
+  izinleri `request.state.izinler` içine konur; şablon buna bakar.
+- **Gizlemek güvenlik değildir:** Asıl kilit sayfaların kendisindedir.
+  `test_menude_gizlenen_sayfa_adres_yazilinca_da_acilmiyor` bunu
+  kanıtlıyor: adres elle yazıldığında da 404 dönüyor.
+- **Menü sayfayı düşürmez:** İzinler okunamazsa menü eksik görünür ama
+  sayfa yine açılır. Menü yüzünden çalışan bir sayfanın kapanması, kârdan
+  çok zarar olurdu.
+- **Yan fayda:** Üyelik sorgusunun **üç ayrı kopyası** tek bir yardımcıya
+  (`panel/ortak.py`) indirildi. Kopyalar zamanla birbirinden ayrılırdı.

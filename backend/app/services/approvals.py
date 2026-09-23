@@ -58,10 +58,10 @@ class InvalidTransition(ApprovalError):
 class InsufficientRole(ApprovalError):
     """Bu gecis icin yetki yetersiz."""
 
-    def __init__(self, required: WorkspaceRole, target: ContentStatus) -> None:
+    def __init__(self, required: str, target: ContentStatus) -> None:
         super().__init__(
-            f"'{target.value}' durumuna gecirmek icin en az "
-            f"'{required.value}' yetkisi gerekir."
+            f"'{target.value}' durumuna gecirmek icin '{required}' "
+            f"izni gerekir. Bu izin bu musteride rolunuze verilmemis."
         )
         self.required = required
 
@@ -120,18 +120,48 @@ ALLOWED_TRANSITIONS: dict[ContentStatus, set[ContentStatus]] = {
     ContentStatus.ARCHIVED: set(),
 }
 
-# Her gecis icin gereken en dusuk yetki.
-REQUIRED_ROLE: dict[ContentStatus, WorkspaceRole] = {
-    ContentStatus.INTERNAL_REVIEW: WorkspaceRole.EDITOR,
-    ContentStatus.CLIENT_REVIEW: WorkspaceRole.STRATEGIST,
-    # Onay vermek ve reddetmek yonetici yetkisi ister.
-    ContentStatus.APPROVED: WorkspaceRole.ADMIN,
-    ContentStatus.REJECTED: WorkspaceRole.STRATEGIST,
-    ContentStatus.SCHEDULED: WorkspaceRole.STRATEGIST,
-    ContentStatus.PUBLISHED: WorkspaceRole.ADMIN,
-    ContentStatus.DRAFT: WorkspaceRole.EDITOR,
-    ContentStatus.ARCHIVED: WorkspaceRole.ADMIN,
+# Her gecis icin gereken IZIN.
+#
+# ONCEDEN burada sabit bir ROL vardi ve degistirilemezdi. Artik her gecis
+# bir izne baglidir; izinler ise musteri basina panelden ayarlanabilir
+# (bkz. services/yetkiler.py).
+#
+# VARSAYILAN dagitim, eski rol tablosunu BIREBIR tekrar eder:
+#   icerik.duzenle    -> EDITOR+      (eski: DRAFT, INTERNAL_REVIEW)
+#   icerik.onaya_sun  -> STRATEGIST+  (eski: CLIENT_REVIEW, REJECTED)
+#   icerik.onayla     -> ADMIN+       (eski: APPROVED, PUBLISHED, ARCHIVED)
+#   takvim.planla     -> STRATEGIST+  (eski: SCHEDULED)
+# Yani bu degisiklikle hic kimsenin yetkisi artmadi veya azalmadi.
+IZIN_ICERIK: dict[ContentStatus, str] = {
+    ContentStatus.DRAFT: "icerik.duzenle",
+    ContentStatus.INTERNAL_REVIEW: "icerik.duzenle",
+    ContentStatus.CLIENT_REVIEW: "icerik.onaya_sun",
+    ContentStatus.REJECTED: "icerik.onaya_sun",
+    ContentStatus.APPROVED: "icerik.onayla",
+    ContentStatus.ARCHIVED: "icerik.onayla",
+    ContentStatus.PUBLISHED: "icerik.onayla",
+    # Takvime koymak takvim iznidir; icerik izni degil.
+    ContentStatus.SCHEDULED: "takvim.planla",
 }
+
+#: Rapor gecisleri. Ayni mantik, rapor izinleriyle.
+IZIN_RAPOR: dict[ContentStatus, str] = {
+    ContentStatus.DRAFT: "rapor.hazirla",
+    ContentStatus.INTERNAL_REVIEW: "rapor.hazirla",
+    ContentStatus.CLIENT_REVIEW: "rapor.sun",
+    ContentStatus.REJECTED: "rapor.sun",
+    ContentStatus.APPROVED: "rapor.onayla",
+    ContentStatus.ARCHIVED: "rapor.onayla",
+    ContentStatus.PUBLISHED: "rapor.onayla",
+    ContentStatus.SCHEDULED: "rapor.onayla",
+}
+
+
+def gerekli_izin(tur: str, target: ContentStatus) -> str:
+    """Bu gecis icin hangi izin gerekir?"""
+    tablo = IZIN_RAPOR if tur == "report" else IZIN_ICERIK
+    # Bilinmeyen bir durum SESSIZCE gecmesin: en dar izne dusulur.
+    return tablo.get(target, "icerik.onayla" if tur != "report" else "rapor.onayla")
 
 
 def script_snapshot(script: ContentScript) -> dict[str, Any]:
@@ -172,10 +202,19 @@ class TransitionResult:
     approval_id: uuid.UUID
 
 
-def _check_role(actor_role: WorkspaceRole, target: ContentStatus) -> None:
-    gerekli = REQUIRED_ROLE.get(target, WorkspaceRole.ADMIN)
-    if not actor_role.covers(gerekli):
-        raise InsufficientRole(gerekli, target)
+def _check_izin(
+    db: Session,
+    workspace_id: uuid.UUID,
+    actor_role: WorkspaceRole,
+    tur: str,
+    target: ContentStatus,
+) -> None:
+    """Bu rol, bu musteride bu gecisi yapabilir mi?"""
+    from app.services.yetkiler import izin_var_mi
+
+    izin = gerekli_izin(tur, target)
+    if not izin_var_mi(db, workspace_id, actor_role, izin):
+        raise InsufficientRole(izin, target)
 
 
 def transition(
@@ -201,10 +240,11 @@ def transition(
     if target not in ALLOWED_TRANSITIONS.get(mevcut, set()):
         raise InvalidTransition(mevcut, target)
 
-    # 2) Yetki yeterli mi?
-    _check_role(actor_role, target)
-
     tur = "content_script" if isinstance(subject, ContentScript) else "report"
+
+    # 2) Yetki yeterli mi? (musteriye ozel izin ayarina bakar)
+    _check_izin(db, workspace_id, actor_role, tur, target)
+
     anlik = (
         script_snapshot(subject) if isinstance(subject, ContentScript)
         else report_snapshot(subject)

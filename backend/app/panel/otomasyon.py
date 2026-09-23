@@ -28,6 +28,7 @@ from app.models.enums import AutomationTrigger
 from app.models.identity import User, Workspace, WorkspaceMember
 from app.models.otomasyon import ApiClient
 from app.panel.auth import current_user_from_cookie
+from app.panel.ortak import uyelik_bul
 from app.services.denetim import kaydet
 from app.services.makine_kimligi import (
     MakineKimligiHatasi,
@@ -219,12 +220,7 @@ def akis_degistir(
     if user is None:
         return _giris_yonlendir()
 
-    uyelik = db.execute(
-        select(WorkspaceMember).where(
-            WorkspaceMember.workspace_id == workspace_id,
-            WorkspaceMember.user_id == user.id,
-        )
-    ).scalar_one_or_none()
+    uyelik = uyelik_bul(request, db, user, workspace_id)
     # Uye degilse 404: musterinin varligi ele verilmez.
     if uyelik is None:
         return HTMLResponse("Bulunamadı.", status_code=404)
@@ -388,12 +384,7 @@ def elle_calistir(
     if user is None:
         return _giris_yonlendir()
 
-    uyelik = db.execute(
-        select(WorkspaceMember).where(
-            WorkspaceMember.workspace_id == workspace_id,
-            WorkspaceMember.user_id == user.id,
-        )
-    ).scalar_one_or_none()
+    uyelik = uyelik_bul(request, db, user, workspace_id)
     if uyelik is None:
         return HTMLResponse("Bulunamadı.", status_code=404)
     if not izin_var_mi(db, workspace_id, uyelik.role, "otomasyon.calistir"):
