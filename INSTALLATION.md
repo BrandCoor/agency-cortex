@@ -74,9 +74,23 @@ yapıştırın — tek harf veya sondaki `/` farkı bile OAuth hatası verir.
 | Meta panelindeki alan | Yapıştırılacak adres |
 |---|---|
 | **Valid OAuth Redirect URI** | `https://agencycortex.tech/api/v1/oauth/meta/callback` |
-| **Deauthorize Callback URL** | `https://agencycortex.tech/api/v1/oauth/meta/deauthorize` |
-| **Data Deletion Request URL** | `https://agencycortex.tech/api/v1/oauth/meta/data-deletion` |
 | **Webhook Callback URL** | `https://agencycortex.tech/api/v1/webhooks/meta` |
+
+> **Şu iki alanı şimdilik boş bırakın.** Bu tabloda bir dönem dört adres
+> yazıyordu; ikisinin (`/oauth/meta/deauthorize` ve
+> `/oauth/meta/data-deletion`) karşılığı **sistemde yazılmamıştı** ve
+> çağrıldıklarında 404 dönüyorlardı. Var olmayan bir adresi Meta'ya
+> girmek, o adres çağrıldığında sessiz bir başarısızlık demektir.
+>
+> | Boş bırakılacak alan | Ne için gerekir |
+> |---|---|
+> | **Deauthorize Callback URL** | Kullanıcı uygulamayı kaldırdığında Meta haber verir |
+> | **Data Deletion Request URL** | Kullanıcı veri silme talep ettiğinde Meta haber verir |
+>
+> İkisi de uygulama incelemesi (App Review) aşamasında gerekecek. Bu
+> uçların doğru yazılabilmesi için Meta'nın `signed_request` biçiminin
+> resmî dokümandan okunması gerekiyor; bu geliştirme ortamından Meta
+> dokümanına erişim kapalı olduğu için **tahminle yazılmadılar**.
 
 > Bu adreslerin çalışması için sistemin sunucuya kurulmuş ve HTTPS'in aktif
 > olması gerekir. Kurulumu ben yapacağım; siz bu adımı **kurulumdan sonra**

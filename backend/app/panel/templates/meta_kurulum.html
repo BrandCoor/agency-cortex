@@ -1,0 +1,190 @@
+{% extends "base.html" %}
+{% block title %}Meta kurulumu{% endblock %}
+{% block content %}
+
+<div class="sayfa-ust">
+  <div class="metin">
+    <h1>Meta kurulumu</h1>
+    <p class="sub">
+      Instagram hesaplarını bağlayabilmek için Meta tarafında yapılacaklar
+      ve sistemin şu anki durumu.
+    </p>
+  </div>
+</div>
+
+{# --- DURUM ------------------------------------------------------------- #}
+{% if hazir %}
+  <div class="ok"><b>Zorunlu üç değer girilmiş</b>
+    Uygulama kimliği, gizli anahtar ve dönüş adresi tamam.</div>
+{% else %}
+  <div class="warn">
+    <b>Eksik değerler var</b>
+    Şunlar girilmeden hesap bağlanamaz:
+    {% for e in eksikler %}<code>{{ e }}</code>{% if not loop.last %}, {% endif %}{% endfor %}.
+    <a href="/panel/ayarlar">Sistem ayarlarına git</a>
+  </div>
+{% endif %}
+
+{% if alan_uyusmazligi %}
+<div class="err">
+  <b>“URL yüklenemedi” hatasının sebebi büyük olasılıkla bu</b>
+  Dönüş adresiniz <code>{{ donus_alan }}</code> alan adına bakıyor, oysa
+  sistem <code>{{ alan_adi }}</code> üzerinde çalışıyor. Meta izin ekranı
+  “bu bağlantının domaini uygulamanın domainlerinde yer almıyor” derken
+  tam olarak bunu kastediyor.
+</div>
+{% endif %}
+
+{% if tutarsizlik %}
+<div class="err">
+  <b>Ayarlar birbiriyle tutarsız</b>
+  {{ tutarsizlik }}
+  <div style="margin-top:6px">
+    Bu hata <strong>sessizdir</strong>: izin ekranı açılır, izni verirsiniz,
+    sonra anahtar değişimi başarısız olur ve sebebi belli olmaz.
+  </div>
+</div>
+{% endif %}
+
+{% if yayin_kapsami %}
+<div class="err">
+  <b>Yayınlama izni istenmiş</b>
+  Bu sürümde sistem hiçbir şey paylaşmaz. Şu izinler kaldırılmalı:
+  {% for s in yayin_kapsami %}<code>{{ s }}</code>{% endfor %}
+</div>
+{% endif %}
+
+{# --- META'YA GIRILECEK ADRESLER ---------------------------------------- #}
+{% if not gercek_alan %}
+<div class="warn">
+  <b>Bu sunucuda alan adı tanımlı değil</b>
+  Aşağıdaki adresler bu yüzden eksik görünüyor. Doğru değerler
+  <strong>üretim sunucusundaki</strong> bu sayfada görünür; buradakileri
+  Meta'ya yapıştırmayın.
+</div>
+{% endif %}
+
+<h2>1. Meta paneline girilecek adresler</h2>
+<p class="alt-yazi" style="margin-top:-4px;margin-bottom:12px">
+  Aşağıdakiler bu sunucudan üretilmiştir. <strong>Birebir</strong>
+  yapıştırın — tek harf veya sondaki eğik çizgi farkı bile hata verir.
+</p>
+
+<div class="card sikisik"><div class="tablo-sar">
+  <table>
+    <thead><tr><th>Meta'daki alan</th><th>Yapıştırılacak adres</th></tr></thead>
+    <tbody>
+    {% for u in uclar %}
+      <tr>
+        <td><strong>{{ u.ad }}</strong><div class="sessiz">{{ u.aciklama }}</div></td>
+        <td><code class="kod blok">{{ u.adres }}</code></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div></div>
+
+<div class="warn">
+  <b>Bu iki alanı şimdilik boş bırakın</b>
+  Meta bunları uygulama incelemesinde ister, ama karşılıkları
+  <strong>sistemde henüz yazılmadı</strong>. Var olmayan bir adresi Meta'ya
+  girmek, o adres çağrıldığında sessiz bir başarısızlık demektir — bu
+  yüzden yukarıdaki listede yer almıyorlar.
+  <ul style="margin:8px 0 0 18px">
+  {% for u in eksik_uclar %}
+    <li><strong>{{ u.ad }}</strong> — {{ u.aciklama }}</li>
+  {% endfor %}
+  </ul>
+</div>
+
+{# --- ALAN ADI ---------------------------------------------------------- #}
+<h2>2. Uygulama domainleri</h2>
+<div class="card">
+  <p style="margin-top:0">
+    Meta uygulamanızın <strong>App Domains</strong> listesine şu alan adı
+    eklenmiş olmalı:
+  </p>
+  <code class="kod blok">{% if gercek_alan %}{{ alan_adi }}{% else %}— bu sunucuda alan adı tanımlı değil —{% endif %}</code>
+  <p class="ipucu">
+    Bu liste boşsa veya başka bir alan adı yazıyorsa izin ekranı
+    “URL yüklenemedi” hatası verir.
+  </p>
+</div>
+
+{# --- SISTEMIN BEKLEDIGI AKIS ------------------------------------------- #}
+<h2>3. Sistemin beklediği giriş akışı</h2>
+<div class="card sikisik"><div class="tablo-sar">
+  <table>
+    <thead><tr><th>Ne</th><th>Şu anki değer</th></tr></thead>
+    <tbody>
+      <tr><td>Uygulama kimliği</td>
+          <td>{% if app_id %}<code>{{ app_id }}</code>{% else %}
+              <span class="pill p-warn">girilmedi</span>{% endif %}</td></tr>
+      <tr><td>Gizli anahtar</td>
+          <td>{% if app_secret_var %}<span class="pill p-ok">girildi</span>
+              {% else %}<span class="pill p-warn">girilmedi</span>{% endif %}</td></tr>
+      <tr><td>Dönüş adresi</td><td><code>{{ redirect_uri }}</code></td></tr>
+      <tr><td>İzin ekranı</td><td><code>{{ izin_adresi }}</code></td></tr>
+      <tr><td>Anahtar değişimi</td><td><code>{{ anahtar_adresi }}</code></td></tr>
+      <tr><td>Veri uçları</td><td><code>{{ veri_adresi }}</code></td></tr>
+      <tr><td>API sürümü</td><td><code>{{ api_surumu }}</code></td></tr>
+      <tr><td>İstenen izinler</td>
+          <td><code>{{ kapsamlar | join(", ") }}</code></td></tr>
+    </tbody>
+  </table>
+</div></div>
+
+<div class="bilgi">
+  <b>Bu dört adres aynı aileden olmalı</b>
+  Meta'nın iki ayrı giriş akışı var ve uçları farklı alan adlarında
+  (<code>instagram.com</code> ve <code>facebook.com</code>). İzin ekranı
+  birinden, anahtar değişimi diğerinden olursa akış son adımda kırılır.
+  <div style="margin-top:6px">
+    <strong>Hangisinin doğru olduğunu size söylemiyorum</strong> — onu
+    Meta'nın kendi dokümanı belirler ve bu ortamdan o dokümana erişim
+    kapalı. Sistem yalnızca değerlerin <em>birbiriyle</em> tutarlı olup
+    olmadığını denetliyor.
+  </div>
+</div>
+
+{# --- KONTROL LISTESI ---------------------------------------------------- #}
+<h2>4. Meta tarafındaki kontrol listesi</h2>
+<div class="card">
+  <p class="alt-yazi" style="margin-top:0">
+    Meta panelindeki menü adları zaman zaman değişiyor ve bu ortamdan
+    Meta dokümanına erişemiyorum. Aşağıdakiler <strong>sistemin neye
+    ihtiyaç duyduğudur</strong>; menü adı farklıysa karşılığını arayın.
+  </p>
+  <ul style="margin:0 0 0 18px;line-height:1.9">
+    <li>Bağlanacak Instagram hesabı <strong>profesyonel</strong> (Business
+      veya Creator) olmalı. Kişisel hesapta içgörü verisi <em>yoktur</em>;
+      bağlanırsa raporlar boş çıkar.</li>
+    <li>Uygulamada <strong>tek bir giriş modeli</strong> kurulu olmalı —
+      Instagram Login ya da Facebook Login; ikisi birden değil.</li>
+    <li><strong>App Domains</strong> listesinde yukarıdaki alan adı
+      bulunmalı.</li>
+    <li><strong>Valid OAuth Redirect URI</strong> yukarıdaki adresle
+      birebir aynı olmalı.</li>
+    <li>İnceleme öncesinde yalnızca uygulamaya <strong>rol verilmiş</strong>
+      hesaplar bağlanabilir. Pilot hesabınızı test kullanıcısı veya
+      yönetici olarak ekleyin.</li>
+    <li>Yayınlama izni <strong>istemeyin</strong>. Bu sürümde sistem
+      hiçbir şey paylaşmaz
+      {% if not yayin_acik %}(yayınlama sunucuda kapalı){% endif %};
+      gereksiz izin istemek incelemede reddedilme sebebidir.</li>
+  </ul>
+</div>
+
+<div class="card">
+  <h3>Değerleri girdikten sonra</h3>
+  <p style="margin:0">
+    Sistem ayarlarına üç değeri girin, sonra bir müşterinin
+    <strong>Bağlı hesaplar</strong> sayfasından bağlamayı deneyin. Hata
+    alırsanız ekrandaki mesajı olduğu gibi bana iletin — Meta'nın kendi
+    mesajı en değerli bilgidir, sistem onu gizlemiyor.
+  </p>
+  <div class="aksiyonlar" style="margin-top:12px">
+    <a class="btn birincil" href="/panel/ayarlar">Sistem ayarlarına git</a>
+  </div>
+</div>
+{% endblock %}
