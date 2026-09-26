@@ -1289,3 +1289,113 @@ Format: Karar / Seçenekler / Neden / Risk / Geri alma
 - **Açılması için gereken:** Oturumun bulut ortamı ayarlarında **Network
   access** (ağ erişimi) listesine bu iki alan adının eklenmesi. Eklendikten
   sonra dokümanı okuyup botu yazar, gerçek bir mesaj göndererek doğrularım.
+
+---
+
+## K-064 — Yapay zekâ sağlayıcıları ve görev dağılımı panele taşındı
+
+- **Karar:** Sağlayıcı listesi ve hangi işi hangisinin yapacağı
+  veritabanında tutulur, panelden yönetilir. Koddaki değerler yalnızca
+  **ilk kurulumun varsayılanıdır.**
+- **En önemli kural:** *Sınanmamış sağlayıcı göreve atanamaz.* Checkbox
+  ile açmak yetmez; "Bağlantıyı sına" **gerçek bir çağrı** yapar ve
+  yalnızca başarılı dönen sağlayıcı görev listesinde görünür. Bu kural
+  hem arayüzde hem serviste vardır — form dışından gelen istek de aynı
+  kurala takılır.
+- **Neden:** Panelde "açık" görünen ama çalışmayan bir sağlayıcı, ilk
+  gerçek işte anlaşılmaz bir hatayla çökerdi ve kullanıcı ayarın doğru
+  olduğunu sanırdı.
+- **Yeni sağlayıcı eklerken adres uydurmuyoruz:** Tür "OpenAI uyumlu"dur;
+  taban adresi ve model adını **kullanıcı** kendi sağlayıcısının
+  dokümanından kopyalar.
+- **Dürüstlük notu:** İstek gövdesinin biçimi bu ortamdan
+  **doğrulanamadı** — dışarıya çıkış kapalı, hiçbir sağlayıcının resmî
+  dokümanına erişilemiyor. Bu yüzden doğrulamayı tahmin değil **gerçek
+  çağrı** yapıyor. Dosyanın başında açıkça yazıyor.
+- **Geri alma:** Tablolar boşaltılırsa sistem koddaki varsayılanlarla
+  çalışmaya devam eder.
+
+---
+
+## K-065 — Panelde gösterilen her iş, kodda gerçekten çağrılmalı
+
+- **Olay:** Yapay zekâ sayfasında yedi iş listeleniyordu. Üçünü
+  ("stratejik yorum", "marka dili denetimi", "toplu sınıflandırma")
+  **hiçbir kod çağırmıyordu.** Sağlayıcı atanabiliyor, ayar
+  değiştirilebiliyordu; hiçbir şey olmuyordu.
+- **Karar:** Panelden kaldırıldılar ve bir test bunu kalıcı kıldı
+  (`tests/test_ai_gorev_butunlugu.py`): panelde gösterilen her iş kodda
+  `run_ai_task(task_type=...)` ile çağrılıyor olmak zorunda; tersi de
+  geçerli.
+- **Ders:** Çalışmayan bir ayar, bozuk bir ayardan daha kötüdür. Bozuk
+  olan hata verir; çalışmayan sessizce hiçbir şey yapmaz.
+
+---
+
+## K-066 — İstemler (prompt) ürün ayarıdır, kod değil
+
+- **Karar:** İş akışlarının sistem istemleri veritabanında tutulur ve
+  panelden düzenlenir. Kaydedince **sürüm artar**; üretilen her çıktı
+  hangi sürümle üretildiğini yazar.
+- **Neden sürüm:** Sürüm artmasaydı "bu rapor neden böyle çıkmış?"
+  sorusunun cevabı kaybolurdu. Metin değişmediyse sürüm **artmaz** —
+  sürüm "kaç kez değişti" demektir, "kaç kez kaydete basıldı" değil.
+- **Kod kaybolmaz:** Her yerleşik istemin koddaki hâli varsayılan olarak
+  durur; "Varsayılana dön" her zaman çalışır. Yanlış bir düzenleme
+  sistemi kilitleyemez.
+- **Yerleşik istem kapatılamaz:** Kapatılsaydı koddaki varsayılan metin
+  kullanılmaya devam ederdi; "kapattım" demek yanıltıcı olurdu.
+- **Risk:** Çok kısa bir istem, çıktının şemaya uymamasına yol açar ve
+  kullanıcı sebebini anlamaz. Bu yüzden alt sınır var.
+
+---
+
+## K-067 — Rakipleri sistem buluyor ama **pasif** ekliyor
+
+- **Karar:** WF-07, marka bilgisinden aday rakip hesapları bulur ve
+  izleme listesine **pasif** yazar. Onaylanana kadar hiçbir araştırma
+  akışı onlara dokunmaz.
+- **Neden:** Bir dil modeli **var olmayan** bir hesap adı üretebilir.
+  Doğrudan aktif yazılsaydı, araştırma akışı olmayan bir hesap hakkında
+  "bulgu" üretir ve o metin rapora girerdi.
+- **Denge:** Onaylamak tek tıklık bir iştir; uydurma bir rakibi raporda
+  görmek ise fark edilmesi çok zor bir hatadır.
+- **Ek kontrol:** Gerekçe yazmayan aday kabul edilmez. Gerekçe, hesabın
+  uydurulmuş olma ihtimaline karşı elimizdeki tek kontroldür.
+
+---
+
+## K-068 — Üretimde örnek veri kapatıldı; açılış artık engellenmiyor
+
+- **Karar:** Sunucuda `AI_PROVIDER_MODE` ve `PLATFORM_MODE` her kurulumda
+  zorla `live` yapılır. Anahtar girilmemişse akışlar sahte içerik üretmek
+  yerine **açık hata** verir.
+- **Bu değişiklik bir tuzağı ortaya çıkardı:** Canlı modda
+  `ANTHROPIC_API_KEY` veya Meta ayarları `.env`'de boşsa uygulama **hiç
+  açılmıyordu.** O kural, anahtarların yalnızca `.env`'den geldiği dönemde
+  doğruydu; artık anahtarlar panelden giriliyor.
+- **Kural kalsaydı:** Canlı moda geçirilen sunucu, kullanıcı anahtarı
+  girebileceği ekrana **ulaşamadan** açılmayı reddederdi — yani site
+  tamamen kapanırdı.
+- **Yeni kural:** Yalnızca `.env`'den başka yerden gelemeyecek değerler
+  (şifreleme anahtarı, veritabanı parolası) açılışı engeller.
+- **Eski test silinmedi:** Anlamı ve neden değiştiği yazılarak
+  güncellendi.
+
+---
+
+## K-069 — Kurulum rehberi, kodda olmayan iki adres girdiriyordu
+
+- **Olay:** `INSTALLATION.md`, Meta paneline **dört** adres girilmesini
+  söylüyordu. İkisini denedim: `/api/v1/oauth/meta/deauthorize` ve
+  `/api/v1/oauth/meta/data-deletion` **404 dönüyor** — kodda böyle bir uç
+  yok.
+- **Neden tehlikeli:** Var olmayan bir adresi Meta'ya girmek, o adres
+  çağrıldığında (kullanıcı uygulamayı kaldırdığında) sessiz bir
+  başarısızlık demektir.
+- **Karar:** Rehberden çıkarıldı ve **neden** çıkarıldığı yazıldı. Panel
+  de bu iki alanın boş bırakılmasını söylüyor.
+- **Neden yazılmadılar:** Doğru yazılabilmeleri için Meta'nın
+  `signed_request` biçiminin resmî dokümandan okunması gerekiyor; bu
+  ortamdan Meta dokümanına erişim kapalı. **Tahminle yazılmadılar.**
+- **Ne zaman gerekir:** Uygulama incelemesi (App Review) aşamasında.

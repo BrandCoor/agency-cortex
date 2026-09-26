@@ -1362,3 +1362,43 @@ aşağıdaki dört sorun yalnızca böyle görülebilirdi.
 - 705/705 test geçti; `ruff check` temiz
 - 14 sayfa × 2 tema = 28 ekran görüntüsü; hiçbirinde giriş ekranına
   düşme veya "Not Found" yok
+
+## [0.17.0] - 2026-09-26 — Çoklu yapay zekâ, düzenlenebilir istemler, rakip keşfi
+
+### Eklendi
+- **Yapay zekâ sayfası** (`/panel/yapay-zeka`): sağlayıcılar checkbox ile
+  açılıp kapatılır, "Bağlantıyı sına" **gerçek** bir çağrı yapar, her iş
+  için sağlayıcı seçilir, yeni sağlayıcı eklenir/kaldırılır.
+  *Sınanmamış sağlayıcı hiçbir işe atanamaz.*
+- **"OpenAI uyumlu" sağlayıcı türü:** taban adresi ve model adını
+  kullanıcı kendi sağlayıcısının dokümanından girer; adres uydurulmaz.
+- **İstemler sayfası** (`/panel/istemler`): iş akışlarının sistem
+  istemleri görüntülenir, düzenlenir, eklenir, kaldırılır. Sürüm artar,
+  "Varsayılana dön" her zaman çalışır.
+- **WF-07 Rakip keşfi:** marka bilgisinden aday rakip hesapları bulur.
+  Bulunanlar **pasif** eklenir; onaylanana kadar araştırılmazlar.
+- **Meta kurulum sayfası** (`/panel/meta-kurulum`): Meta'ya yapıştırılacak
+  adresler, eklenecek alan adı ve üç canlı teşhis (alan adı uyuşmazlığı,
+  karışık giriş akışı, yayınlama izni).
+
+### Değiştirildi
+- **Üretimde örnek veri modu kapatıldı.** Anahtar yoksa akışlar sahte
+  içerik üretmek yerine açık hata verir.
+- **Açılışı engelleyen kural daraltıldı:** yalnızca `.env`'den başka
+  yerden gelemeyecek değerler açılışı engeller. Aksi hâlde canlı moda
+  geçen sunucu, anahtar girilecek ekrana ulaşamadan kapanırdı.
+
+### Düzeltildi
+- **Kapalı iş akışının hatası tarihsiz görünüyordu**; günler önceki bir
+  hata güncel arıza gibi duruyordu. Tarih artık her zaman yazıyor.
+- **Kurulum rehberi kodda olmayan iki Meta adresi girdiriyordu**
+  (404 dönüyorlardı). Çıkarıldı, nedeni yazıldı.
+- **Panelde çalışmayan üç iş listeleniyordu**; kaldırıldı ve bir test
+  bunu kalıcı kıldı.
+
+### Doğrulandı
+- 791/791 test geçti (54 yeni); `ruff` ve `alembic check` temiz
+- Migration ileri → geri → ileri, üçü de çıkış kodu 0
+- 17 panel sayfası gerçek tarayıcıda koyu ve açık temada çizdirildi
+- Eski hata gösterimi testi, hata geri konularak gerçekten yakaladığı
+  doğrulandı (ilk hâli yakalamıyordu)
