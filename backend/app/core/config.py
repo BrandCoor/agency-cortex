@@ -221,14 +221,25 @@ class Settings(BaseSettings):
                 )
         if self.acme_email in PLACEHOLDER_VALUES:
             errors.append("ACME_EMAIL ayarlanmamis. HTTPS sertifikasi icin gerekli.")
-        if self.ai_provider_mode == "live" and not self.anthropic_api_key:
-            errors.append("AI_PROVIDER_MODE=live ama ANTHROPIC_API_KEY bos.")
-        if self.platform_mode == "live":
-            eksikler = self.meta_live_config_errors()
-            if eksikler:
-                errors.append(
-                    "PLATFORM_MODE=live ama su Meta ayarlari eksik: " + ", ".join(eksikler)
-                )
+        # ANAHTAR EKSIKLIGI UYGULAMAYI ARTIK DURDURMAZ.
+        #
+        # Once burada iki kontrol daha vardi: canli modda ANTHROPIC_API_KEY
+        # veya Meta ayarlari bossa uygulama ACILMIYORDU. O kontroller,
+        # anahtarlarin YALNIZCA .env dosyasindan geldigi donemde dogruydu.
+        #
+        # Artik anahtarlar PANELDEN giriliyor ve sifreli olarak
+        # veritabaninda duruyor (bkz. services/sistem_ayarlari.py). Yani
+        # .env'de bos olmasi "anahtar yok" demek DEGIL. Bu kontroller
+        # kalsaydi, canli moda gecirilen bir sunucu, anahtari panelden
+        # girme imkani dogmadan once acilmayi reddederdi - yani kullanici
+        # anahtari girebilecegi ekrana hic ulasamazdi.
+        #
+        # Eksik anahtarin sonucu hala GORUNUR: Yapay zeka sayfasi her
+        # saglayicinin durumunu gosterir ve is akislari sahte icerik
+        # uretmek yerine ACIK hata verir.
+        #
+        # Buradaki kontroller yalnizca .env'DEN BASKA YERDEN GELEMEYECEK
+        # degerler icindir (sifreleme anahtari, veritabani parolasi).
         return errors
 
 

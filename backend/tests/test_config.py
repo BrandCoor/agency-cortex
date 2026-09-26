@@ -39,9 +39,22 @@ def test_gelistirme_ortaminda_sablon_degerler_engellenmez():
     assert s.production_safety_errors() == []
 
 
-def test_live_modda_anahtar_yoksa_hata_verir():
+def test_live_modda_anahtar_yoksa_acilis_engellenmez():
+    """Bu testin anlami DEGISTI; eskisi artik yanlis bir kurali korurdu.
+
+    Once "canli modda ANTHROPIC_API_KEY bos ise uygulama acilmasin"
+    deniyordu. O kural, anahtarlarin yalnizca .env'den geldigi donemde
+    dogruydu. Artik anahtarlar PANELDEN giriliyor ve sifreli olarak
+    veritabaninda duruyor; .env'de bos olmasi "anahtar yok" demek degil.
+
+    Eski kural kalsaydi, canli moda gecirilen bir sunucu, kullanici
+    anahtari girebilecegi ekrana ULASAMADAN acilmayi reddederdi.
+
+    Eksik anahtarin sonucu hala gorunur: Yapay zeka sayfasi durumu
+    gosterir ve is akislari sahte icerik uretmek yerine hata verir.
+    """
     s = _prod(ai_provider_mode="live", anthropic_api_key="")
-    assert any("ANTHROPIC_API_KEY" in e for e in s.production_safety_errors())
+    assert s.production_safety_errors() == []
 
 
 def test_gecersiz_log_seviyesi_reddedilir():

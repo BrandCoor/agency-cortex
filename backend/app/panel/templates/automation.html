@@ -108,10 +108,14 @@
           {% else %}
             <span class="sessiz">hiç çalışmadı</span>
           {% endif %}
-          {% if a.acik and a.son_baslangic %}
+          {# TARIH HER ZAMAN GORUNUR.
+             Once tarih yalnizca akis ACIKKEN yaziliyordu, hata ise her
+             durumda. Kapali bir akista gunler onceki bir hata TARIHSIZ
+             duruyor ve guncel bir arizaymis gibi gorunuyordu. #}
+          {% if a.son_baslangic %}
           <div class="sessiz">{{ a.son_baslangic.strftime("%d.%m.%Y %H:%M") }}</div>
           {% endif %}
-          {% if a.acik and a.son_ozet and a.son_ozet.get("yapilacak_is_yoktu") %}
+          {% if a.son_ozet and a.son_ozet.get("yapilacak_is_yoktu") %}
           <div class="sessiz">çalıştı ama yapacak iş yoktu</div>
           {% endif %}
           {% if a.takildi %}
@@ -119,7 +123,12 @@
             Kapanmadan kaldı — süreç beklenmedik şekilde sonlanmış olabilir.
           </div>
           {% elif a.son_hata %}
-          <div class="sessiz" style="color:var(--bad)">{{ a.son_hata[:160] }}</div>
+          <div class="sessiz" style="color:var(--bad)">
+            {% if not a.acik %}
+              <em>Akış kapatılmadan önceki son çalışma:</em>
+            {% endif %}
+            {{ a.son_hata[:160] }}
+          </div>
           {% endif %}
         </td>
         <td class="sag daralt">
