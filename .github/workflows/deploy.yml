@@ -713,6 +713,50 @@ jobs:
       # Ayaktalik ic agdan, kilit ise DISARIDAN sinanir. "Servis calisiyor"
       # demek yetmez: kilitsiz acilan bir n8n'i ilk bulan kisi sahip hesabini
       # olusturur ve otomasyonu ele gecirir.
+      - name: Calisan sistem hangi modda? (ornek veri kontrolu)
+        run: |
+          # NEDEN BU ADIM VAR
+          # 26 Eylul'de .env'de AI_PROVIDER_MODE "live" yapildi ama bunun
+          # CALISAN KAPTA gercekten etkili olup olmadigini dogrulayan
+          # hicbir adim yoktu. Kullanici panelde ornek veri ciktisi gorup
+          # "analiz yapmiyor" dedi ve ben kanit olmadan yorum yaptim.
+          #
+          # Artik deger .env'den DEGIL, calisan uygulamadan okunuyor ve
+          # uretimde ornek veri modu bulunursa kurulum BASARISIZ olur.
+          ssh -i ~/.ssh/id_deploy -o BatchMode=yes "$VPS_USER@$VPS_HOST" bash -s <<'UZAK'
+          set -eu
+          cd /opt/agency-cortex
+
+          okunan=$(docker compose exec -T api python -c '
+          from app.core.config import get_settings
+          a = get_settings()
+          print(f"{a.app_env}|{a.ai_provider_mode}|{a.platform_mode}")
+          ' </dev/null 2>/dev/null | tr -d "\r" | tail -1)
+
+          ortam=$(printf '%s' "$okunan" | cut -d'|' -f1)
+          ai=$(printf '%s' "$okunan" | cut -d'|' -f2)
+          platform=$(printf '%s' "$okunan" | cut -d'|' -f3)
+
+          echo "calisan uygulama -> ortam=$ortam ai=$ai platform=$platform"
+
+          if [ -z "$ortam" ]; then
+            echo "HATA: calisan uygulamadan ayar okunamadi."
+            exit 1
+          fi
+
+          if [ "$ortam" = "production" ] && [ "$ai" != "live" ]; then
+            echo "HATA: URETIMDE ornek veri modu acik (ai=$ai)."
+            echo "Bu modda uretilen metinler gercek analiz DEGILDIR."
+            exit 1
+          fi
+          if [ "$ortam" = "production" ] && [ "$platform" != "live" ]; then
+            echo "HATA: URETIMDE ornek platform modu acik (platform=$platform)."
+            exit 1
+          fi
+
+          echo "TAMAM: uretim canli modda; ornek veri uretilmiyor."
+          UZAK
+
       - name: n8n kontrolu
         run: |
           echo "--- sunucu icinde ---"

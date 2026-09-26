@@ -16,8 +16,9 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Annotated
 
-from fastapi import APIRouter, Request, status
+from fastapi import APIRouter, Form, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import select
@@ -29,6 +30,9 @@ from app.models.otomasyon import AutomationSetting
 from app.models.research import CompetitorObservation, TrendObservation
 from app.panel.auth import current_user_from_cookie
 from app.panel.ortak import uyelik_bul
+from app.services.denetim import kaydet
+from app.services.ornek_veri_temizligi import say as ornek_veri_say
+from app.services.ornek_veri_temizligi import temizle as ornek_veri_temizle
 from app.services.yetkiler import izin_var_mi
 
 router = APIRouter(prefix="/panel", tags=["panel"])
@@ -137,8 +141,48 @@ def competitor_trend_page(workspace_id: uuid.UUID, request: Request, db: DbSessi
                 for g, hesap in satirlar
             ],
             "rakip_sayisi": len(rakip_sayisi),
+            # Gecmiste ornek veri modunda yazilmis kayitlar. Artik
+            # yazilmiyorlar ama eskiler duruyor; kullanici temizleyebilsin.
+            "ornek_veri": ornek_veri_say(db, workspace_id),
+            "temizleyebilir": izin_var_mi(db, user, "hesap.izle"),
             # NEDEN BOS: kullanici "bozuk mu?" diye sormasin diye.
             "trend_akisi_acik": _akis_acik_mi(db, workspace_id, "wf02_trend"),
             "rakip_akisi_acik": _akis_acik_mi(db, workspace_id, "wf06_rakip"),
         },
+    )
+
+
+@router.post("/musteri/{workspace_id}/rakip-trend/ornek-veri-temizle")
+def ornek_veri_temizleme(
+    workspace_id: uuid.UUID,
+    request: Request,
+    db: DbSession,
+    onay: Annotated[str, Form()] = "",
+):
+    """Gecmiste ornek veri modunda yazilmis bulgulari siler.
+
+    Silme geri alinamaz; bu yuzden form ACIK bir onay alani tasiyor.
+    Silinen sey gercek bir bulgu degil, ornek metindir - ama yine de
+    kullanicinin karari olmali.
+    """
+    user = current_user_from_cookie(request, db)
+    if user is None:
+        return _giris_yonlendir()
+    uyelik = uyelik_bul(request, db, user, workspace_id)
+    if uyelik is None:
+        return HTMLResponse("Bulunamadı.", status_code=404)
+    if not izin_var_mi(db, user, "hesap.izle"):
+        return HTMLResponse("Bulunamadı.", status_code=404)
+    if onay != "EVET":
+        return HTMLResponse("Bulunamadı.", status_code=404)
+
+    silinen = ornek_veri_temizle(db, workspace_id)
+    kaydet(
+        db, action="ornek_veri.temizlendi", actor_user_id=user.id,
+        workspace_id=workspace_id, details=silinen, request=request,
+    )
+    db.commit()
+    return RedirectResponse(
+        f"/panel/musteri/{workspace_id}/rakip-trend",
+        status_code=status.HTTP_303_SEE_OTHER,
     )

@@ -57,6 +57,41 @@ KESIN KURALLAR:
    etme; bunlar yalnizca hesap sahibine aciktir."""
 
 
+#: Ornek veri saglayicisinin adi. Ciktisi MUSTERI VERISINE YAZILMAZ.
+ORNEK_VERI_SAGLAYICISI = "fake"
+
+ORNEK_VERI_NOTU = (
+    "Sistem örnek veri modunda çalıştı. Üretilen metin gerçek bir analiz "
+    "değildir, bu yüzden HİÇBİR KAYIT YAZILMADI. Gerçek bulgu üretmek için "
+    "Yapay zekâ sayfasından bir sağlayıcı açıp sınayın."
+)
+
+
+def _ornek_veri_mi(sonuc) -> bool:
+    """Bu ciktinin URETIM verisine yazilmamasi gerekiyor mu?
+
+    NEDEN ONEMLI: ornek veri saglayicisi gercek analiz GIBI GORUNEN metinler
+    uretir. Bu metinler bir kez musteri verisine yazildiginda panelde
+    gercek bulgularla ayni listede, ayni bicimde durur. Metnin uzerinde
+    "ornek veridir" yazmasi YETMEZ: kayit listede kalir, birikir ve
+    silinemez. Dogrusu, hic yazmamaktir.
+
+    NEDEN YALNIZCA URETIMDE: gelistirme ve testlerde is akislarinin
+    kayit yazabilmesi gerekir; yoksa akislar hic sinanamaz. Gelistirme
+    verisi zaten atilabilir.
+
+    Uretimde bu zaten IKINCI savunma hattidir: registry.get_provider
+    uretimde ornek veri saglayicisini hic vermez. Ikinci hat, o kapinin
+    ileride yanlislikla acilmasina karsidir.
+    """
+    from app.core.config import get_settings
+
+    return (
+        getattr(sonuc, "provider", "") == ORNEK_VERI_SAGLAYICISI
+        and get_settings().is_production
+    )
+
+
 class IsAkisiHatasi(Exception):
     """Is akisinin tamamlanamadigi durum. Mesaji kullaniciya gosterilir."""
 
@@ -183,6 +218,13 @@ def wf02_trend_arastirmasi(db: Session, workspace: Workspace) -> AkisSonucu:
         # Butce, yapilandirma ve saglayici hatalari kullaniciya AYNEN
         # gosterilir; "bir sorun olustu" denmez.
         raise IsAkisiHatasi(str(hata)) from hata
+
+    if _ornek_veri_mi(sonuc):
+        return AkisSonucu(
+            ozet={"bulgu": 0, "yeni_kayit": 0},
+            notlar=[ORNEK_VERI_NOTU],
+            yapilacak_is_yoktu=True,
+        )
 
     veri = TrendResearchBatch.model_validate(sonuc.parsed)
     simdi = datetime.now(UTC)
@@ -565,11 +607,19 @@ def wf06_rakip_arastirmasi(db: Session, workspace: Workspace) -> AkisSonucu:
     except AIProviderError as hata:
         raise IsAkisiHatasi(str(hata)) from hata
 
+    if _ornek_veri_mi(sonuc):
+        return AkisSonucu(
+            ozet={"rakip": len(rakipler), "bulgu": 0},
+            notlar=[ORNEK_VERI_NOTU],
+            yapilacak_is_yoktu=True,
+        )
+
     veri = CompetitorResearchBatch.model_validate(sonuc.parsed)
     simdi = datetime.now(UTC)
     ada_gore = {r.username.lower(): r for r in rakipler}
     yazilan = 0
     eslenmeyen: list[str] = []
+    tekrar = 0
 
     for bulgu in veri.findings:
         hedef = ada_gore.get(bulgu.username.lstrip("@").lower())
@@ -578,6 +628,23 @@ def wf06_rakip_arastirmasi(db: Session, workspace: Workspace) -> AkisSonucu:
             # kaydetmeyiz: kime ait oldugu belirsiz veri, rapora
             # girdiginde yanlis hesaba atfedilirdi.
             eslenmeyen.append(bulgu.username)
+            continue
+
+        # AYNI HESAP ICIN AYNI GOZLEM TEKRAR YAZILMAZ.
+        #
+        # Bu kontrol yokken akis her calistiginda ayni metin yeniden
+        # ekleniyordu; panelde ayni satir alt alta bes kez goruldu.
+        # Trend akisinda ayni koruma zaten vardi, burada unutulmus.
+        mevcut = db.execute(
+            select(CompetitorObservation).where(
+                CompetitorObservation.workspace_id == workspace.id,
+                CompetitorObservation.tracked_account_id == hedef.id,
+                CompetitorObservation.summary == bulgu.observation,
+                CompetitorObservation.observed_at >= simdi - timedelta(days=7),
+            ).limit(1)
+        ).scalars().first()
+        if mevcut is not None:
+            tekrar += 1
             continue
 
         db.add(CompetitorObservation(
@@ -605,6 +672,11 @@ def wf06_rakip_arastirmasi(db: Session, workspace: Workspace) -> AkisSonucu:
         notlar.append(
             "İzlenmeyen hesaplar hakkındaki bulgular kaydedilmedi: "
             + ", ".join(sorted(set(eslenmeyen)))
+        )
+    if tekrar:
+        notlar.append(
+            f"{tekrar} bulgu son 7 gün içinde aynısı zaten yazıldığı için "
+            "tekrar kaydedilmedi."
         )
     return AkisSonucu(
         ozet={"rakip": len(rakipler), "bulgu": yazilan},
@@ -680,6 +752,13 @@ def wf07_rakip_kesfi(db: Session, workspace: Workspace) -> AkisSonucu:
         )
     except AIProviderError as hata:
         raise IsAkisiHatasi(str(hata)) from hata
+
+    if _ornek_veri_mi(sonuc):
+        return AkisSonucu(
+            ozet={"aday": 0, "atlanan": 0},
+            notlar=[ORNEK_VERI_NOTU],
+            yapilacak_is_yoktu=True,
+        )
 
     veri = RakipKesfiBatch.model_validate(sonuc.parsed)
     eklendi = 0

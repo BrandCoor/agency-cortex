@@ -62,6 +62,36 @@
 </div>
 {% endif %}
 
+{% if ornek_veri.rakip or ornek_veri.trend %}
+{# GECMISTE yazilmis ornek veri kayitlari.
+   Is akislari bunlari artik URETIMDE yazmiyor; eskiler duruyor. Uzerinde
+   "ornek veridir" yazmasi yetmiyor: kayit listede kaliyor ve gercek bir
+   bulguymus gibi birikiyor. #}
+<div class="err">
+  <b>Bu listede gerçek olmayan kayıtlar var</b>
+  Sistem bir dönem <strong>örnek veri modunda</strong> çalıştı ve ürettiği
+  örnek metinleri bulgu olarak kaydetti:
+  {% if ornek_veri.rakip %}<strong>{{ ornek_veri.rakip }}</strong> rakip bulgusu{% endif %}
+  {%- if ornek_veri.rakip and ornek_veri.trend %},{% endif %}
+  {% if ornek_veri.trend %}<strong>{{ ornek_veri.trend }}</strong> trend bulgusu{% endif %}.
+  Bunlar <strong>analiz değildir</strong> ve hiçbir karara dayanak olamaz.
+  <div style="margin-top:8px">
+    İş akışları bu kayıtları artık yazmıyor. Aşağıdaki düğme
+    <strong>yalnızca</strong> bu örnek kayıtları siler; gerçek bulgulara
+    dokunmaz.
+  </div>
+  {% if temizleyebilir %}
+  <form method="post"
+        action="/panel/musteri/{{ workspace.id }}/rakip-trend/ornek-veri-temizle"
+        style="margin-top:12px"
+        onsubmit="return confirm('{{ (ornek_veri.rakip + ornek_veri.trend) }} örnek kayıt kalıcı olarak silinecek. Bu geri alınamaz. Emin misiniz?')">
+    <input type="hidden" name="onay" value="EVET">
+    <button type="submit" class="tehlikeli">Örnek kayıtları temizle</button>
+  </form>
+  {% endif %}
+</div>
+{% endif %}
+
 <h2>Rakip bulguları</h2>
 {% if rakip_bulgulari %}
   {% for r in rakip_bulgulari %}
