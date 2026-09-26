@@ -17,16 +17,15 @@ kaybolurdu.
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Annotated
 
 from fastapi import APIRouter, Form, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 
 from app.api.deps import DbSession
 from app.models.identity import User
 from app.panel.auth import current_user_from_cookie
+from app.panel.sablon import templates
 from app.services.denetim import kaydet
 from app.services.istemler import (
     IstemHatasi,
@@ -40,7 +39,6 @@ from app.services.istemler import (
 )
 
 router = APIRouter(prefix="/panel/istemler", tags=["panel"])
-templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 
 
 def _giris_yonlendir() -> RedirectResponse:

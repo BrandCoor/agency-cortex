@@ -82,7 +82,7 @@
   <div class="muted" style="margin-top:6px">
     Kaynak: {% if a.kaynak == 'panel' %}panelden girildi{% else %}sunucu ayarı{% endif %}
     {% if a.son_dort %}· son 4 karakter: <code>…{{ a.son_dort }}</code>{% endif %}
-    {% if a.guncellendi %}· {{ a.guncellendi.strftime('%d.%m.%Y %H:%M') }}{% endif %}
+    {% if a.guncellendi %}· {{ a.guncellendi | yerel("%d.%m.%Y %H:%M") }}{% endif %}
   </div>
   {% endif %}
 

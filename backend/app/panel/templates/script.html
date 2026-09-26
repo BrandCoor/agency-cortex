@@ -81,7 +81,7 @@
   {% for h in history %}
   <tr>
     <td><span class="badge b-{{ h.status.value }}">{{ status_labels[h.status.value] }}</span></td>
-    <td class="muted">{{ h.decided_at.strftime('%d.%m.%Y %H:%M') if h.decided_at else '' }}</td>
+    <td class="muted">{{ h.decided_at | yerel("%d.%m.%Y %H:%M") if h.decided_at else '' }}</td>
     <td>{{ h.comment or '' }}</td>
   </tr>
   {% endfor %}

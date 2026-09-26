@@ -13,12 +13,10 @@ Iki bolum var ve YETKILERI FARKLIDIR:
 from __future__ import annotations
 
 import uuid
-from pathlib import Path
 from typing import Annotated
 
 from fastapi import APIRouter, Form, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy import select
 
 from app.api.deps import DbSession
@@ -29,6 +27,7 @@ from app.models.identity import User, Workspace, WorkspaceMember
 from app.models.otomasyon import ApiClient
 from app.panel.auth import current_user_from_cookie
 from app.panel.ortak import uyelik_bul
+from app.panel.sablon import templates
 from app.services.denetim import kaydet
 from app.services.makine_kimligi import (
     MakineKimligiHatasi,
@@ -48,7 +47,6 @@ from app.services.otomasyon import (
 from app.services.yetkiler import izin_var_mi
 
 router = APIRouter(prefix="/panel/otomasyon", tags=["panel"])
-templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 
 
 def _giris_yonlendir() -> RedirectResponse:

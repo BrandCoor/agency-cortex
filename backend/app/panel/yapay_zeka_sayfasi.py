@@ -14,18 +14,17 @@ olusamaz.
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Annotated
 
 from fastapi import APIRouter, Form, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 
 from app.api.deps import DbSession
 from app.core.config import get_settings
 from app.models.ai_saglayici import SaglayiciTuru
 from app.models.identity import User
 from app.panel.auth import current_user_from_cookie
+from app.panel.sablon import templates
 from app.services.ai_saglayicilar import (
     GOREVLER,
     SaglayiciHatasi,
@@ -42,7 +41,6 @@ from app.services.denetim import kaydet
 from app.services.sistem_ayarlari import deger_oku
 
 router = APIRouter(prefix="/panel/yapay-zeka", tags=["panel"])
-templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 
 TUR_ADLARI = {
     SaglayiciTuru.ANTHROPIC: "Anthropic",

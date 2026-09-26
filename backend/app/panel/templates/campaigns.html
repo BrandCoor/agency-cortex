@@ -41,9 +41,9 @@
   </div>
 
   <div class="muted" style="margin-top:6px">
-    {% if c.k.starts_on %}{{ c.k.starts_on.strftime('%d.%m.%Y') }}{% else %}başlangıç yok{% endif %}
+    {% if c.k.starts_on %}{{ c.k.starts_on | yerel("%d.%m.%Y") }}{% else %}başlangıç yok{% endif %}
     —
-    {% if c.k.ends_on %}{{ c.k.ends_on.strftime('%d.%m.%Y') }}{% else %}bitiş yok{% endif %}
+    {% if c.k.ends_on %}{{ c.k.ends_on | yerel("%d.%m.%Y") }}{% else %}bitiş yok{% endif %}
     {% if c.toplam %}
       · <strong>toplam plan: {{ "%.2f"|format(c.toplam) }}</strong>
     {% endif %}

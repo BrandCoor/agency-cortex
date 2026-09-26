@@ -10,18 +10,15 @@ zarar verir cunku kimse sorgulamaz.
 
 from __future__ import annotations
 
-from pathlib import Path
-
 from fastapi import APIRouter, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 
 from app.api.deps import DbSession
 from app.panel.auth import current_user_from_cookie
+from app.panel.sablon import templates
 from app.services.dashboard import ozet_getir, toplam_butce
 
 router = APIRouter(prefix="/panel/dashboard", tags=["panel"])
-templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 
 
 @router.get("", response_class=HTMLResponse)

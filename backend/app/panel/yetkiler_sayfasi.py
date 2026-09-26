@@ -16,18 +16,17 @@ BU SAYFA NE YAPAR:
 from __future__ import annotations
 
 import uuid
-from pathlib import Path
 from typing import Annotated
 
 from fastapi import APIRouter, Form, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy import select
 
 from app.api.deps import DbSession
 from app.models.enums import PermissionPackage
 from app.models.identity import User, WorkspaceMember
 from app.panel.auth import current_user_from_cookie
+from app.panel.sablon import templates
 from app.services.denetim import kaydet
 from app.services.yetkiler import (
     IZIN_ANAHTARLARI,
@@ -40,7 +39,6 @@ from app.services.yetkiler import (
 )
 
 router = APIRouter(prefix="/panel/yetkiler", tags=["panel"])
-templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 
 
 def _giris_yonlendir() -> RedirectResponse:

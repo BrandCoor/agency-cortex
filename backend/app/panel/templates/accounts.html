@@ -41,7 +41,7 @@
   </div>
   {% if h.display_name %}<div class="muted" style="margin-top:4px">{{ h.display_name }}</div>{% endif %}
   {% if h.last_synced_at %}
-    <div class="muted">Son veri çekimi: {{ h.last_synced_at.strftime('%d.%m.%Y %H:%M') }}</div>
+    <div class="muted">Son veri çekimi: {{ h.last_synced_at | yerel("%d.%m.%Y %H:%M") }}</div>
   {% else %}
     <div class="warn" style="margin-top:8px">
       Bu hesaptan henüz hiç veri çekilmedi. İlk veri, günlük iş akışı

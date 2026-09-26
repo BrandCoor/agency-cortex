@@ -12,12 +12,10 @@ kopyalanirken bozulur, ne de yoneticinin eline gecer.
 from __future__ import annotations
 
 import uuid
-from pathlib import Path
 from typing import Annotated
 
 from fastapi import APIRouter, Form, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 
@@ -26,6 +24,7 @@ from app.core.config import get_settings
 from app.models.enums import PermissionPackage
 from app.models.identity import User, Workspace, WorkspaceMember
 from app.panel.auth import current_user_from_cookie
+from app.panel.sablon import templates
 from app.services.denetim import kaydet
 from app.services.kullanicilar import (
     KullaniciHatasi,
@@ -47,7 +46,6 @@ from app.services.yetkiler import (
 )
 
 router = APIRouter(prefix="/panel/kullanicilar", tags=["panel"])
-templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 
 #: Yeni hesabin sifre belirleme bagi bu kadar sure gecerlidir.
 #: Kisa tutmak kullaniciyi magdur ediyordu; asil koruma bagin TEK

@@ -72,10 +72,10 @@
             <span class="sessiz">hiç sınanmadı</span>
           {% elif s.sinama_basarili %}
             <span class="pill p-ok">çalışıyor</span>
-            <div class="sessiz">{{ s.sinama_zamani.strftime("%d.%m.%Y %H:%M") }}</div>
+            <div class="sessiz">{{ s.sinama_zamani | yerel("%d.%m.%Y %H:%M") }}</div>
           {% else %}
             <span class="pill p-bad">başarısız</span>
-            <div class="sessiz">{{ s.sinama_zamani.strftime("%d.%m.%Y %H:%M") }}</div>
+            <div class="sessiz">{{ s.sinama_zamani | yerel("%d.%m.%Y %H:%M") }}</div>
           {% endif %}
           {% if s.sinama_mesaji %}
             <div class="sessiz" style="max-width:420px">{{ s.sinama_mesaji }}</div>

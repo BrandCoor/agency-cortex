@@ -84,7 +84,7 @@
         </td>
         <td class="muted">{{ k.uyelik }}</td>
         <td class="muted">
-          {% if k.last_login_at %}{{ k.last_login_at.strftime("%d.%m.%Y %H:%M") }}
+          {% if k.last_login_at %}{{ k.last_login_at | yerel("%d.%m.%Y %H:%M") }}
           {% else %}<span class="sessiz">hiç girmedi</span>{% endif %}
         </td>
         <td class="sag daralt">

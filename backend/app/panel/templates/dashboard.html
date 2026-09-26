@@ -111,7 +111,7 @@
           {% else %}<span class="pill">{{ c.durum }}</span>{% endif %}
           {% if c.hata %}<div class="sessiz" style="color:var(--bad)">{{ c.hata }}</div>{% endif %}
         </td>
-        <td class="muted">{{ c.zaman.strftime('%d.%m.%Y %H:%M') }}</td>
+        <td class="muted">{{ c.zaman | yerel("%d.%m.%Y %H:%M") }}</td>
       </tr>
     {% endfor %}
     </tbody>

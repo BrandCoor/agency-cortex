@@ -9,17 +9,16 @@ from __future__ import annotations
 
 import datetime as dt
 import uuid
-from pathlib import Path
 from typing import Annotated
 
 from fastapi import APIRouter, Form, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 
 from app.api.deps import DbSession
 from app.models.identity import Workspace
 from app.panel.auth import current_user_from_cookie
 from app.panel.ortak import uyelik_bul
+from app.panel.sablon import templates
 from app.services.denetim import kaydet
 from app.services.takvim import (
     TakvimHatasi,
@@ -32,7 +31,6 @@ from app.services.takvim import (
 from app.services.yetkiler import izin_var_mi
 
 router = APIRouter(prefix="/panel/musteri/{workspace_id}/takvim", tags=["panel"])
-templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 
 AY_ADLARI = [
     "", "Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran",

@@ -65,10 +65,18 @@ def _hatanin_hucresi(metin: str) -> str:
 
 
 def test_kapali_akisin_hatasi_tarihiyle_gosteriliyor(client, kurulum):
+    """Beklenen tarih YEREL saatle hesaplanir.
+
+    Panel zamanlari sistemin saat diliminde gosteriyor. Test UTC tarihini
+    beklerse, gece yarisina yakin saatlerde bir gun kayar ve gercek bir
+    hata olmadigi halde patlar.
+    """
+    from app.panel.sablon import yerel
+
     _, eski = kurulum
     metin = client.get("/panel/otomasyon").text
     assert HATA_METNI in metin
-    assert eski.strftime("%d.%m.%Y") in _hatanin_hucresi(metin)
+    assert yerel(eski, "%d.%m.%Y") in _hatanin_hucresi(metin)
 
 
 def test_kapali_akista_hatanin_eski_oldugu_yaziyor(client, kurulum):

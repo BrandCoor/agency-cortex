@@ -18,21 +18,19 @@ SISTEMIN NE BEKLEDIGIDIR; sayfa da bunu gosteriyor.
 
 from __future__ import annotations
 
-from pathlib import Path
 from urllib.parse import urlparse
 
 from fastapi import APIRouter, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 
 from app.api.deps import DbSession
 from app.core.config import get_settings
 from app.models.identity import User
 from app.panel.auth import current_user_from_cookie
+from app.panel.sablon import templates
 from app.platforms.meta_ayar import meta_ayarlarini_oku, tutarlilik_uyarisi
 
 router = APIRouter(prefix="/panel/meta-kurulum", tags=["panel"])
-templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 
 #: Meta paneline girilecek adresler.
 #:

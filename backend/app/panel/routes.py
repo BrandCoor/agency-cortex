@@ -12,12 +12,10 @@ from __future__ import annotations
 import datetime as dt
 import re
 import uuid
-from pathlib import Path
 from typing import Annotated
 
 from fastapi import APIRouter, Form, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 
@@ -33,6 +31,7 @@ from app.models.reporting import Report, ReportSection
 from app.models.social import SocialAccount
 from app.panel.auth import clear_session_cookie, current_user_from_cookie, set_session_cookie
 from app.panel.ortak import uyelik_bul
+from app.panel.sablon import templates
 from app.platforms.base import PlatformError
 from app.platforms.meta_ayar import (
     kaydedilecek_alan_adi,
@@ -80,7 +79,6 @@ from app.services.sistem_ayarlari import (
 from app.services.yetkiler import PAKET_ADLARI, izin_var_mi
 
 router = APIRouter(prefix="/panel", tags=["panel"])
-templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 
 STATUS_LABELS = {
     "draft": "Taslak",

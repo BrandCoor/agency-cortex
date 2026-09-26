@@ -23,14 +23,14 @@
   <div class="kutu">
     <div class="etiket">Son giriş</div>
     <div class="deger" style="font-size:17px">
-      {% if hedef.last_login_at %}{{ hedef.last_login_at.strftime("%d.%m.%Y %H:%M") }}
+      {% if hedef.last_login_at %}{{ hedef.last_login_at | yerel("%d.%m.%Y %H:%M") }}
       {% else %}—{% endif %}
     </div>
     <div class="not">{% if not hedef.last_login_at %}Henüz hiç giriş yapmadı{% endif %}</div>
   </div>
   <div class="kutu">
     <div class="etiket">Hesap açılışı</div>
-    <div class="deger" style="font-size:17px">{{ hedef.created_at.strftime("%d.%m.%Y") }}</div>
+    <div class="deger" style="font-size:17px">{{ hedef.created_at | yerel("%d.%m.%Y") }}</div>
   </div>
 </div>
 

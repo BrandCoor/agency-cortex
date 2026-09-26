@@ -7,15 +7,14 @@ degildir.
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Annotated
 
 from fastapi import APIRouter, Form, Request, status
 from fastapi.responses import RedirectResponse
-from fastapi.templating import Jinja2Templates
 
 from app.api.deps import DbSession
 from app.panel.auth import current_user_from_cookie
+from app.panel.sablon import templates
 from app.services.gorunum import (
     TEMALAR,
     VURGULAR,
@@ -24,7 +23,6 @@ from app.services.gorunum import (
 )
 
 router = APIRouter(prefix="/panel/gorunum", tags=["panel"])
-templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 
 
 def _giris_yonlendir() -> RedirectResponse:

@@ -39,7 +39,7 @@
     </div>
     {% endif %}
     <div class="sessiz" style="margin-top:8px">
-      {{ t.tarih.strftime('%d.%m.%Y %H:%M') }}
+      {{ t.tarih | yerel("%d.%m.%Y %H:%M") }}
       {% if t.kaynaklar %}
         · Kaynak:
         {% for k in t.kaynaklar %}<a href="{{ k }}" rel="noopener noreferrer nofollow" target="_blank">bağlantı</a>{% if not loop.last %}, {% endif %}{% endfor %}
@@ -116,7 +116,7 @@
     </div>
     {% endif %}
     <div class="sessiz" style="margin-top:8px">
-      {{ r.tarih.strftime('%d.%m.%Y %H:%M') }} · veri kaynağı: {{ r.kaynak_turu }}
+      {{ r.tarih | yerel("%d.%m.%Y %H:%M") }} · veri kaynağı: {{ r.kaynak_turu }}
       {% if r.kaynaklar %}
         · Kaynak:
         {% for k in r.kaynaklar %}<a href="{{ k }}" rel="noopener noreferrer nofollow" target="_blank">bağlantı</a>{% if not loop.last %}, {% endif %}{% endfor %}

@@ -79,7 +79,7 @@
       {% for k in gun.kayitlar %}
       <span class="plan {% if k.yayinlandi %}yayinlandi{% elif k.gecikti %}gecikti{% endif %}"
             title="{{ k.baslik }}{% if k.kanca %} — {{ k.kanca }}{% endif %}">
-        <span class="saat">{{ k.ne_zaman.strftime('%H:%M') }}</span>
+        <span class="saat">{{ k.ne_zaman | yerel("%H:%M") }}</span>
         {{ k.platform }}<br>{{ k.baslik[:34] }}
       </span>
       {% endfor %}
@@ -102,7 +102,7 @@
     {% for hafta in gorunum.haftalar %}{% for gun in hafta %}{% if gun.bu_ay %}
       {% for k in gun.kayitlar %}
       <tr>
-        <td class="muted daralt">{{ k.ne_zaman.strftime('%d.%m %H:%M') }}</td>
+        <td class="muted daralt">{{ k.ne_zaman | yerel("%d.%m %H:%M") }}</td>
         <td>
           <strong>{{ k.baslik }}</strong>
           <span class="pill p-notr">{{ k.platform }}</span>
@@ -112,7 +112,7 @@
         <td>
           {% if k.yayinlandi %}
             <span class="pill p-ok">Yayınlandı</span>
-            <div class="sessiz">{{ k.yayin_zamani.strftime('%d.%m.%Y %H:%M') }}</div>
+            <div class="sessiz">{{ k.yayin_zamani | yerel("%d.%m.%Y %H:%M") }}</div>
           {% elif k.gecikti %}
             <span class="pill p-bad">Zamanı geçti</span>
             <div class="sessiz">Paylaşıldıysa işaretleyin</div>

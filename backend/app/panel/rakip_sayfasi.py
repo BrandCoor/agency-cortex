@@ -15,12 +15,10 @@ from __future__ import annotations
 
 import uuid
 from datetime import UTC, datetime, timedelta
-from pathlib import Path
 from typing import Annotated
 
 from fastapi import APIRouter, Form, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy import select
 
 from app.api.deps import DbSession
@@ -30,13 +28,13 @@ from app.models.otomasyon import AutomationSetting
 from app.models.research import CompetitorObservation, TrendObservation
 from app.panel.auth import current_user_from_cookie
 from app.panel.ortak import uyelik_bul
+from app.panel.sablon import templates
 from app.services.denetim import kaydet
 from app.services.ornek_veri_temizligi import say as ornek_veri_say
 from app.services.ornek_veri_temizligi import temizle as ornek_veri_temizle
 from app.services.yetkiler import izin_var_mi
 
 router = APIRouter(prefix="/panel", tags=["panel"])
-templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
 
 #: Kac gunluk bulgu gosterilir.
 PENCERE_GUN = 30

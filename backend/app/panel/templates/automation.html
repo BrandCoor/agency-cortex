@@ -113,7 +113,7 @@
              durumda. Kapali bir akista gunler onceki bir hata TARIHSIZ
              duruyor ve guncel bir arizaymis gibi gorunuyordu. #}
           {% if a.son_baslangic %}
-          <div class="sessiz">{{ a.son_baslangic.strftime("%d.%m.%Y %H:%M") }}</div>
+          <div class="sessiz">{{ a.son_baslangic | yerel("%d.%m.%Y %H:%M") }}</div>
           {% endif %}
           {% if a.son_ozet and a.son_ozet.get("yapilacak_is_yoktu") %}
           <div class="sessiz">çalıştı ama yapacak iş yoktu</div>
@@ -173,7 +173,7 @@
       {% for r in m.son_calistirmalar %}
         <tr>
           <td class="muted">{{ r.akis }}</td>
-          <td class="muted">{{ r.baslangic.strftime("%d.%m.%Y %H:%M") }}</td>
+          <td class="muted">{{ r.baslangic | yerel("%d.%m.%Y %H:%M") }}</td>
           <td class="muted">
             {% if r.bitis %}{{ ((r.bitis - r.baslangic).total_seconds() | round) | int }} sn
             {% else %}<span class="sessiz">—</span>{% endif %}
@@ -256,7 +256,7 @@
           {% else %}<span class="sessiz">hiçbir müşteri — bu anahtar iş yapamaz</span>{% endif %}
         </td>
         <td class="muted">
-          {% if k.son_kullanim %}{{ k.son_kullanim.strftime("%d.%m.%Y %H:%M") }}
+          {% if k.son_kullanim %}{{ k.son_kullanim | yerel("%d.%m.%Y %H:%M") }}
           {% else %}<span class="sessiz">hiç kullanılmadı</span>{% endif %}
         </td>
         <td class="sag daralt">
