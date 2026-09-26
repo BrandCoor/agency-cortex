@@ -132,6 +132,7 @@ from app.panel.otomasyon import router as panel_otomasyon_router  # noqa: E402
 from app.panel.rakip_sayfasi import router as panel_rakip_router  # noqa: E402
 from app.panel.routes import router as panel_router  # noqa: E402
 from app.panel.takvim_sayfasi import router as panel_takvim_router  # noqa: E402
+from app.panel.yapay_zeka_sayfasi import router as panel_yapay_zeka_router  # noqa: E402
 from app.panel.yetkiler_sayfasi import router as panel_yetkiler_router  # noqa: E402
 
 app.include_router(panel_router)
@@ -142,3 +143,4 @@ app.include_router(panel_rakip_router)
 app.include_router(panel_dashboard_router)
 app.include_router(panel_gorunum_router)
 app.include_router(panel_yetkiler_router)
+app.include_router(panel_yapay_zeka_router)

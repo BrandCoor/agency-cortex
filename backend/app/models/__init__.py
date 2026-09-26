@@ -4,6 +4,7 @@ Alembic'in tablolari gorebilmesi icin her model burada import edilmelidir.
 """
 
 from app.models.ai import AICostEvent, AIRun, AITask
+from app.models.ai_saglayici import AISaglayici, GorevAtamasi, SaglayiciTuru
 from app.models.brand import Brand, BrandGuideline, Campaign
 from app.models.content import ContentCalendar, ContentIdea, ContentScript
 from app.models.enums import (
@@ -19,6 +20,7 @@ from app.models.enums import (
     WorkspaceRole,
 )
 from app.models.identity import User, Workspace, WorkspaceMember
+from app.models.istem import IstemSablonu
 from app.models.izlenen import IzlemeTuru, TrackedAccount
 from app.models.kampanya import CampaignPlatform
 from app.models.ops import (
@@ -48,7 +50,8 @@ from app.models.social import (
 from app.models.yetki import UserPermission
 
 __all__ = [
-    "AICostEvent", "AIProviderName", "AIRun", "AITask", "AITaskStatus",
+    "AICostEvent", "AIProviderName", "AIRun", "AISaglayici", "AITask",
+    "AITaskStatus", "GorevAtamasi", "IstemSablonu", "SaglayiciTuru",
     "AccountMetrics", "ApiClient", "ApiClientWorkspace", "Approval",
     "AuditLog", "AutomationRun", "AutomationSetting", "AutomationStatus",
     "AutomationTrigger", "Brand", "BrandGuideline",

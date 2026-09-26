@@ -33,8 +33,12 @@ def _siniflar(metin: str) -> set[str]:
         # Jinja ifadelerinin icindeki degiskenler ({{ ... }}) sinif adi degil,
         # uretilen degerdir; atilir. Kontrol blogunun ({% ... %}) icindeki
         # duz sozcukler ise sinif adi olabilir.
+        # Jinja ETIKETLERININ TAMAMI atilir, icindeki kosul degiskeni de.
+        # Once yalnizca suslu parantezler siliniyordu; o zaman
+        # `{% if uretim %}err{% endif %}` icindeki `uretim` sinif adi
+        # saniliyor ve test gercek olmayan bir eksik bildiriyordu.
         deger = re.sub(r"\{\{.*?\}\}", " ", deger)
-        deger = re.sub(r"[{}%]", " ", deger)
+        deger = re.sub(r"\{%.*?%\}", " ", deger)
         for parca in deger.split():
             if parca in JINJA_SOZCUKLERI:
                 continue

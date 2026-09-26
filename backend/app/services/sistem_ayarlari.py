@@ -148,6 +148,24 @@ KALDIRILAN_AYARLAR: frozenset[str] = frozenset()
 
 AYAR_ANAHTARLARI = {a.anahtar for a in AYARLAR}
 
+#: Kullanicinin panelden EKLEDIGI yapay zeka saglayicilarinin anahtarlari
+#: bu onekle saklanir. Adlari onceden bilinemez (saglayiciyi kullanici
+#: ekler), ama gizli deger yine de AYNI sifreli tabloda durur - yeni bir
+#: sir saklama yeri acmak, korunmasi gereken ikinci bir yer demekti.
+OZEL_AI_ONEKI = "OZEL_AI_"
+
+
+def _yazilabilir(anahtar: str) -> bool:
+    """Bu ayar adina yazilabilir mi?
+
+    Serbest ad kabul edilseydi, panele gelen herhangi bir alan adiyla
+    tabloya kayit dusurulebilirdi. Yalnizca tanimli ayarlar ve ozel AI
+    oneki kabul edilir.
+    """
+    return anahtar in AYAR_ANAHTARLARI or (
+        anahtar.startswith(OZEL_AI_ONEKI) and len(anahtar) > len(OZEL_AI_ONEKI)
+    )
+
 
 def deger_oku(db: Session, anahtar: str) -> str | None:
     """Ayari once veritabanindan, yoksa ortam degiskeninden okur."""
@@ -168,7 +186,7 @@ def deger_oku(db: Session, anahtar: str) -> str | None:
 
 def deger_yaz(db: Session, anahtar: str, deger: str, *, user_id: uuid.UUID | None) -> None:
     """Ayari sifreleyerek kaydeder. Deger loglanmaz."""
-    if anahtar not in AYAR_ANAHTARLARI:
+    if not _yazilabilir(anahtar):
         raise ValueError(f"Bilinmeyen ayar: {anahtar}")
     deger = deger.strip()
     if not deger:
