@@ -109,6 +109,30 @@ class FakeProvider(AIProvider):
                 ),
             }
 
+        if request.task_type == "competitor_discovery":
+            return {
+                "adaylar": [
+                    {
+                        "username": f"ornek-rakip-{tohum}",
+                        "platform": "instagram",
+                        "display_name": "Örnek Rakip",
+                        "gerekce": (
+                            "Örnek veri sağlayıcısı üretti — gerçek bir "
+                            "araştırma sonucu DEĞİL."
+                        ),
+                        "benzerlik": "low",
+                        "kaynak_urls": [],
+                        "uncertainties": [
+                            "Gerçek hiçbir hesap incelenmedi; örnek veridir.",
+                        ],
+                    }
+                ],
+                "research_note": (
+                    "Örnek veri modu: hiçbir hesap aranmadı. Gerçek keşif için "
+                    "yapay zekâ sağlayıcısını bağlayın."
+                ),
+            }
+
         if request.task_type == "competitor_research":
             return {
                 "findings": [

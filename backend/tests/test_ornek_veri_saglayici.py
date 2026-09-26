@@ -23,6 +23,7 @@ from app.ai.fake import FakeProvider
 from app.ai.schemas import (
     CompetitorResearchBatch,
     ContentScriptBatch,
+    RakipKesfiBatch,
     StrategicCommentary,
     TrendResearchBatch,
 )
@@ -33,6 +34,7 @@ GOREV_SEMALARI = {
     "trend_research": TrendResearchBatch,
     "strategic_commentary": StrategicCommentary,
     "competitor_research": CompetitorResearchBatch,
+    "competitor_discovery": RakipKesfiBatch,
 }
 
 

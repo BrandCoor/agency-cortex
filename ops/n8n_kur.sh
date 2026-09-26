@@ -29,7 +29,7 @@ ISARET="$DIZIN/.n8n-akislari-kuruldu"
 
 KIMLIK_ID="agency-cortex-api"
 KIMLIK_AD="Agency Cortex API"
-AKIS_IDLERI="agency-cortex-wf01 agency-cortex-wf02 agency-cortex-wf03 agency-cortex-wf04 agency-cortex-wf05 agency-cortex-wf06"
+AKIS_IDLERI="agency-cortex-wf01 agency-cortex-wf02 agency-cortex-wf03 agency-cortex-wf04 agency-cortex-wf05 agency-cortex-wf06 agency-cortex-wf07"
 
 cd "$DIZIN"
 

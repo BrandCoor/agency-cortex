@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% block title %}İstemler{% endblock %}
+{% block content %}
+
+<div class="sayfa-ust">
+  <div class="metin">
+    <h1>İstemler</h1>
+    <p class="sub">
+      İş akışlarının yapay zekâya verdiği yönergeler. Buradaki metin,
+      üretilen çıktının tamamını belirler.
+    </p>
+  </div>
+</div>
+
+{% if error %}<div class="err">{{ error }}</div>{% endif %}
+{% if ok %}<div class="ok">{{ ok }}</div>{% endif %}
+
+<div class="bilgi">
+  <b>Değiştirmekten çekinmeyin</b>
+  Yerleşik istemlerin koddaki hâli her zaman durur;
+  <em>“Varsayılana dön”</em> tek tıkla geri alır. Kaydettiğinizde sürüm
+  numarası artar ve üretilen her çıktı hangi sürümle üretildiğini yazar —
+  “bu rapor neden böyle çıkmış?” sorusu böyle cevaplanabilir kalır.
+</div>
+
+{% for i in istemler %}
+<div class="card">
+  <div class="row">
+    <div style="flex:1;min-width:0">
+      <strong>{{ i.ad }}</strong>
+      {% if i.akis %}<span class="pill p-acc">{{ i.akis }}</span>{% endif %}
+      <span class="pill p-notr">v{{ i.surum }}</span>
+      {% if i.yerlesik %}
+        {% if i.degistirilmis %}
+          <span class="pill p-warn">düzenlendi</span>
+        {% endif %}
+      {% else %}
+        <span class="pill p-acc">sizin eklediğiniz</span>
+      {% endif %}
+      <div class="sessiz">{{ i.aciklama }}</div>
+      <div class="sessiz"><code>{{ i.kod }}</code> · {{ i.uzunluk }} karakter</div>
+    </div>
+  </div>
+
+  <details {% if acik == i.kod %}open{% endif %} style="margin-top:10px">
+    <summary>Metni göster ve düzenle</summary>
+    <form method="post" action="/panel/istemler/kaydet">
+      <input type="hidden" name="kod" value="{{ i.kod }}">
+      <label for="metin-{{ i.kod }}">Sistem istemi</label>
+      <textarea id="metin-{{ i.kod }}" name="metin" rows="16"
+                style="font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13px"
+                required>{{ i.metin }}</textarea>
+      <div class="aksiyonlar" style="margin-top:12px">
+        <button type="submit" class="birincil">Kaydet</button>
+      </div>
+    </form>
+
+    <div class="aksiyonlar" style="margin-top:10px">
+      {% if i.yerlesik %}
+      <form method="post" action="/panel/istemler/varsayilan" style="margin:0"
+            onsubmit="return confirm('Bu istem koddaki varsayılan metne dönecek. Yaptığınız düzenleme kaybolacak. Emin misiniz?')">
+        <input type="hidden" name="kod" value="{{ i.kod }}">
+        <button type="submit" class="kucuk"
+                {% if not i.degistirilmis %}disabled
+                title="Metin zaten varsayılanla aynı"{% endif %}>
+          Varsayılana dön
+        </button>
+      </form>
+      {% else %}
+      <form method="post" action="/panel/istemler/sil" style="margin:0"
+            onsubmit="return confirm('{{ i.ad }} kalıcı olarak silinecek. Emin misiniz?')">
+        <input type="hidden" name="kod" value="{{ i.kod }}">
+        <button type="submit" class="kucuk tehlikeli">Sil</button>
+      </form>
+      {% endif %}
+    </div>
+  </details>
+</div>
+{% endfor %}
+
+<h2>Yeni istem ekle</h2>
+<form method="post" action="/panel/istemler/ekle" class="card">
+  <div class="warn">
+    <b>Eklemek tek başına yetmez</b>
+    Yeni bir istem ancak bir iş akışı onu <strong>kodda çağırıyorsa</strong>
+    kullanılır. Buradan eklenen istem, henüz hiçbir akış tarafından
+    çağrılmıyorsa hazır durur ama çalışmaz — bunu size açıkça söylüyoruz.
+  </div>
+
+  <div class="izgara">
+    <div>
+      <label for="yeni-ad">Ad</label>
+      <input id="yeni-ad" name="ad" type="text" required maxlength="160"
+             placeholder="Örn: Kampanya metni">
+    </div>
+    <div>
+      <label for="yeni-kod">Kod</label>
+      <input id="yeni-kod" name="kod" type="text" required
+             pattern="[a-z][a-z0-9_]{2,58}" placeholder="kampanya_metni">
+      <p class="ipucu">Küçük harf, rakam ve alt çizgi. Sonradan değişmez.</p>
+    </div>
+    <div>
+      <label for="yeni-akis">İş akışı (isteğe bağlı)</label>
+      <input id="yeni-akis" name="akis" type="text" maxlength="20"
+             placeholder="WF-03">
+    </div>
+  </div>
+
+  <label for="yeni-aciklama">Açıklama</label>
+  <input id="yeni-aciklama" name="aciklama" type="text"
+         placeholder="Bu istem ne işe yarar?">
+
+  <label for="yeni-metin">Sistem istemi</label>
+  <textarea id="yeni-metin" name="metin" rows="10" required
+            style="font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13px"
+            placeholder="Sen bir ...&#10;&#10;GÖREVİN: ...&#10;&#10;KESİN KURALLAR:&#10;1. ..."></textarea>
+
+  <div style="margin-top:14px">
+    <button type="submit" class="birincil">İstem ekle</button>
+  </div>
+</form>
+{% endblock %}

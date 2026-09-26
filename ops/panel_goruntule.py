@@ -124,6 +124,7 @@ def sayfalar(workspace_id: str) -> list[tuple[str, str]]:
         ("gorunum", "/panel/gorunum"),
         ("yetkiler", "/panel/yetkiler"),
         ("yapay-zeka", "/panel/yapay-zeka"),
+        ("istemler", "/panel/istemler"),
         ("ayarlar", "/panel/ayarlar"),
         ("kullanicilar", "/panel/kullanicilar"),
         ("otomasyon", "/panel/otomasyon"),

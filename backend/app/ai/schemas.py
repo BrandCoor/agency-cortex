@@ -160,6 +160,40 @@ class CompetitorFinding(BaseModel):
     uncertainties: list[str] = Field(description="Neleri bilmiyoruz")
 
 
+class RakipAdayi(BaseModel):
+    """Sistemin kendi buldugu bir aday rakip hesap.
+
+    `gerekce` ve `kaynak_urls` ZORUNLUDUR: gerekcesiz bir hesap adi,
+    modelin uydurmus olma ihtimalini gizler. Aday listesine giren her
+    hesap NEDEN girdigini soylemek zorundadir.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    username: str = Field(description="Hesap adi, '@' olmadan")
+    platform: str = Field(description="instagram, tiktok, youtube veya facebook")
+    display_name: str = Field(description="Hesabin gorunen adi; bilinmiyorsa bos")
+    gerekce: str = Field(
+        description="Bu hesap NEDEN bu markanin rakibi sayiliyor"
+    )
+    benzerlik: str = Field(description="'low', 'medium' veya 'high'")
+    kaynak_urls: list[str] = Field(
+        description="Gercekten bakilan adresler; bakilmadiysa bos liste"
+    )
+    uncertainties: list[str] = Field(description="Neleri bilmiyoruz")
+
+
+class RakipKesfiBatch(BaseModel):
+    """Rakip kesfinin sonucu."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    adaylar: list[RakipAdayi]
+    research_note: str = Field(
+        description="Arastirmanin kapsami ve sinirlari; neye bakilmadi"
+    )
+
+
 class CompetitorResearchBatch(BaseModel):
     """Bir rakip arastirmasinin sonucu."""
 

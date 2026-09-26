@@ -207,6 +207,14 @@
 </div>
 
 <h2>İzlenen hesaplar</h2>
+{% if izlenenler | selectattr("aday") | list %}
+<div class="warn">
+  <b>Onay bekleyen aday rakipler var</b>
+  Bunları sistem <strong>kendisi buldu</strong>. Onaylanana kadar
+  araştırmaya dâhil edilmezler — çünkü yapay zekâ var olmayan bir hesap
+  adı üretmiş olabilir. Her adayın yanında neden seçildiği yazıyor.
+</div>
+{% endif %}
 <div class="bilgi">
   <strong>Bağlamak ile izlemek aynı şey değildir.</strong><br>
   <strong>Bağlı hesap:</strong> sahibi izin ekranından yetki vermiştir.
@@ -227,6 +235,7 @@
     {% for t in izlenenler %}
       <tr>
         <td><strong>@{{ t.username }}</strong>
+          {% if t.aday %}<span class="pill p-warn">onay bekliyor</span>{% endif %}
           {% if t.notlar %}<div class="alt-yazi">{{ t.notlar }}</div>{% endif %}
         </td>
         <td>{{ t.platform }}</td>
@@ -234,12 +243,23 @@
         <td class="alt-yazi">{{ t.veri_durumu }}</td>
         <td class="sag daralt">
           {% if izleyebilir %}
-          <form method="post" action="/panel/musteri/{{ workspace.id }}/hesaplar/izleme-kaldir"
-                style="margin:0"
-                onsubmit="return confirm('@{{ t.username }} izleme listesinden çıkarılacak.')">
-            <input type="hidden" name="kayit_id" value="{{ t.id }}">
-            <button type="submit" class="kucuk tehlikeli">Çıkar</button>
-          </form>
+          <div class="aksiyonlar" style="justify-content:flex-end">
+            {% if t.aday %}
+            {# Aday onaylanana kadar hicbir arastirma akisi ona dokunmaz.
+               Sebebi: model var olmayan bir hesap adi uretebilir. #}
+            <form method="post" action="/panel/musteri/{{ workspace.id }}/hesaplar/izleme-onayla"
+                  style="margin:0">
+              <input type="hidden" name="kayit_id" value="{{ t.id }}">
+              <button type="submit" class="kucuk birincil">Onayla</button>
+            </form>
+            {% endif %}
+            <form method="post" action="/panel/musteri/{{ workspace.id }}/hesaplar/izleme-kaldir"
+                  style="margin:0"
+                  onsubmit="return confirm('@{{ t.username }} izleme listesinden çıkarılacak.')">
+              <input type="hidden" name="kayit_id" value="{{ t.id }}">
+              <button type="submit" class="kucuk tehlikeli">Çıkar</button>
+            </form>
+          </div>
           {% endif %}
         </td>
       </tr>

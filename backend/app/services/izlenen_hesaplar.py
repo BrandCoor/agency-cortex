@@ -131,6 +131,32 @@ def kaldir(db: Session, *, workspace_id: uuid.UUID, kayit_id: uuid.UUID) -> None
     db.flush()
 
 
+def onayla(db: Session, *, workspace_id: uuid.UUID, kayit_id: uuid.UUID) -> TrackedAccount:
+    """Sistemin buldugu bir ADAYI onaylar; arastirma akislarina acar.
+
+    Onaya kadar kayit PASIF durur ve hicbir arastirma akisi ona dokunmaz.
+    Sebebi su: bir dil modeli var olmayan bir hesap adi uretebilir.
+    Onaysiz arastirilsaydi, olmayan bir hesap hakkinda uretilen metin
+    rapora girer ve fark edilmesi cok zor olurdu.
+    """
+    kayit = db.execute(
+        select(TrackedAccount).where(
+            TrackedAccount.id == kayit_id,
+            # Baska musterinin kaydi, kimligi bilinse bile onaylanamaz.
+            TrackedAccount.workspace_id == workspace_id,
+        )
+    ).scalar_one_or_none()
+    if kayit is None:
+        raise IzlemeHatasi("Kayıt bulunamadı.")
+    if kayit.is_active:
+        return kayit
+
+    kayit.is_active = True
+    kayit.veri_durumu = VERI_KAYNAGI_YOK
+    db.flush()
+    return kayit
+
+
 def listele(db: Session, workspace_id: uuid.UUID) -> list[TrackedAccount]:
     return list(db.execute(
         select(TrackedAccount)

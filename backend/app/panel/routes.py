@@ -55,6 +55,7 @@ from app.services.izlenen_hesaplar import IzlemeHatasi
 from app.services.izlenen_hesaplar import ekle as izlemeye_ekle
 from app.services.izlenen_hesaplar import kaldir as izlemeden_kaldir
 from app.services.izlenen_hesaplar import listele as izlenenleri_listele
+from app.services.izlenen_hesaplar import onayla as izlemeyi_onayla
 from app.services.kampanyalar import (
     PLATFORM_ADLARI,
     KampanyaHatasi,
@@ -1154,6 +1155,9 @@ def _hesaplar_sayfasi(
                     "tur": IZLEME_ETIKETLERI.get(t.tur, t.tur.value),
                     "notlar": t.notlar,
                     "veri_durumu": t.veri_durumu,
+                    # ADAY: sistemin bulduğu ama henüz onaylanmamış hesap.
+                    # Onaylanana kadar hiçbir araştırma akışı dokunmaz.
+                    "aday": not t.is_active,
                 }
                 for t in izlenenleri_listele(db, workspace.id)
             ],
@@ -1584,6 +1588,49 @@ def tracked_remove(
     db.commit()
     return _hesaplar_sayfasi(
         request, db, user, uyelik, workspace, ok="İzleme listesinden çıkarıldı."
+    )
+
+
+@router.post("/musteri/{workspace_id}/hesaplar/izleme-onayla")
+def tracked_approve(
+    workspace_id: uuid.UUID,
+    request: Request,
+    db: DbSession,
+    kayit_id: Annotated[uuid.UUID, Form()],
+):
+    """Sistemin buldugu aday rakibi onaylar."""
+    user = current_user_from_cookie(request, db)
+    if user is None:
+        return _giris_yonlendir()
+    uyelik = uyelik_bul(request, db, user, workspace_id)
+    if uyelik is None:
+        return HTMLResponse("Bulunamadı.", status_code=404)
+
+    workspace = db.get(Workspace, workspace_id)
+    if not izin_var_mi(db, user, "hesap.izle"):
+        return _hesaplar_sayfasi(
+            request, db, user, uyelik, workspace,
+            error="İzlenen hesapları yönetme yetkiniz yok.",
+            kod=status.HTTP_403_FORBIDDEN,
+        )
+
+    try:
+        kayit = izlemeyi_onayla(db, workspace_id=workspace_id, kayit_id=kayit_id)
+    except IzlemeHatasi as exc:
+        return _hesaplar_sayfasi(
+            request, db, user, uyelik, workspace,
+            error=str(exc), kod=status.HTTP_404_NOT_FOUND,
+        )
+
+    kaydet(
+        db, action="izlenen_hesap.onayla", actor_user_id=user.id,
+        workspace_id=workspace_id, subject_type="tracked_account",
+        subject_id=kayit_id, request=request,
+    )
+    db.commit()
+    return _hesaplar_sayfasi(
+        request, db, user, uyelik, workspace,
+        ok=f"@{kayit.username} onaylandı; bundan sonra araştırmaya dâhil.",
     )
 
 

@@ -48,19 +48,23 @@ class GorevTanimi:
     varsayilan: str
 
 
-#: Sistemdeki AI gorev turleri. Kod bunlarin disinda bir tur uretmez.
+#: Panelde gosterilen AI gorev turleri.
+#
+# BURADA YALNIZCA GERCEKTEN CALISAN ISLER DURUR.
+#
+# Once bu listede uc is daha vardi: "stratejik yorum", "marka dili
+# denetimi" ve "toplu siniflandirma". Uculu de hicbir kod tarafindan
+# CAGRILMIYORDU: panelde secilebiliyor, saglayici atanabiliyordu ama
+# hicbir zaman calismiyorlardi. Bir ayari degistirip hicbir sey
+# olmamasi, ayarin bozuk oldugunu dusundurur.
+#
+# `tests/test_ai_gorev_butunlugu.py` bu listenin koddaki gercek
+# cagrilarla ayni kalmasini dogrular; listeye calismayan bir is
+# eklenemez.
 GOREVLER: tuple[GorevTanimi, ...] = (
     GorevTanimi(
         "content_script", "İçerik senaryosu",
         "Paylaşım fikri ve senaryo metni üretir (WF-03).", "claude",
-    ),
-    GorevTanimi(
-        "strategic_commentary", "Stratejik yorum",
-        "Haftalık rapordaki yorum bölümünü yazar (WF-04).", "claude",
-    ),
-    GorevTanimi(
-        "brand_voice_check", "Marka dili denetimi",
-        "Üretilen metnin marka diline uygunluğunu denetler.", "claude",
     ),
     GorevTanimi(
         "trend_research", "Trend araştırması",
@@ -72,11 +76,8 @@ GOREVLER: tuple[GorevTanimi, ...] = (
     ),
     GorevTanimi(
         "competitor_discovery", "Rakip keşfi",
-        "Marka bilgisinden yola çıkarak aday rakip hesapları bulur.", "manus",
-    ),
-    GorevTanimi(
-        "bulk_classification", "Toplu sınıflandırma",
-        "Çok sayıda kısa metni ucuz ve hızlı modelle etiketler.", "gemini",
+        "Marka bilgisinden yola çıkarak aday rakip hesapları bulur (WF-07).",
+        "manus",
     ),
 )
 

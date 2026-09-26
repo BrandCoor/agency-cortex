@@ -31,6 +31,7 @@ from app.platforms.base import PlatformError
 from app.platforms.registry import get_adapter
 from app.services.ai_runner import run_ai_task
 from app.services.content import build_context, generate_scripts
+from app.services.istemler import metin_al
 from app.services.reports import generate_report
 from app.services.sync import sync_social_account
 from app.services.token_store import load_tokens, save_tokens
@@ -164,13 +165,16 @@ def wf02_trend_arastirmasi(db: Session, workspace: Workspace) -> AkisSonucu:
         "En fazla 8 bulgu don. Zayif bulgu yazma; bulamazsan bos liste don.",
     ])
 
+    # Istem PANELDEN duzenlenebilir; yoksa koddaki varsayilana dusulur.
+    trend_istem, trend_surum = metin_al(db, "trend_research")
+
     try:
         sonuc = run_ai_task(
             db,
             workspace=workspace,
             task_type="trend_research",
-            prompt_version=TREND_ISTEM_SURUMU,
-            system=TREND_SISTEM_ISTEMI,
+            prompt_version=trend_surum,
+            system=trend_istem,
             user_content=istem,
             output_model=TrendResearchBatch,
             metadata={"brand": marka.name},
@@ -459,6 +463,34 @@ KESIN KURALLAR:
    yazma.
 """
 
+RAKIP_KESFI_ISTEM_SURUMU = "rakip-kesfi-v1"
+
+RAKIP_KESFI_SISTEM_ISTEMI = """Sen bir sosyal medya rakip arastirmacisisin.
+
+GOREVIN: verilen markanin sektorunde, hedef kitlesinde ve bolgesinde
+faaliyet gosteren ADAY RAKIP sosyal medya hesaplarini bulmak.
+
+KESIN KURALLAR:
+1. HESAP ADI UYDURMA. Yalnizca gercekten var oldugunu gordugun hesaplari
+   yaz. Emin degilsen o hesabi HIC yazma.
+2. Her aday icin GEREKCE yaz: bu hesap neden bu markanin rakibi?
+   Gerekce yazamiyorsan o aday listeye girmez.
+3. Baktigin adresleri kaynak_urls alanina yaz. Bakmadiysan listeyi bos
+   birak; adres uydurma.
+4. Markanin KENDI hesaplarini rakip olarak yazma.
+5. Devasa uluslararasi markalari, marka kucuk bir yerel isletmeyse
+   yazma: karsilastirilabilir olmayan bir rakip yanlis yon verir.
+6. Aday bulamadiysan BOS liste don. Liste doldurmak icin zayif aday
+   yazma.
+7. Takipci sayisi, erisim gibi rakamlari tahmin etme.
+"""
+
+#: Tek bir kesif calismasinda en fazla kac aday kabul edilir.
+#
+# Sinirsiz birakmak, tek calismada izleme listesini onlarca dogrulanmamis
+# hesapla doldururdu.
+AZAMI_ADAY = 10
+
 #: Tek bir calismada en fazla kac rakip incelenir.
 #
 # Her rakip AI maliyeti demektir. Sinirsiz birakmak, bir musteriye 50
@@ -512,13 +544,15 @@ def wf06_rakip_arastirmasi(db: Session, workspace: Workspace) -> AkisSonucu:
         f"En fazla {AZAMI_RAKIP * 2} bulgu don.",
     ])
 
+    rakip_istem, rakip_surum = metin_al(db, "competitor_research")
+
     try:
         sonuc = run_ai_task(
             db,
             workspace=workspace,
             task_type="competitor_research",
-            prompt_version=RAKIP_ISTEM_SURUMU,
-            system=RAKIP_SISTEM_ISTEMI,
+            prompt_version=rakip_surum,
+            system=rakip_istem,
             user_content=istem,
             output_model=CompetitorResearchBatch,
             metadata={
@@ -579,6 +613,135 @@ def wf06_rakip_arastirmasi(db: Session, workspace: Workspace) -> AkisSonucu:
     )
 
 
+# --- WF-07: Rakip kesfi ------------------------------------------------------
+
+def wf07_rakip_kesfi(db: Session, workspace: Workspace) -> AkisSonucu:
+    """Marka bilgisinden yola cikarak ADAY rakip hesaplari bulur.
+
+    NEDEN "ADAY"?
+    Bulunan hesaplar izleme listesine PASIF olarak yazilir; arastirma
+    akisi (WF-06) onlara dokunmaz. Sebebi su: bir dil modeli var olmayan
+    bir hesap adi uretebilir. Dogrudan aktif yazilsaydi, sistem olmayan
+    bir hesap hakkinda "arastirma" uretir ve o cikti rapora girerdi.
+
+    Onaylamak tek tiklik bir istir; uydurma bir rakibi raporda gormek
+    ise fark edilmesi zor bir hatadir.
+
+    Zaten listede olan veya BAGLI olan hesaplar atlanir.
+    """
+    from app.ai.schemas import RakipKesfiBatch
+    from app.models.izlenen import IzlemeTuru, TrackedAccount
+    from app.models.social import SocialAccount
+
+    marka = _tek_marka(db, workspace.id)
+    if marka is None:
+        return AkisSonucu(
+            ozet={"aday": 0},
+            notlar=[
+                "Marka bilgisi girilmemiş. Rakip keşfi markanın sektörüne ve "
+                "hedef kitlesine dayanır; bu bilgiler olmadan yapılamaz."
+            ],
+            yapilacak_is_yoktu=True,
+        )
+
+    mevcut_izlenen = {
+        (t.platform, t.username.lower())
+        for t in db.execute(
+            select(TrackedAccount).where(TrackedAccount.workspace_id == workspace.id)
+        ).scalars()
+    }
+    mevcut_bagli = {
+        (h.platform, (h.username or "").lower())
+        for h in db.execute(
+            select(SocialAccount).where(SocialAccount.workspace_id == workspace.id)
+        ).scalars()
+    }
+
+    baglam = build_context(db, workspace_id=workspace.id, brand=marka)
+    istem = "\n\n".join([
+        baglam.to_prompt(),
+        "GOREV: Bu markanin sektorunde ve hedef kitlesinde faaliyet gosteren "
+        "ADAY RAKIP sosyal medya hesaplarini bul.",
+        f"En fazla {AZAMI_ADAY} aday don. Emin olmadigin hesabi YAZMA.",
+    ])
+
+    kesif_istem, kesif_surum = metin_al(db, "competitor_discovery")
+
+    try:
+        sonuc = run_ai_task(
+            db,
+            workspace=workspace,
+            task_type="competitor_discovery",
+            prompt_version=kesif_surum,
+            system=kesif_istem,
+            user_content=istem,
+            output_model=RakipKesfiBatch,
+            metadata={"brand": marka.name, "sektor": marka.sector or ""},
+        )
+    except AIProviderError as hata:
+        raise IsAkisiHatasi(str(hata)) from hata
+
+    veri = RakipKesfiBatch.model_validate(sonuc.parsed)
+    eklendi = 0
+    atlanan = 0
+    gerekcesiz = 0
+
+    for aday in veri.adaylar[:AZAMI_ADAY]:
+        ad = (aday.username or "").lstrip("@").strip().lower()
+        if not ad:
+            continue
+        # Gerekcesiz aday KABUL EDILMEZ: gerekce, hesabin uydurulmus
+        # olma ihtimaline karsi tek elimizdeki kontroldur.
+        if not (aday.gerekce or "").strip():
+            gerekcesiz += 1
+            continue
+
+        platform = _platform_coz(aday.platform)
+        if platform is None:
+            atlanan += 1
+            continue
+        if (platform, ad) in mevcut_izlenen or (platform, ad) in mevcut_bagli:
+            atlanan += 1
+            continue
+
+        db.add(TrackedAccount(
+            workspace_id=workspace.id,
+            platform=platform,
+            username=ad,
+            display_name=(aday.display_name or "").strip() or None,
+            tur=IzlemeTuru.RAKIP,
+            notlar=f"Sistem buldu — {aday.gerekce.strip()}",
+            # PASIF: onaylanana kadar hicbir arastirma akisi dokunmaz.
+            is_active=False,
+            veri_durumu=(
+                "Sistemin bulduğu aday. Onaylanana kadar araştırma yapılmaz."
+            ),
+        ))
+        mevcut_izlenen.add((platform, ad))
+        eklendi += 1
+
+    db.flush()
+
+    notlar = [veri.research_note] if veri.research_note else []
+    if eklendi:
+        notlar.append(
+            f"{eklendi} aday rakip bulundu. Bağlı hesaplar sayfasından "
+            "onaylayana kadar araştırılmazlar."
+        )
+    if atlanan:
+        notlar.append(f"{atlanan} aday zaten listede olduğu için atlandı.")
+    if gerekcesiz:
+        notlar.append(
+            f"{gerekcesiz} aday gerekçe yazmadığı için kabul edilmedi."
+        )
+
+    return AkisSonucu(
+        ozet={"aday": eklendi, "atlanan": atlanan},
+        notlar=notlar,
+        yapilacak_is_yoktu=(eklendi == 0),
+    )
+
+
 # Akis haritasi EN SONDA: her fonksiyon tanimlandiktan sonra.
 AKISLAR = {
     "wf01_gunluk_zeka": wf01_gunluk_zeka,
@@ -587,4 +750,5 @@ AKISLAR = {
     "wf04_haftalik_rapor": wf04_haftalik_rapor,
     "wf05_baglanti_sagligi": wf05_baglanti_sagligi,
     "wf06_rakip": wf06_rakip_arastirmasi,
+    "wf07_rakip_kesfi": wf07_rakip_kesfi,
 }
