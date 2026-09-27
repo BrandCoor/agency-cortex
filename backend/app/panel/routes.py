@@ -1078,12 +1078,20 @@ def _hesaplar_sayfasi(
     error=None, ok=None, uyari=None, kod=200,
 ):
     from app.platforms.meta_ayar import (
-    meta_ayarlarini_oku,
-)
+        baglanmaya_hazir_mi,
+        meta_ayarlarini_oku,
+    )
 
     durumlar = {d["platform"]: d for d in platform_status()}
     meta_ayar = meta_ayarlarini_oku()
     meta_eksikler = meta_ayar.eksikler
+    # TUTARSIZ AYARDA DENEME YAPILMAZ.
+    #
+    # Uyari gostermek yetmedi: kullanici uyariyi gorup dugmeye basti,
+    # Meta'da izni verdi ve anahtar degisimi "Error validating client
+    # secret" ile kirildi. Hem zaman kaybi hem de Meta tarafinda yarim
+    # bir yetkilendirme. Artik hata DENEMEDEN once soyleniyor.
+    meta_hazir, meta_engel = baglanmaya_hazir_mi(meta_ayar)
 
     sahte = _sahte_platform_modu()
     platformlar = []
@@ -1095,7 +1103,9 @@ def _hesaplar_sayfasi(
                 "etiket": PLATFORM_ETIKETLERI.get(ad, ad),
                 # Sahte adaptor "saglikli" der ama gercek hesap baglayamaz.
                 # Bunu "baglanabilir" diye gostermek yalan olurdu.
-                "available": bool(durum.get("available")) and not sahte,
+                "available": (
+                    bool(durum.get("available")) and not sahte and meta_hazir
+                ),
                 "detail": durum.get("detail") or "Ayrıntı bildirilmedi.",
                 "eksik_ayarlar": meta_eksikler if not durum.get("available") else [],
             }
@@ -1119,6 +1129,9 @@ def _hesaplar_sayfasi(
             # hesap baglanmaz, yalnizca ornek veri uretilir. Calisiyormus
             # gibi gostermek yaniltici olur.
             "sahte_mod": sahte,
+            # Bagla dugmesi neden calismiyor? Tek cumleyle, duzeltilecek
+            # alanin adiyla birlikte.
+            "meta_engel": meta_engel,
             # Meta'ya girilecek donus adresi: birebir ayni olmali, bu yuzden
             # kullanicinin kopyalayabilecegi sekilde gosterilir.
             "donus_adresi": meta_ayar.redirect_uri,

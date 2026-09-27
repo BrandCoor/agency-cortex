@@ -18,9 +18,10 @@ SISTEMIN NE BEKLEDIGIDIR; sayfa da bunu gosteriyor.
 
 from __future__ import annotations
 
+from typing import Annotated
 from urllib.parse import urlparse
 
-from fastapi import APIRouter, Request, status
+from fastapi import APIRouter, Form, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 
 from app.api.deps import DbSession
@@ -88,7 +89,36 @@ def sayfa(request: Request, db: DbSession):
     user = _yonetici(request, db)
     if user is None:
         return _giris_yonlendir()
+    return _sayfa(request, db, user)
 
+
+@router.post("/sina")
+def sinama(request: Request, db: DbSession, onay: Annotated[str, Form()] = ""):
+    """Uygulama kimligi ve gizli anahtari OAuth turuna girmeden dener."""
+    user = _yonetici(request, db)
+    if user is None:
+        return _giris_yonlendir()
+    if onay != "EVET":
+        return HTMLResponse("Bulunamadı.", status_code=404)
+
+    from app.platforms.base import PlatformError
+    from app.platforms.meta import MetaAdapter
+
+    try:
+        basarili, mesaj = MetaAdapter().anahtarlari_sina()
+    except PlatformError as hata:
+        basarili, mesaj = False, str(hata)
+    except Exception as hata:  # noqa: BLE001 - beklenmeyen hata da GORUNMELI
+        basarili, mesaj = False, f"Beklenmeyen hata: {hata}"
+
+    return _sayfa(
+        request, db, user,
+        ok=mesaj if basarili else None,
+        error=None if basarili else mesaj,
+    )
+
+
+def _sayfa(request, db, user, *, ok=None, error=None):
     ayarlar = get_settings()
     meta = meta_ayarlarini_oku()
     alan = _alan_adi(ayarlar)
@@ -139,5 +169,7 @@ def sayfa(request: Request, db: DbSession):
             "tutarsizlik": tutarlilik_uyarisi(meta),
             "yayin_kapsami": yayin_kapsami,
             "yayin_acik": ayarlar.feature_publishing_enabled,
+            "ok": ok,
+            "error": error,
         },
     )

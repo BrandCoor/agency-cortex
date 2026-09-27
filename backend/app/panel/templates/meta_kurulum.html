@@ -12,6 +12,9 @@
   </div>
 </div>
 
+{% if error %}<div class="err">{{ error }}</div>{% endif %}
+{% if ok %}<div class="ok">{{ ok }}</div>{% endif %}
+
 {# --- DURUM ------------------------------------------------------------- #}
 {% if hazir %}
   <div class="ok"><b>Zorunlu üç değer girilmiş</b>
@@ -185,6 +188,16 @@
   </p>
   <div class="aksiyonlar" style="margin-top:12px">
     <a class="btn birincil" href="/panel/ayarlar">Sistem ayarlarına git</a>
+    {# Bes dakikalik basarisiz OAuth turu yerine iki saniyelik kontrol. #}
+    <form method="post" action="/panel/meta-kurulum/sina" style="margin:0">
+      <input type="hidden" name="onay" value="EVET">
+      <button type="submit">Kimlik ve anahtarı sına</button>
+    </form>
   </div>
+  <p class="ipucu" style="margin-top:8px">
+    Sınama, <strong>izin ekranına gitmeden</strong> uygulama kimliği ile
+    gizli anahtarın kabul edilip edilmediğini kontrol eder. Hiçbir hesap
+    bağlanmaz, hiçbir yetki istenmez.
+  </p>
 </div>
 {% endblock %}

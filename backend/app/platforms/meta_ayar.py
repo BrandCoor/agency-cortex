@@ -182,6 +182,55 @@ def tutarlilik_uyarisi(ayar: MetaAyarlari) -> str | None:
     )
 
 
+def tutarsiz_alanlar(ayar: MetaAyarlari) -> dict[str, str]:
+    """Hangi adres hangi aileden? Bos donerse tutarsizlik YOKTUR.
+
+    `tutarlilik_uyarisi` bir CUMLE doner; bu ise alan alan degerleri
+    doner. Panel, hangi alanin duzeltilecegini tek tek gosterebilsin diye.
+    """
+    aileler = {
+        "İzin ekranı (META_AUTHORIZE_URL)": _aile(ayar.authorize_url),
+        "Anahtar değişimi (META_TOKEN_URL)": _aile(ayar.token_url),
+        "Veri uçları (META_GRAPH_BASE_URL)": _aile(ayar.graph_base_url),
+    }
+    dolu = {ad: aile for ad, aile in aileler.items() if aile}
+    if len(set(dolu.values())) <= 1:
+        return {}
+    return dolu
+
+
+def baglanmaya_hazir_mi(ayar: MetaAyarlari) -> tuple[bool, str | None]:
+    """Hesap baglama DENENEBILIR mi?
+
+    NEDEN BU KONTROL VAR
+    Tutarsiz yapilandirmada akis EN SON ADIMDA kiriliyor: izin ekrani
+    acilir, kullanici Meta'da izni verir, uygulama hesabina baglanir -
+    sonra anahtar degisimi "Error validating client secret" der. Kullanici
+    hem zaman kaybeder hem de Meta tarafinda yarim bir yetkilendirme
+    birakir.
+
+    Uyari GOSTERMEK yetmedi; kullanici uyariyi gorup yine de basti ve
+    tam bu hatayi aldi. Bu yuzden artik DUGME CALISMIYOR: hata,
+    denemeden ONCE ve duzeltilecek alanin adiyla soyleniyor.
+    """
+    eksik = ayar.eksikler
+    if eksik:
+        return False, "Şu değerler girilmemiş: " + ", ".join(eksik)
+
+    tutarsiz = tutarsiz_alanlar(ayar)
+    if tutarsiz:
+        satirlar = " · ".join(f"{ad} → {aile}" for ad, aile in tutarsiz.items())
+        return False, (
+            "Meta ayarları birbiriyle çelişiyor, bu yüzden bağlama "
+            f"denenmiyor: {satirlar}. Üçü de AYNI aileden olmalı "
+            "(hepsi facebook.com ya da hepsi instagram.com). Aksi halde "
+            "izin ekranı açılır, izni verirsiniz ve anahtar değişimi "
+            "\"Error validating client secret\" hatasıyla kırılır."
+        )
+
+    return True, None
+
+
 def kaydedilecek_alan_adi(ayar: MetaAyarlari) -> str | None:
     """Meta uygulamasina eklenmesi gereken alan adi.
 

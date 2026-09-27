@@ -118,7 +118,7 @@ class MetaAdapter(PlatformAdapter):
     # HTTP yardimcilari
     # ------------------------------------------------------------------
 
-    def _handle_error(self, response: httpx.Response) -> None:
+    def _handle_error(self, response: httpx.Response, *, uc: str | None = None) -> None:
         """Meta hatasini anlamli bir istisnaya cevirir.
 
         Hata govdesi loglanir ama anahtar degerleri loglanmaz.
@@ -148,9 +148,25 @@ class MetaAdapter(PlatformAdapter):
         # Anahtar gecersiz/suresi dolmus hatalari ayri ele alinir; cagiran
         # katman anahtari yenilemeyi deneyebilir.
         if response.status_code in (400, 401) and detay.get("type") == "OAuthException":
-            raise TokenExpired(f"Meta anahtari gecersiz: {mesaj}")
+            raise TokenExpired(f"Meta anahtarı geçersiz: {mesaj}{self._uc_notu(uc)}")
 
-        raise PlatformError(f"Meta API hatasi ({response.status_code}): {mesaj}")
+        raise PlatformError(
+            f"Meta API hatası ({response.status_code}): {mesaj}{self._uc_notu(uc)}"
+        )
+
+    def _uc_notu(self, uc: str | None) -> str:
+        """Hatanin sonuna eklenen "nereye gidildi, ne kontrol edilmeli" notu.
+
+        GIZLI ANAHTAR YAZILMAZ; yalnizca uc adresi ve uygulama kimligi.
+        Uygulama kimligi gizli degildir ve yanlis uygulamanin kullanildigini
+        anlamanin tek yoludur.
+        """
+        if not uc:
+            return ""
+        not_ = f" · Gidilen uç: {uc}"
+        if self._meta.app_id:
+            not_ += f" · Kullanılan uygulama kimliği: {self._meta.app_id}"
+        return not_
 
     def _get(self, url: str, params: dict[str, Any]) -> dict:
         with httpx.Client(timeout=self._timeout) as http:
@@ -163,7 +179,11 @@ class MetaAdapter(PlatformAdapter):
         with httpx.Client(timeout=self._timeout) as http:
             response = http.post(url, data=data)
         if response.status_code >= 400:
-            self._handle_error(response)
+            # HANGI UCA gidildigi hataya yazilir. "Error validating client
+            # secret" tek basina hangi alanin yanlis oldugunu soylemez;
+            # ayni mesaj, yanlis anahtar girildiginde de, anahtar DOGRU
+            # ama YANLIS AILEDEN bir uca gonderildiginde de cikar.
+            self._handle_error(response, uc=url)
         return response.json()
 
     # ------------------------------------------------------------------
@@ -189,6 +209,70 @@ class MetaAdapter(PlatformAdapter):
         return AuthorizationRequest(
             url=f"{self._meta.authorize_url}?{urlencode(params)}",
             state=state,
+        )
+
+    def anahtarlari_sina(self) -> tuple[bool, str]:
+        """Uygulama kimligi ve gizli anahtar DOGRU MU? OAuth turuna girmeden.
+
+        NASIL CALISIYOR
+        Kullanicinin KENDI ayarladigi anahtar degisim ucuna, BILEREK
+        gecersiz bir kod ile istek atilir. Meta'nin verdigi cevap iki
+        seyi ayirir:
+
+          - "client secret" hatasi  -> kimlik/anahtar YANLIS (ya da
+            anahtar dogru ama YANLIS AILEDEN bir uca gonderiliyor)
+          - "code" hatasi           -> kimlik ve anahtar DOGRU; yalnizca
+            gonderdigimiz sahte kod gecersiz, ki oyle olmasini istedik
+
+        NEDEN BOYLE
+        Bu ortamdan Meta dokumanina erisim kapali; "uygulama anahtari al"
+        gibi ayri bir uc UYDURMUYORUM. Yalnizca kullanicinin zaten
+        girdigi ucu kullaniyorum. Gonderilen kod gecersiz oldugu icin
+        hicbir yan etkisi yok ve hicbir hesap baglanmaz.
+
+        KAZANC: bes dakikalik basarisiz bir OAuth turu yerine iki
+        saniyelik kontrol.
+        """
+        self._require_config()
+        try:
+            self._post(
+                self._meta.token_url,
+                {
+                    "client_id": self._meta.app_id,
+                    "client_secret": self._meta.app_secret,
+                    "grant_type": "authorization_code",
+                    "redirect_uri": self._meta.redirect_uri,
+                    # BILEREK gecersiz: amac kod degil, kimlik dogrulamasi.
+                    "code": "gecersiz-sinama-kodu",
+                },
+            )
+        except PlatformError as hata:
+            metin = str(hata).lower()
+            if "client secret" in metin or "client_secret" in metin:
+                return False, (
+                    "Uygulama kimliği veya gizli anahtar kabul edilmedi. "
+                    "İki olasılık var: (1) gizli anahtar yanlış ya da eksik "
+                    "kopyalanmış, (2) anahtar doğru ama YANLIŞ AİLEDEN bir "
+                    f"uca gönderiliyor. Gidilen uç: {self._meta.token_url} · "
+                    f"Uygulama kimliği: {self._meta.app_id}"
+                )
+            if "client_id" in metin or "application" in metin:
+                return False, (
+                    f"Uygulama kimliği kabul edilmedi ({self._meta.app_id}). "
+                    "Meta panelindeki App ID ile aynı mı?"
+                )
+            # Kod hatasi BEKLENEN sonuctur: kimlik ve anahtar dogru demektir.
+            if "code" in metin:
+                return True, (
+                    "Uygulama kimliği ve gizli anahtar doğru. "
+                    f"Anahtar değişim ucu yanıt veriyor: {self._meta.token_url}"
+                )
+            return False, f"Beklenmeyen yanıt: {hata}"
+
+        # Gecersiz kod KABUL EDILDIYSE bir sey yanlis; "calisiyor" demeyiz.
+        return False, (
+            "Beklenmeyen sonuç: geçersiz bir kod kabul edildi. "
+            "Anahtar değişim adresi doğru uç olmayabilir."
         )
 
     def callback(self, *, code: str, redirect_uri: str) -> tuple[TokenBundle, AccountProfile]:

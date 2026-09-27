@@ -62,6 +62,19 @@
 {% endfor %}
 
 <h2>Yeni hesap bağlama</h2>
+{% if meta_engel %}
+{# DENEMEDEN once durduruyoruz. Once yalnizca uyari gosteriliyordu;
+   kullanici uyariyi gorup yine de basti, Meta'da izni verdi ve akis EN
+   SON adimda "Error validating client secret" ile kirildi. #}
+<div class="err">
+  <b>Bağlama şu an denenmiyor</b>
+  {{ meta_engel }}
+  <div style="margin-top:8px">
+    <a href="/panel/meta-kurulum">Meta kurulumu sayfasında</a> hangi
+    değerin ne olduğunu görebilirsiniz.
+  </div>
+</div>
+{% endif %}
 
 {% if eksik_ayarlar %}
 <div class="warn">
